@@ -1,0 +1,80 @@
+import datetime
+import logging
+import urllib
+import requests
+import pandas as pd
+
+from .. import CurrencyConverter
+
+
+class CryptoCompareCurrencyConverter(CurrencyConverter):
+    """
+    Crypto currency converter with data from
+    https://min-api.cryptocompare.com/documentation?key=Historical&cat=dataSymbolHistoday
+    """
+
+    api='https://min-api.cryptocompare.com/data/v2/histoday?fsym={cfrom}&tsym={cto}&limit=2000&toTs={maxTime}&api_key={key}'
+
+
+    def __init__(self, currencyFrom, apiKey=None, cache=None, refresh=False):
+        self.apiKey=apiKey
+
+        super().__init__(
+            currencyFrom  = currencyFrom,
+            currencyTo    = 'USD',
+
+            type          = 'CryptoCompareCurrencyConverter',
+            id            = currencyFrom,
+
+            cache         = cache,
+            refresh       = refresh
+        )
+
+
+
+
+    def refreshData(self):
+        self.data=None
+
+        maxTime=datetime.datetime.utcnow().timestamp()+(24*3600)
+
+        for t in range(10):
+            url=self.api.format(
+                cfrom=self.currencyFrom,
+                cto=self.currencyTo,
+                key=self.apiKey,
+                maxTime=round(maxTime)
+            )
+
+            data=requests.get(
+                self.api.format(
+                    cfrom=self.currencyFrom,
+                    cto=self.currencyTo,
+                    key=self.apiKey,
+                    maxTime=round(maxTime)
+                )
+            ).json()
+
+            table=pd.DataFrame(data['Data']['Data'])
+
+            if self.data is None:
+                self.data=table
+            else:
+                self.data=self.data.append(table)
+
+            if table[table['time']==data['Data']['TimeFrom']]['close'][0]==0:
+                break
+            else:
+                maxTime=data['Data']['TimeFrom']
+
+        self.data = self.data[self.data.close != 0]
+
+
+    def processData(self):
+        self.data.rename(columns={'time': 'ts', 'close': 'value'}, inplace=True)
+        self.data['time']=pd.to_datetime(self.data['ts'],unit='s')
+        self.data.drop(columns=["high","low","open","volumefrom","volumeto","conversionType","conversionSymbol",'ts'], inplace=True)
+        self.data.set_index('time', inplace=True)
+        self.data.sort_index(inplace=True)
+
+

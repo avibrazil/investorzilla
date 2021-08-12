@@ -1,0 +1,21 @@
+# IDE specific folders
+.vscode/
+
+# Conda env
+**/env
+!.env
+
+# Jupyter Notebook/Python/Databricks metadata
+**/.ipynb_checkpoints/
+**/spark-warehouse/
+**/__pycache__/
+**/.empty
+
+# Misc
+**/DS_Store
+**/.DS_Store
+**/out/
+
+# Idea
+.idea
+dist
