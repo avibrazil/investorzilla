@@ -13,7 +13,7 @@ import investor
 import investor.currency.brasil_banco_central        as currency_bcb
 import investor.currency.cryptocompare               as currency_cryptocompare
 import investor.marketindex.brasil_banco_central     as mktidx_bcb
-import investor.marketindex.federal_reserve           as mktidx_fred
+import investor.marketindex.federal_reserve          as mktidx_fred
 
 #  import (
 #     DataCache,
@@ -79,8 +79,6 @@ class StreamlitInvestorApp:
         )
 
         st.title(fund.name)
-
-#         st.write(st.session_state['interact_refresh'])
 
         st.write('Data good for {}'.format(st.session_state['portfolio'].asof))
 
@@ -178,14 +176,25 @@ class StreamlitInvestorApp:
 
 
         st.session_state['currency_converters']=dict(
-            usdbrl=currency_bcb.BCBCurrencyConverter(currencyFrom='USD', cache=st.session_state.cache, refresh=refresh),
-            eurbrl=currency_bcb.BCBCurrencyConverter(currencyFrom='EUR', cache=st.session_state.cache, refresh=refresh),
+            usdbrl=currency_bcb.BCBCurrencyConverter(
+                currencyFrom='USD',
+                cache=st.session_state.cache,
+                refresh=refresh
+            ),
+
+            eurbrl=currency_bcb.BCBCurrencyConverter(
+                currencyFrom='EUR',
+                cache=st.session_state.cache,
+                refresh=refresh
+            ),
+
             btcusd=currency_cryptocompare.CryptoCompareCurrencyConverter(
                 currencyFrom='BTC',
                 apiKey=st.session_state['crypto_compare_apiKey'],
                 cache=st.session_state.cache,
                 refresh=refresh
             ),
+
             ethusd=currency_cryptocompare.CryptoCompareCurrencyConverter(
                 currencyFrom='ETH',
                 apiKey=st.session_state['crypto_compare_apiKey'],

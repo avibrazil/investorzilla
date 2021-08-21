@@ -1,5 +1,6 @@
 import datetime
 import logging
+import numpy as np
 import pandas as pd
 
 class Fund(object):
@@ -48,8 +49,24 @@ class Fund(object):
         ),
 
         'income': dict(
-            format="{:,.2f}",
+            format="${:,.2f}",
             summaryFormat='{}'
+        ),
+
+        'balance': dict(
+            format="${:,.2f}",
+        ),
+
+        'savings': dict(
+            format="${:,.2f}",
+        ),
+
+        'movements': dict(
+            format="${:,.2f}",
+        ),
+
+        'share_value': dict(
+            format="${:,.2f}",
         ),
 
         'rate of return': dict(
@@ -59,18 +76,23 @@ class Fund(object):
         'excess return': dict(
             format="{:,.2%}"
         ),
+
         'benchmark rate of return': dict(
             format="{:,.2%}"
         ),
+
         'balance÷savings': dict(
             format="{:,.2%}"
         )
     }
 
+    benchmarkFeatures=['benchmark', 'benchmark rate of return', 'excess return']
+
 
 
     def __repr__(self):
         return '{self.__class__.__name__}(name={self.name}, currency={self.exchange.target})'.format(self=self)
+
 
 
 
@@ -370,7 +392,7 @@ class Fund(object):
 
 
 
-    def periodicReport(self, period='M', benchmark=None):
+    def periodicReport(self, period=None, benchmark=None):
 
         # Chronological index where data begins to be non-zero
         sharesBeginsNonZero=((self.shares['shares'] != 0) | (self.shares['share_value'] != 0)).idxmax()
@@ -393,19 +415,20 @@ class Fund(object):
 
 
 
-        # Make it a regular time series (M, Y etc), each column aggregated by
-        # different strategy
-        report=(
-            report
-                .resample(period)
-                .agg(
-                    dict(
-                        shares       = 'last',
-                        share_value  = 'last',
-                        movements    = 'sum'
+        if period is not None:
+            # Make it a regular time series (M, Y etc), each column aggregated by
+            # different strategy
+            report=(
+                report
+                    .resample(period)
+                    .agg(
+                        dict(
+                            shares       = 'last',
+                            share_value  = 'last',
+                            movements    = 'sum'
+                        )
                     )
-                )
-        )
+            )
 
         report['shares'] = report['shares'].ffill()
         report['share_value'] = report['share_value'].ffill()
@@ -500,7 +523,7 @@ class Fund(object):
             # Compute fund excess growth over benchmark
             report['excess return']=report['rate of return']-report['benchmark rate of return']
 
-            benchmarkFeatures=['benchmark', 'benchmark rate of return', 'excess return']
+            benchmarkFeatures=self.benchmarkFeatures
 
         return report[
             [
@@ -519,13 +542,13 @@ class Fund(object):
 
 
 
-    def performancePlot(self, marketIndex, type='pyplot'):
-        if marketIndex.currency!=self.currency:
+    def performancePlot(self, benchmark, type='pyplot'):
+        if benchmark.currency!=self.currency:
             self.logger.warning("MarketIndex has a different currency; comparison won't make sense")
 
         fundBegin=((self.shares['shares'] != 0) | (self.shares['share_value'] != 0)).idxmax()
 
-        indexx=marketIndex.data[['value']].truncate(before=fundBegin)
+        indexx=benchmark.data[['value']].truncate(before=fundBegin)
         indexx['value']/=indexx['value'][indexx.index[0]]
 
 
@@ -536,7 +559,7 @@ class Fund(object):
         ).rename(
             columns=dict(
                 share_value=self.name,
-                value=marketIndex.id
+                value=benchmark.id
             )
         )
 
@@ -544,7 +567,7 @@ class Fund(object):
             data.plot(kind='line')
         elif type=='vegalite':
             spec=dict(
-                description='Performance of {name}'.format(name=self.name,index=marketIndex.id),
+                description='Performance of {name}'.format(name=self.name,index=benchmark.id),
                 mark='trail',
                 encoding=dict(
                     x=dict(
@@ -571,9 +594,6 @@ class Fund(object):
 
 
 
-
-
-
     def rateOfReturnPlot(self,period='M'):
         data=(
             self.shares[['share_value']]
@@ -589,6 +609,7 @@ class Fund(object):
 
         # To plot:
         (100*data).plot(kind='histogram', bins=data.shape[0]/2)
+
 
 
 
@@ -626,16 +647,22 @@ class Fund(object):
 
 
 
+
     def report(self, period='M', benchmark=None, output='styled',
                 kpi=[
                     'rate of return','income','balance','savings',
-                    'movements','shares','share_value',
-                    'benchmark', 'benchmark rate of return', 'excess return'
-                ]
+                    'movements','shares','share_value'
+                ] + benchmarkFeatures
         ):
         for p in self.periodPairs:
             if p['period']==period:
                 break
+
+
+        if benchmark is None:
+            # Remove benchmark features because there is no benchmark
+            kpi=[i for i in kpi if i not in self.benchmarkFeatures]
+
 
         # Get bigger report with period data
         period      = self.periodicReport(p['period'], benchmark)[kpi]
@@ -649,7 +676,7 @@ class Fund(object):
 #         macroPeriod['new income']=None
 
 
-        # Get income formatter
+        # KPI income has a special formatter
         if 'income' in self.formatters:
             incomeFormatter=self.formatters['income']['format']
         else:
@@ -742,37 +769,43 @@ class Fund(object):
             out=report.astype(object)
 
         if output=='styled':
-            ## Convert all to object to attain more flexibility per cell
+            ## Lets work with a styled DataFrame
             out=report.style
 
+        defaultFormat=None
+        if 'DEFAULT' in self.formatters:
+            defaultFormat=self.formatters['DEFAULT']
 
         for i in kpi:
             for g in ['periods', 'summary of periods']:
                 # Select formatter for KPI
+
+                f=defaultFormat['format']
+                if g=='summary of periods' and 'summaryFormat' in defaultFormat:
+                    f=defaultFormat['summaryFormat']
+
                 if i in self.formatters:
                     if g=='summary of periods' and 'summaryFormat' in self.formatters[i]:
                         f=self.formatters[i]['summaryFormat']
                     else:
                         f=self.formatters[i]['format']
-                else:
-                    if g=='summary of periods' and 'summaryFormat' in self.formatters['DEFAULT']:
-                        f=self.formatters['DEFAULT']['summaryFormat']
-                    else:
-                        f=self.formatters['DEFAULT']['format']
+
 
                 selector=pd.IndexSlice[
-                    # Row selector
+                    # Apply format in KPI row
                     pd.IndexSlice[:,i],
 
-                    # Column selector
+                    # Apply style in «periods» or «summary of periods»
                     pd.IndexSlice[g,:]
                 ]
+
 
                 if output=='flat':
                     out.loc[selector]=out.loc[selector].apply(
                         lambda s: [f.format(x) for x in s]
                     )
                 elif output=='styled':
+                    # Styler advanced slicing only works in Pandas>=1.3
                     out=out.format(formatter=f, subset=selector, na_rep='')
 
         if output=='styled':
@@ -781,7 +814,7 @@ class Fund(object):
 
 
 
-        # Final clenaup for flat
+        # Final cleanup for flat
         out.replace(['nan','nan%'],'', inplace=True)
         out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
         level=out.loc[:,pd.IndexSlice['summary of periods',:]].columns.values[0][1]
@@ -807,6 +840,7 @@ class Fund(object):
 
     def getPeriodPairs():
         return [p['period'] for p in Fund.periodPairs]
+
 
     def getPeriodPairLabel(period):
         for p in Fund.periodPairs:
