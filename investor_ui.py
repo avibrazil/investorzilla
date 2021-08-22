@@ -1,8 +1,9 @@
+import copy
+import logging
+import datetime
 import streamlit as st
 import numpy as np
 import pandas as pd
-import copy
-import logging
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
@@ -50,6 +51,8 @@ class StreamlitInvestorApp:
 
         with st.sidebar:
             self.interact_funds()
+#             st.write(st.session_state['interact_start'])
+#             self.interact_start()
             self.interact_currencies()
             self.interact_benchmarks()
             self.interact_periods()
@@ -60,6 +63,17 @@ class StreamlitInvestorApp:
 
 
 
+    def update_content_fund(self):
+        fundset=None
+        if 'interact_funds' in st.session_state:
+            fundset=st.session_state['interact_funds']
+            if 'ALL' in fundset:
+                fundset.remove('ALL')
+
+        st.session_state['fund']=st.session_state['portfolio'].getFund(
+            subset           = fundset,
+            currencyExchange = st.session_state['exchange']
+        )
 
 
 
@@ -69,39 +83,69 @@ class StreamlitInvestorApp:
             st.session_state['interact_currencies']
         )
 
-        fundset=st.session_state['interact_funds']
-        if 'ALL' in fundset:
-            fundset.remove('ALL')
+        self.update_content_fund()
 
-        fund=st.session_state['portfolio'].getFund(
-            subset           = fundset,
-            currencyExchange = st.session_state['exchange']
-        )
-
-        st.title(fund.name)
+        st.title(st.session_state['fund'].name)
 
         st.write('Data good for {}'.format(st.session_state['portfolio'].asof))
 
+
+
+#         print(st.session_state['benchmarks'])
+
+
+
+
+
+
+
+
+        self.interact_start_end()
+
+#         if st.session_state['interact_start'][1]:
+#             st.write(
+#                 'Reporting from {} to {}'.format(
+#                     st.session_state['interact_start'][0],
+#                     st.session_state['interact_start'][1]
+#                 )
+#             )
+#         else:
+#             st.write('Reporting since {}'.format(st.session_state['interact_start'][0]))
+
+        st.line_chart(
+            st.session_state['fund'].performancePlot(
+                benchmark=st.session_state.interact_benchmarks,
+                start=st.session_state.interact_start_end[0],
+                end=st.session_state.interact_start_end[1],
+                type='raw'
+            )
+        )
+
         st.header('Performance')
         st.write(f"Benchmark is {st.session_state['interact_benchmarks'].id}.")
-        st.dataframe(
-            fund.report(
+
+        st.dataframe(st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
-                benchmark=st.session_state['interact_benchmarks'],
+                benchmark=st.session_state.interact_benchmarks,
+                start=st.session_state.interact_start_end[0],
+                end=st.session_state.interact_start_end[1],
                 kpi=['rate of return','benchmark rate of return','excess return','income'],
                 output='flat'
             )
         )
 
         st.header('Wealth Evolution')
-        st.dataframe(
-            fund.report(
+
+        st.dataframe(st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
-                benchmark=st.session_state['interact_benchmarks'],
+                benchmark=st.session_state.interact_benchmarks,
+                start=st.session_state.interact_start_end[0],
+                end=st.session_state.interact_start_end[1],
                 kpi=['balance','balance÷savings','savings','movements'],
                 output='flat'
             )
         )
+
 
 
 #         st.vega_lite_chart(data=fund.report('M',display=True), use_container_width=True)
@@ -134,18 +178,38 @@ class StreamlitInvestorApp:
     def interact_benchmarks(self):
         st.session_state['interact_benchmarks']=st.radio(
             label     = 'Select a benchmark to compare with',
-            options   = st.session_state['benchmarks'],
+            options   = st.session_state.benchmarks,
             help      = 'Funds will be compared to the selected benchmark'
+        )
+
+
+
+    def interact_start_end(self):
+#         current = st.session_state['fund'].start.to_pydatetime()
+#         if 'interact_start_end' in st.session_state and current < st.session_state['interact_start_end'][0]:
+#             current = st.session_state['interact_start_end'][0]
+
+        st.session_state['interact_start_end']=st.slider(
+            label      = 'Report Period Range',
+            help       = 'Report starting on date',
+            min_value  = st.session_state.fund.start.to_pydatetime(),
+            max_value  = st.session_state.fund.end.to_pydatetime(),
+#             value      = (current,datetime.datetime.now())
+            value      = (
+                st.session_state.fund.start.to_pydatetime(),
+                st.session_state.fund.end.to_pydatetime()
+            )
         )
 
 
 
     def interact_periods(self):
         st.session_state['interact_periods']=st.radio(
-            label     = 'How to divide time',
-            options   = investor.Fund.getPeriodPairs(),
+            label       = 'How to divide time',
+            options     = investor.Fund.getPeriodPairs(),
             format_func = investor.Fund.getPeriodPairLabel,
-            help      = 'Funds will be compared to the selected benchmark'
+            index       = investor.Fund.getPeriodPairs().index('M'), # the starting default
+            help        = 'Funds will be compared to the selected benchmark'
         )
 
 
@@ -153,10 +217,8 @@ class StreamlitInvestorApp:
     def interact_refresh(self):
         st.session_state['interact_refresh']=st.button(
             label     = 'Refresh Data',
-            help      = 'Refresh all data from the Internet'
+            help      = 'Refresh benchmarks, currencies, ledger, balance from the Internet'
         )
-
-
 
 
 
@@ -216,7 +278,7 @@ class StreamlitInvestorApp:
                 st.session_state['exchange']=st.session_state['exchange'].setTarget(curr[c].currencyTo)
                 st.session_state['exchange']=st.session_state['exchange'].addCurrency(curr[c])
 
-
+        self.update_content_fund()
 
         st.session_state['benchmarks']=[
             (
@@ -285,5 +347,4 @@ class StreamlitInvestorApp:
 
 StreamlitInvestorApp(refresh=False)
 
-# if 'app' not in st.session_state:
-#     st.session_state['app']=StreamlitInvestorApp()
+

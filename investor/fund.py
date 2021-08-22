@@ -93,6 +93,8 @@ class Fund(object):
     def __repr__(self):
         return '{self.__class__.__name__}(name={self.name}, currency={self.exchange.target})'.format(self=self)
 
+    def __str__(self):
+        return self.name
 
 
 
@@ -138,6 +140,10 @@ class Fund(object):
         self.currency=currencyExchange.target
 
         self.computeShares()
+
+        # Date and time the fund begins and ends
+        self.start=((self.shares['shares'] != 0) | (self.shares['share_value'] != 0)).idxmax()
+        self.end=self.shares.tail(1).index.item()
 
 
 
@@ -392,16 +398,52 @@ class Fund(object):
 
 
 
-    def periodicReport(self, period=None, benchmark=None):
+    def periodicReport(self, period=None, benchmark=None, start=None, end=None):
+        """
+        This is the most important summarization and reporting method of the class.
+        Returns a DataFrame with features as rate of return, income, balance, shares,
+        share_value, benchmark rate of return, excess return compared to benchmark.
+
+        period: Either 'M' (monthly), 'Y' (yearly), 'W' (weekly) to aggregate data for
+        these periods. If not passed, returned dataframe will be a ragged time series as
+        precise as the amount of data available.
+
+        benchmark: A MarketIndex object to use a performance indicator used to compute
+        benchmark rate of return and excess return. Features are omitted and not computed
+        if this objected is not passed.
+
+        start: A starting date for the report. Makes benchmark rate of return start at
+        value 1 on this date. Starts at beginning of data if this is None.
+        """
 
         # Chronological index where data begins to be non-zero
-        sharesBeginsNonZero=((self.shares['shares'] != 0) | (self.shares['share_value'] != 0)).idxmax()
-#         ledgerBeginsNonZero=(self.ledger[('ledger',self.exchange.target)] != 0).idxmax()
-#         balanceBeginsNonZero=(self.balance[('balance',self.exchange.target)] != 0).idxmax()
+        startOfReport=self.start
+
+
+
+        if start is not None:
+            # Check if we have a good start time and make appropriate type conversions.
+            if isinstance(start,str):
+                start=datetime.datetime.fromisoformat(start)
+            if not (isinstance(start,datetime.date) or isinstance(start,datetime.time) or isinstance(start,pd.Timestamp)):
+                raise TypeError(f'start parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{start}"')
+
+            # Now see if start time is more recent than the beginning of our data, and
+            # use it
+            if start > startOfReport:
+                startOfReport=start
+
+
+        if end is not None:
+            # Check if we have a good start time and make appropriate type conversions.
+            if isinstance(end,str):
+                end=datetime.datetime.fromisoformat(end)
+            if not (isinstance(end,datetime.date) or isinstance(end,datetime.time) or isinstance(end,pd.Timestamp)):
+                raise TypeError(f'end parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{end}"')
 
 
         # Start fresh
-        report=self.shares[sharesBeginsNonZero:].copy()
+        report=self.shares[startOfReport:end].copy()
 
         # Add ledger to get movements for period
         report['movements']=(
@@ -439,7 +481,7 @@ class Fund(object):
             # movement is needed, except for high resolution reports, such as Daily.
             report=(
                 report
-                    .append(self.shares[sharesBeginsNonZero:].head(1))
+                    .append(self.shares[startOfReport:].head(1))
                     .sort_index()
             )
 
@@ -542,26 +584,26 @@ class Fund(object):
 
 
 
-    def performancePlot(self, benchmark, type='pyplot'):
+    def performancePlot(self, benchmark, start=None, end=None, type='pyplot'):
         if benchmark.currency!=self.currency:
-            self.logger.warning("MarketIndex has a different currency; comparison won't make sense")
+            self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
 
-        fundBegin=((self.shares['shares'] != 0) | (self.shares['share_value'] != 0)).idxmax()
+        # Get prototype of data to plot
+        data=self.periodicReport(benchmark=benchmark, start=start, end=end)[['share_value','benchmark']]
 
-        indexx=benchmark.data[['value']].truncate(before=fundBegin)
-        indexx['value']/=indexx['value'][indexx.index[0]]
+        # Normalize share_value to make it start on value 1
+        data['share_value']/=data['share_value'][0]
 
 
-        data = pd.merge_asof(
-            (self.shares[['share_value']].truncate(before=fundBegin)/self.shares['share_value'][fundBegin]),
-            indexx,
-            left_index=True, right_index=True
-        ).rename(
+        data.rename(
             columns=dict(
-                share_value=self.name,
-                value=benchmark.id
-            )
+                share_value=str(self),
+                benchmark=str(benchmark)
+            ),
+            inplace=True
         )
+
+
 
         if type=='pyplot':
             data.plot(kind='line')
@@ -613,7 +655,7 @@ class Fund(object):
 
 
 
-    def incomePlot(self,period='M'):
+    def incomePlot(self,period='M', start=None, type='pyplot'):
         for p in self.periodPairs:
             if p['period']==period:
                 break
@@ -633,7 +675,7 @@ class Fund(object):
 
         # Now compute moving averages
 
-        data=self.periodicReport(period)[['income']]
+        data=self.periodicReport(period=period, start=start)[['income']]
         data['moving_average']=data['income'].rolling(periodCountInMacroPeriod,min_periods=1).mean()
         data['moving_median']=data['income'].rolling(periodCountInMacroPeriod,min_periods=1).median()
 
@@ -643,12 +685,15 @@ class Fund(object):
 #         ax = data[['moving_median']].plot(kind='line', ax=ax)
 #         ax = data[['income']].plot(kind='bar', ax=ax)
 
-        return data
+        if type=='raw':
+            return data
 
 
 
 
     def report(self, period='M', benchmark=None, output='styled',
+                start=None,
+                end=None,
                 kpi=[
                     'rate of return','income','balance','savings',
                     'movements','shares','share_value'
@@ -665,10 +710,20 @@ class Fund(object):
 
 
         # Get bigger report with period data
-        period      = self.periodicReport(p['period'], benchmark)[kpi]
+        period = self.periodicReport(
+            p['period'],
+            benchmark=benchmark,
+            start=start,
+            end=end
+        )[kpi]
 
         # Get summary report with summary of a period set
-        macroPeriod = self.periodicReport(p['macroPeriod'], benchmark)[kpi]
+        macroPeriod = self.periodicReport(
+            p['macroPeriod'],
+            benchmark=benchmark,
+            start=start,
+            end=end
+        )[kpi]
 
 
         report=None
