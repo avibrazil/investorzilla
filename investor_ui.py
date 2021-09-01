@@ -49,7 +49,7 @@ class StreamlitInvestorApp:
             self.interact_refresh()
             st.session_state['refresh']=st.session_state['interact_refresh']
 
-        if refresh or ('cache' not in st.session_state):
+        if st.session_state['refresh'] or ('cache' not in st.session_state):
             # Data needs refresh or App running from scratch
             self.make_state(refresh)
 
@@ -90,20 +90,10 @@ class StreamlitInvestorApp:
 
         st.title(st.session_state['fund'].name)
 
-        st.markdown('Data good for **{}**'.format(st.session_state['portfolio'].asof))
-
 
         self.interact_start_end()
 
-#         if st.session_state['interact_start'][1]:
-#             st.write(
-#                 'Reporting from {} to {}'.format(
-#                     st.session_state['interact_start'][0],
-#                     st.session_state['interact_start'][1]
-#                 )
-#             )
-#         else:
-#             st.write('Reporting since {}'.format(st.session_state['interact_start'][0]))
+        st.markdown('Data good for **{}**'.format(st.session_state['portfolio'].asof))
 
         st.markdown('Graph data between **{}** and **{}**'.format(
             st.session_state.interact_start_end[0],
@@ -182,7 +172,7 @@ class StreamlitInvestorApp:
 
 
         st.header('Performance')
-        st.write("Benchmark is {benchmark}.".format(benchmark=st.session_state['interact_benchmarks']))
+        st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state['interact_benchmarks']))
 
         st.dataframe(st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
