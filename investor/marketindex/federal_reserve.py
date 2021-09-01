@@ -37,6 +37,8 @@ class FREDMarketIndex(MarketIndex):
         # Drop old column
         self.data.drop('DATE', axis=1)
 
+        self.data.fillna(method='ffill', axis=0, inplace=True)
+
         # Compute rate from daily values
         self.data['rate']=self.data['value']/self.data.shift()['value']-1
 

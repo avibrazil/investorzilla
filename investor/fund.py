@@ -3,6 +3,47 @@ import logging
 import numpy as np
 import pandas as pd
 
+
+
+
+
+class KPI(object):
+    """
+    A single class to hold KPI names.
+    """
+
+    # Source of all information
+    BALANCE                 =  'balance'
+    MOVEMENTS               =  'movements'
+
+    # Cumulative movements
+    SAVINGS                 =  'savings'
+
+    # Rate of accumulated gains
+    BALANCE_OVER_SAVINGS    =  'balance ➗ savings'
+
+    # Pure gain, on the period or accumulated
+    PERIOD_GAIN             =  'gain'
+    GAINS                   =  'gains'
+
+    # Normalization features
+    SHARE_VALUE             =  'share value'
+    SHARES                  =  'shares'
+
+    # Performance feature, wich is percentage change of share value
+    RATE_RETURN             =  'rate of return'
+
+    # KPIs related to extenral sources as market indexes and benchmarks
+    BENCHMARK               =  'benchmark'
+    BENCHMARK_RATE_RETURN   =  'benchmark rate of return'
+    BENCHMARK_EXCESS_RETURN =  'excess return'
+
+
+
+
+
+
+
 class Fund(object):
     periodPairs=[
         dict(
@@ -48,53 +89,66 @@ class Fund(object):
             format="{:,.2f}"
         ),
 
-        'income': dict(
+        KPI.PERIOD_GAIN: dict(
             format="${:,.2f}",
             summaryFormat='{}'
         ),
 
-        'balance': dict(
+        KPI.GAINS: dict(
             format="${:,.2f}",
         ),
 
-        'savings': dict(
+        KPI.BALANCE: dict(
             format="${:,.2f}",
         ),
 
-        'movements': dict(
+        KPI.SAVINGS: dict(
             format="${:,.2f}",
         ),
 
-        'share_value': dict(
+        KPI.MOVEMENTS: dict(
             format="${:,.2f}",
         ),
 
-        'rate of return': dict(
+        KPI.SHARE_VALUE: dict(
+            format="${:,.2f}",
+        ),
+
+        KPI.RATE_RETURN: dict(
             format="{:,.2%}"
         ),
 
-        'excess return': dict(
+        KPI.BENCHMARK_EXCESS_RETURN: dict(
             format="{:,.2%}"
         ),
 
-        'benchmark rate of return': dict(
+        KPI.BENCHMARK_RATE_RETURN: dict(
             format="{:,.2%}"
         ),
 
-        'balance÷savings': dict(
+        KPI.BALANCE_OVER_SAVINGS: dict(
             format="{:,.2%}"
         )
     }
 
-    benchmarkFeatures=['benchmark', 'benchmark rate of return', 'excess return']
+
+    benchmarkFeatures=[
+        KPI.BENCHMARK,
+        KPI.BENCHMARK_RATE_RETURN,
+        KPI.BENCHMARK_EXCESS_RETURN
+    ]
 
 
 
     def __repr__(self):
         return '{self.__class__.__name__}(name={self.name}, currency={self.exchange.target})'.format(self=self)
 
+
+
+
     def __str__(self):
         return self.name
+
 
 
 
@@ -130,7 +184,7 @@ class Fund(object):
         self.balance = pd.concat(
             [self.normalizeMonetarySheet(balance, naiveTimeShift = 12*3600 + 3*60)],
             axis=1,
-            keys=['balance']
+            keys=[KPI.BALANCE]
         )
 
 
@@ -142,7 +196,7 @@ class Fund(object):
         self.computeShares()
 
         # Date and time the fund begins and ends
-        self.start=((self.shares['shares'] != 0) | (self.shares['share_value'] != 0)).idxmax()
+        self.start=((self.shares[KPI.SHARES] != 0) | (self.shares[KPI.SHARE_VALUE] != 0)).idxmax()
         self.end=self.shares.tail(1).index.item()
 
 
@@ -199,7 +253,7 @@ class Fund(object):
 
     def convertCurrency(self, df):
 
-        # Working on 'ledger' or 'balance' ?
+        # Working on 'ledger' or KPI.BALANCE ?
         part=df.columns.get_level_values(0)[0]
 
         # Get list of currencies that need conversion
@@ -329,7 +383,7 @@ class Fund(object):
 
             ## Make it a compatible DataFrame
             combinedBalance=pd.DataFrame(combinedBalance)
-            combinedBalance.columns=pd.MultiIndex.from_tuples([('balance',self.exchange.target)])
+            combinedBalance.columns=pd.MultiIndex.from_tuples([(KPI.BALANCE,self.exchange.target)])
 
         else:
             combinedBalance=self.balance.droplevel(0)
@@ -376,12 +430,12 @@ class Fund(object):
 
 
             # Second, adjust the share value based on balance
-            if not pd.isna(t['balance']) and t['balance']!=0:
+            if not pd.isna(t[KPI.BALANCE]) and t[KPI.BALANCE]!=0:
                 if shares==0:
                     # The rare situation where we have balance before any movement
-                    shares=t['balance']/initial_share_value
+                    shares=t[KPI.BALANCE]/initial_share_value
 
-                share_value = t['balance']/shares
+                share_value = t[KPI.BALANCE]/shares
 
             shares_evolution.append(
                 (i,shares,share_value)
@@ -390,7 +444,7 @@ class Fund(object):
         self.shares=(
             pd.DataFrame.from_records(
                 shares_evolution,
-                columns=('time','shares','share_value')
+                columns=('time',KPI.SHARES,KPI.SHARE_VALUE)
             )
             .set_index('time')
         )
@@ -443,19 +497,28 @@ class Fund(object):
 
 
         # Start fresh
-        report=self.shares[startOfReport:end].copy()
+        report=self.shares.copy()[startOfReport:end]
 
         # Add ledger to get movements for period
-        report['movements']=(
+        report=report.join(
             self.ledger
                 .droplevel(0)
                 .drop(('ledger','comment'),axis=1)
                 .droplevel(1, axis=1)
-                .sort_index()
+                .rename(columns=dict(ledger=KPI.MOVEMENTS))
+                .sort_index()[startOfReport:end],
+            how='left'
         )
-        report['movements'] = report['movements'].fillna(0)
+#         report[KPI.MOVEMENTS]=(
+#             self.ledger
+#                 .droplevel(0)
+#                 .drop(('ledger','comment'),axis=1)
+#                 .droplevel(1, axis=1)
+#                 .sort_index()[startOfReport:end]
+#         )
+        report[KPI.MOVEMENTS] = report[KPI.MOVEMENTS].fillna(0)
 
-
+        self.report_stage_1=report.copy()
 
         if period is not None:
             # Make it a regular time series (M, Y etc), each column aggregated by
@@ -464,21 +527,21 @@ class Fund(object):
                 report
                     .resample(period)
                     .agg(
-                        dict(
-                            shares       = 'last',
-                            share_value  = 'last',
-                            movements    = 'sum'
-                        )
+                        {
+                            KPI.SHARES:      'last',
+                            KPI.SHARE_VALUE: 'last',
+                            KPI.MOVEMENTS:   'sum'
+                        }
                     )
             )
 
-        report['shares'] = report['shares'].ffill()
-        report['share_value'] = report['share_value'].ffill()
+        report[KPI.SHARES] = report[KPI.SHARES].ffill()
+        report[KPI.SHARE_VALUE] = report[KPI.SHARE_VALUE].ffill()
 
 
-        if period!='D':
+        if period is not None and period!='D':
             # In order to have period-end rate of return for 1st period, the first
-            # movement is needed, except for high resolution reports, such as Daily.
+            # movement is needed, except for high resolution reports, such as Daily or ragged.
             report=(
                 report
                     .append(self.shares[startOfReport:].head(1))
@@ -486,62 +549,63 @@ class Fund(object):
             )
 
 
-
         # Now we have it all computed in a regular period (M, Y etc):
         # shares, share_value, movements
 
 
         # Compute rate of return (pure gain excluding movements)
-        report['rate of return']=report['share_value'].pct_change().fillna(0)
+        report[KPI.RATE_RETURN]=report[KPI.SHARE_VALUE].pct_change().fillna(0)
 
 
-        if period!='D':
+        if period is not None and period!='D':
             # Remove first row, that was included artificially just to compute
             # first pct_change()
             report=report.iloc[1:]
 
 
         # Add balance
-        report['balance']=report['shares']*report['share_value'].ffill()
+        report[KPI.BALANCE]=report[KPI.SHARES]*report[KPI.SHARE_VALUE].ffill()
 
         # Add cumulated savings (cumulated movements)
-        report['savings']=report['movements'].cumsum().ffill()
+        report[KPI.SAVINGS]=report[KPI.MOVEMENTS].cumsum().ffill()
 
         # Add balance over savings
-        report['balance÷savings']=report['balance']/report['savings']-1
+        report[KPI.BALANCE_OVER_SAVINGS]=report[KPI.BALANCE]/report[KPI.SAVINGS]
 
+        # Add cumulative income
+        report[KPI.GAINS]=report[KPI.BALANCE]-report[KPI.SAVINGS]
 
         if report.shape[0]>1:
             # Pair with shares of the previous period
             report=report.join(
-                report[['shares','share_value']].shift(),
+                report[[KPI.SHARES,KPI.SHARE_VALUE]].shift(),
                 rsuffix='_prev'
             )
 
 
             # Compute income as the difference between consecutive periods, minus
             # movements of period
-            report['income']=report.apply(
+            report[KPI.PERIOD_GAIN]=report.apply(
                 lambda x: (
                     # Balance of current period
-                    x['shares']*x['share_value']
+                    x[KPI.SHARES]*x[KPI.SHARE_VALUE]
 
                     # Balance of previous period
-                    -x['shares_prev']*x['share_value_prev']
+                    -x[KPI.SHARES + '_prev']*x[KPI.SHARE_VALUE + '_prev']
 
                     # Movements of current period
-                    -x['movements']
+                    -x[KPI.MOVEMENTS]
                 ),
                 axis=1
             )
-            if period!='D':
+            if period is not None and period!='D':
                 # Adjust income of first period only
-                report.loc[report.index[0],'income']+=report.loc[report.index[0],'movements']
+                report.loc[report.index[0],KPI.PERIOD_GAIN]+=report.loc[report.index[0],KPI.MOVEMENTS]
 
         # Adjust income of first period only
-        report.loc[report.index[0],'income']=(
-            report.loc[report.index[0],'balance']-
-            report.loc[report.index[0],'savings']
+        report.loc[report.index[0],KPI.PERIOD_GAIN]=(
+            report.loc[report.index[0],KPI.BALANCE]-
+            report.loc[report.index[0],KPI.SAVINGS]
         )
 
 
@@ -551,32 +615,33 @@ class Fund(object):
             # Join with benchmark
             report=pd.merge_asof(
                 report,
-                benchmark.data[['value']].rename(columns={'value': 'benchmark'}),
+                benchmark.data[['value']].rename(columns={'value': KPI.BENCHMARK}),
                 left_index=True,
                 right_index=True
             )
 
             # Normalize benchmark making it start with value 1
-            report['benchmark'] /= report.iloc[0]['benchmark']
+            report[KPI.BENCHMARK] /= report.iloc[0][KPI.BENCHMARK]
 
             # Compute benchmark growth
-            report['benchmark rate of return']=report['benchmark'].pct_change()
+            report[KPI.BENCHMARK_RATE_RETURN]=report[KPI.BENCHMARK].pct_change()
 
             # Compute fund excess growth over benchmark
-            report['excess return']=report['rate of return']-report['benchmark rate of return']
+            report[KPI.BENCHMARK_EXCESS_RETURN]=report[KPI.RATE_RETURN]-report[KPI.BENCHMARK_RATE_RETURN]
 
             benchmarkFeatures=self.benchmarkFeatures
 
         return report[
             [
-                'rate of return',
-                'income',
-                'balance',
-                'savings',
-                'balance÷savings',
-                'movements',
-                'shares',
-                'share_value'
+                KPI.RATE_RETURN,
+                KPI.PERIOD_GAIN,
+                KPI.BALANCE,
+                KPI.SAVINGS,
+                KPI.BALANCE_OVER_SAVINGS,
+                KPI.GAINS,
+                KPI.MOVEMENTS,
+                KPI.SHARES,
+                KPI.SHARE_VALUE
             ] +
             benchmarkFeatures
         ]
@@ -589,10 +654,14 @@ class Fund(object):
             self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
 
         # Get prototype of data to plot
-        data=self.periodicReport(benchmark=benchmark, start=start, end=end)[['share_value','benchmark']]
+        data=self.periodicReport(
+            benchmark=benchmark,
+            start=start,
+            end=end
+        )[[KPI.SHARE_VALUE,KPI.BENCHMARK]]
 
         # Normalize share_value to make it start on value 1
-        data['share_value']/=data['share_value'][0]
+        data[KPI.SHARE_VALUE]/=data[KPI.SHARE_VALUE][0]
 
 
         data.rename(
@@ -606,7 +675,7 @@ class Fund(object):
 
 
         if type=='pyplot':
-            data.plot(kind='line')
+            return data.plot(kind='line')
         elif type=='vegalite':
             spec=dict(
                 description='Performance of {name}'.format(name=self.name,index=benchmark.id),
@@ -636,31 +705,97 @@ class Fund(object):
 
 
 
-    def rateOfReturnPlot(self,period='M'):
+    def wealthPlot(self, benchmark, start=None, end=None, type='pyplot'):
+        if benchmark.currency!=self.currency:
+            self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
+
+        # Get prototype of data to plot
+        data=self.periodicReport(
+            benchmark=benchmark,
+            start=start,
+            end=end
+        )[[KPI.BALANCE,KPI.SAVINGS,KPI.GAINS]]
+
+
+
+
+        if type=='pyplot':
+            return data.plot(kind='line')
+        elif type=='vegalite':
+            spec=dict(
+                description='Performance of {name}'.format(name=self.name,index=benchmark.id),
+                mark='trail',
+                encoding=dict(
+                    x=dict(
+                        field='date',
+                        type='temporal'
+                    ),
+                    y=dict(
+                        field='performance',
+                        type='quantitative'
+                    ),
+                    size=dict(
+                        field='performance',
+                        type='quantitative'
+                    ),
+                    color=dict(
+                        field='performance',
+                        type='quantitative'
+                    )
+                )
+            )
+        elif type=='raw':
+            return data
+
+
+
+
+
+
+
+    def rateOfReturnPlot(self,period='M', confidence_interval=0.95, start=None, end=None, type='pyplot'):
+        # Get prototype of data to plot
         data=(
-            self.shares[['share_value']]
-            .resample('M')
-            .last()
-            .rename(columns=dict(share_value='rate of return %'))
+            self.periodicReport(
+                period=period,
+                start=start,
+                end=end
+            )[[KPI.SHARE_VALUE]]
             .pct_change()
             .replace([np.inf, -np.inf], np.nan)
             .dropna()
+            .rename(columns=dict(share_value='rate of return %'))
+            *100
         )
 
-        return data
 
-        # To plot:
-        (100*data).plot(kind='histogram', bins=data.shape[0]/2)
-
-
+        # Handle rate of return as a gaussian distribution
+        μ=data.mean()[0]
+        σ=data.std()[0]
 
 
-    def incomePlot(self,period='M', start=None, type='pyplot'):
+
+
+        if type=='pyplot':
+            return data.plot(
+                kind='hist',
+#                 bins=data.shape[0]/2,
+                bins=200,
+                xlim=(μ-σ,μ+σ)
+            ).get_figure()
+        elif type=='raw':
+            return data
+
+
+
+    def incomePlot(self,period='M', start=None, end=None, type='pyplot'):
         for p in self.periodPairs:
             if p['period']==period:
                 break
 
 
+
+        # Compute how many 'period's fit in one 'macroPeriod'.
         # https://stackoverflow.com/questions/68284757
         o1 = pd.tseries.frequencies.to_offset(p['period'])
         o2 = pd.tseries.frequencies.to_offset(p['macroPeriod'])
@@ -675,9 +810,20 @@ class Fund(object):
 
         # Now compute moving averages
 
-        data=self.periodicReport(period=period, start=start)[['income']]
-        data['moving_average']=data['income'].rolling(periodCountInMacroPeriod,min_periods=1).mean()
-        data['moving_median']=data['income'].rolling(periodCountInMacroPeriod,min_periods=1).median()
+        data=self.periodicReport(period=period, start=start, end=end)[[KPI.PERIOD_GAIN]]
+
+
+        data['{} {}s moving average'.format(periodCountInMacroPeriod,p['periodLabel'])] = (
+            data[KPI.PERIOD_GAIN]
+            .rolling(periodCountInMacroPeriod, min_periods=1)
+            .mean()
+        )
+
+        data['{} {}s moving median'.format(periodCountInMacroPeriod,p['periodLabel'])] = (
+            data[KPI.PERIOD_GAIN]
+            .rolling(periodCountInMacroPeriod, min_periods=1)
+            .median()
+        )
 
 #         data=data.tail(24)
 
@@ -688,6 +834,25 @@ class Fund(object):
         if type=='raw':
             return data
 
+        if type=='altair':
+            import altair
+
+            colors=['blue', 'red', 'green', 'cyan', 'yellow', 'brown']
+            color=0
+
+            columns=list(data.columns)
+            columns.remove(KPI.PERIOD_GAIN)
+
+
+            base=altair.Chart(data.reset_index()).encode(x='time')
+            bar=base.mark_bar(color=colors[color]).encode(y=KPI.PERIOD_GAIN)
+            color+=1
+
+            for column in columns:
+                bar+=base.mark_line(color=colors[color]).encode(y=column)
+                color+=1
+
+            return bar.interactive()
 
 
 
@@ -695,8 +860,8 @@ class Fund(object):
                 start=None,
                 end=None,
                 kpi=[
-                    'rate of return','income','balance','savings',
-                    'movements','shares','share_value'
+                    KPI.RATE_RETURN,KPI.PERIOD_GAIN,KPI.BALANCE,KPI.SAVINGS,
+                    KPI.MOVEMENTS,KPI.SHARES,KPI.SHARE_VALUE
                 ] + benchmarkFeatures
         ):
         for p in self.periodPairs:
@@ -732,8 +897,8 @@ class Fund(object):
 
 
         # KPI income has a special formatter
-        if 'income' in self.formatters:
-            incomeFormatter=self.formatters['income']['format']
+        if KPI.PERIOD_GAIN in self.formatters:
+            incomeFormatter=self.formatters[KPI.PERIOD_GAIN]['format']
         else:
             incomeFormatter=self.formatters['DEFAULT']['format']
 
@@ -774,16 +939,16 @@ class Fund(object):
 
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
-            if 'income' in kpi:
-                macroPeriod.loc[macroPeriod.index[i],'new income']='{n} × {inc}'.format(
+            if KPI.PERIOD_GAIN in kpi:
+                macroPeriod.loc[macroPeriod.index[i],'new ' + KPI.PERIOD_GAIN]='{n} × {inc}'.format(
                     n=nPeriods,
                     inc=incomeFormatter.format(
-                        macroPeriod.loc[macroPeriod.index[i],'income']/nPeriods
+                        macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
                     )
                 )
 
-        if 'income' in kpi:
-            macroPeriod['income']=macroPeriod['new income']
+        if KPI.PERIOD_GAIN in kpi:
+            macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
 
         # Make summary report a column, sort and name labels for perfect join
         macroPeriod=(
@@ -819,13 +984,22 @@ class Fund(object):
             ## Just return the Dataframe
             return report
 
-        if output=='flat':
+        if output=='flat' or output=='flat_unformatted':
             ## Convert all to object to attain more flexibility per cell
             out=report.astype(object)
+
+            if output=='flat_unformatted':
+                return out
 
         if output=='styled':
             ## Lets work with a styled DataFrame
             out=report.style
+
+
+        # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
+        # not plain (just the data), we'll have to apply formatting, either as style or
+        # hardcoded (in case of flat).
+
 
         defaultFormat=None
         if 'DEFAULT' in self.formatters:
@@ -859,6 +1033,7 @@ class Fund(object):
                     out.loc[selector]=out.loc[selector].apply(
                         lambda s: [f.format(x) for x in s]
                     )
+                    out.loc[selector]=out.loc[selector].replace('$nan','')
                 elif output=='styled':
                     # Styler advanced slicing only works in Pandas>=1.3
                     out=out.format(formatter=f, subset=selector, na_rep='')

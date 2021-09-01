@@ -1,8 +1,9 @@
 import copy
 import logging
 import datetime
-import streamlit as st
+import concurrent.futures
 import numpy as np
+import streamlit as st
 import pandas as pd
 
 logging.basicConfig()
@@ -15,6 +16,7 @@ import investor.currency.brasil_banco_central        as currency_bcb
 import investor.currency.cryptocompare               as currency_cryptocompare
 import investor.marketindex.brasil_banco_central     as mktidx_bcb
 import investor.marketindex.federal_reserve          as mktidx_fred
+import investor.marketindex.yahoo_finance            as mktidx_yahoo
 
 #  import (
 #     DataCache,
@@ -31,6 +33,9 @@ import investor.marketindex.federal_reserve          as mktidx_fred
 class StreamlitInvestorApp:
     def __init__(self, refresh=False):
 
+        # Private var is needed instead of streamlit.session_state due to parallelism
+        self._state={}
+
         st.session_state['cache_file']=context['cache_file']
         st.session_state['crypto_compare_apiKey']=context['crypto_compare_apiKey']
         st.session_state['google_credentials_file']=context['google_credentials_file']
@@ -38,21 +43,19 @@ class StreamlitInvestorApp:
 
 
 
-        self.refresh=refresh
+#         st.session_state['refresh']=refresh
 
         with st.sidebar:
             self.interact_refresh()
-            self.refresh=st.session_state['interact_refresh']
+            st.session_state['refresh']=st.session_state['interact_refresh']
 
-        if self.refresh or ('cache' not in st.session_state):
+        if refresh or ('cache' not in st.session_state):
             # Data needs refresh or App running from scratch
-            self.make_state(self.refresh)
+            self.make_state(refresh)
 
 
         with st.sidebar:
             self.interact_funds()
-#             st.write(st.session_state['interact_start'])
-#             self.interact_start()
             self.interact_currencies()
             self.interact_benchmarks()
             self.interact_periods()
@@ -87,17 +90,7 @@ class StreamlitInvestorApp:
 
         st.title(st.session_state['fund'].name)
 
-        st.write('Data good for {}'.format(st.session_state['portfolio'].asof))
-
-
-
-#         print(st.session_state['benchmarks'])
-
-
-
-
-
-
+        st.markdown('Data good for **{}**'.format(st.session_state['portfolio'].asof))
 
 
         self.interact_start_end()
@@ -112,24 +105,96 @@ class StreamlitInvestorApp:
 #         else:
 #             st.write('Reporting since {}'.format(st.session_state['interact_start'][0]))
 
-        st.line_chart(
-            st.session_state['fund'].performancePlot(
+        st.markdown('Graph data between **{}** and **{}**'.format(
+            st.session_state.interact_start_end[0],
+            st.session_state.interact_start_end[1]
+        ))
+
+
+        col1, col2 = st.beta_columns(2)
+
+        with col1:
+            st.header('Performance')
+            st.line_chart(
+                st.session_state['fund'].performancePlot(
+                    benchmark=st.session_state.interact_benchmarks,
+                    start=st.session_state.interact_start_end[0],
+                    end=st.session_state.interact_start_end[1],
+                    type='raw'
+                )
+            )
+
+            st.pyplot(
+                st.session_state['fund'].rateOfReturnPlot(
+                    period=st.session_state.interact_periods,
+                    start=st.session_state.interact_start_end[0],
+                    end=st.session_state.interact_start_end[1],
+                    type='pyplot'
+                )
+            )
+
+        with col2:
+            st.header('Gains')
+            st.altair_chart(
+                use_container_width=True,
+                altair_chart=st.session_state['fund'].incomePlot(
+                    period=st.session_state.interact_periods,
+                    start=st.session_state.interact_start_end[0],
+                    end=st.session_state.interact_start_end[1],
+                    type='altair'
+                )
+            )
+
+            wealthPlotData=st.session_state['fund'].wealthPlot(
                 benchmark=st.session_state.interact_benchmarks,
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
                 type='raw'
-            )
-        )
+            ) #[['balance','savings','cumulative income']]
+
+#             wealthPlotData['balance÷savings'] *= 0.5 * (
+#                 wealthPlotData['balance'] -
+#                 wealthPlotData['savings']
+#             ).mean()
+
+            st.line_chart(wealthPlotData)
+
+#             st.bar_chart(
+#                 st.session_state['fund'].incomePlot(
+#                     period=st.session_state.interact_periods,
+#                     start=st.session_state.interact_start_end[0],
+#                     end=st.session_state.interact_start_end[1],
+#                     type='raw'
+#                 )['income']
+#             )
+#
+#             rolling_income=st.session_state['fund'].incomePlot(
+#                 period=st.session_state.interact_periods,
+#                 start=st.session_state.interact_start_end[0],
+#                 end=st.session_state.interact_start_end[1],
+#                 type='raw'
+#             )
+#
+#             rolling_columns=list(rolling_income.columns)
+#             rolling_columns.remove('income')
+#
+#             st.line_chart(rolling_income[rolling_columns])
+
 
         st.header('Performance')
-        st.write(f"Benchmark is {st.session_state['interact_benchmarks'].id}.")
+        st.write("Benchmark is {benchmark}.".format(benchmark=st.session_state['interact_benchmarks']))
 
         st.dataframe(st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
                 benchmark=st.session_state.interact_benchmarks,
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
-                kpi=['rate of return','benchmark rate of return','excess return','income'],
+                kpi=[
+                    investor.KPI.RATE_RETURN,
+                    investor.KPI.BENCHMARK_RATE_RETURN,
+                    investor.KPI.BENCHMARK_EXCESS_RETURN,
+                    investor.KPI.PERIOD_GAIN
+                ],
                 output='flat'
             )
         )
@@ -141,7 +206,13 @@ class StreamlitInvestorApp:
                 benchmark=st.session_state.interact_benchmarks,
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
-                kpi=['balance','balance÷savings','savings','movements'],
+                kpi=[
+                    investor.KPI.BALANCE,
+                    investor.KPI.BALANCE_OVER_SAVINGS,
+                    investor.KPI.GAINS,
+                    investor.KPI.SAVINGS,
+                    investor.KPI.MOVEMENTS
+                ],
                 output='flat'
             )
         )
@@ -194,7 +265,6 @@ class StreamlitInvestorApp:
             help       = 'Report starting on date',
             min_value  = st.session_state.fund.start.to_pydatetime(),
             max_value  = st.session_state.fund.end.to_pydatetime(),
-#             value      = (current,datetime.datetime.now())
             value      = (
                 st.session_state.fund.start.to_pydatetime(),
                 st.session_state.fund.end.to_pydatetime()
@@ -222,10 +292,173 @@ class StreamlitInvestorApp:
 
 
 
+    def work_on_task(self, stItem, task, params):
+        params.update(
+            dict(
+                cache             = self.cache,
+                refresh           = self.refresh
+            )
+        )
+
+        if stItem in self._state:
+            self._state[stItem].append(task(params))
+        else:
+            self._state[stItem]=[task(params)]
+
+
+
+    work_description = [
+        dict(
+            stItem='portfolio',
+            work=investor.GoogleSheetsBalanceAndLedger,
+            params=dict(
+                sheetStructure    = context['finance_sheet_structure'],
+                credentialsFile   = context['google_credentials_file']
+            )
+        ),
+
+        dict(
+            stItem='currency_converters',
+            work=currency_bcb.BCBCurrencyConverter,
+            params=dict(
+                currencyFrom='USD',
+            )
+        ),
+
+        dict(
+            stItem='currency_converters',
+            work=currency_bcb.BCBCurrencyConverter,
+            params=dict(
+                currencyFrom='EUR',
+            )
+        ),
+
+        dict(
+            stItem='currency_converters',
+            work=currency_cryptocompare.CryptoCompareCurrencyConverter,
+            params=dict(
+                currencyFrom='BTC',
+                apiKey=context['crypto_compare_apiKey']
+            )
+        ),
+
+        dict(
+            stItem='currency_converters',
+            work=currency_cryptocompare.CryptoCompareCurrencyConverter,
+            params=dict(
+                currencyFrom='ETH',
+                apiKey=context['crypto_compare_apiKey']
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_bcb.BCBMarketIndex,
+            params=dict(
+                name='IPCA',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_bcb.BCBMarketIndex,
+            params=dict(
+                name='CDI',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_bcb.BCBMarketIndex,
+            params=dict(
+                name='SELIC',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_bcb.BCBMarketIndex,
+            params=dict(
+                name='IGPM',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_bcb.BCBMarketIndex,
+            params=dict(
+                name='INPC',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_yahoo.YahooMarketIndex,
+            params=dict(
+                name='^BVSP',
+                friendlyName='Índice BoVESPa (^BVSP)',
+                currency='BRL',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_yahoo.YahooMarketIndex,
+            params=dict(
+                name='^GSPC',
+                friendlyName='S&P 500 (^GSPC)',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_yahoo.YahooMarketIndex,
+            params=dict(
+                name='^DJI',
+                friendlyName='Dow Jones (^DJI)',
+            )
+        ),
+
+        dict(
+            stItem='benchmarks',
+            work=mktidx_yahoo.YahooMarketIndex,
+            params=dict(
+                name='^IXIC',
+                friendlyName='NASDAQ (^IXIC)',
+            )
+        )
+    ]
+
 
 
     def make_state(self,refresh=False):
         st.session_state['cache']=investor.DataCache(st.session_state['cache_file'])
+#         self.cache=investor.DataCache(st.session_state['cache_file'])
+#         self.refresh=refresh
+
+
+#         with concurrent.futures.ProcessPoolExecutor(max_workers=5) as executor:
+#             # Trigger all work in parallel
+#             futureWorks = {
+#                 executor.submit(
+#                     self.work_on_task,
+#                     work['stItem'],
+#                     work['work'],
+#                     work['params']
+#                 ): work for work in self.work_description
+#             }
+#
+#             print(futureWorks)
+#
+#             # Wait for finish and collect results
+#             for future in concurrent.futures.as_completed(futureWorks):
+#                 work = futureWorks[future]
+#                 print('Done {}'.format(work['stItem']))
+#
+#         st.session_state.update(self._state)
+
+
+
 
 
         st.session_state['portfolio']=investor.GoogleSheetsBalanceAndLedger(
@@ -326,18 +559,28 @@ class StreamlitInvestorApp:
                 cache=st.session_state.cache,
                 refresh=refresh
             ),
-            mktidx_fred.FREDMarketIndex(
-                name='SP500',
+            mktidx_yahoo.YahooMarketIndex(
+                name='^BVSP',
+                friendlyName='Índice BoVESPa (^BVSP)',
+                currency='BRL',
                 cache=st.session_state.cache,
                 refresh=refresh
             ),
-            mktidx_fred.FREDMarketIndex(
-                name='DJCA',
+            mktidx_yahoo.YahooMarketIndex(
+                name='^GSPC',
+                friendlyName='S&P 500 (^GSPC)',
                 cache=st.session_state.cache,
                 refresh=refresh
             ),
-            mktidx_fred.FREDMarketIndex(
-                name='NASDAQCOM',
+            mktidx_yahoo.YahooMarketIndex(
+                name='^DJI',
+                friendlyName='Dow Jones (^DJI)',
+                cache=st.session_state.cache,
+                refresh=refresh
+            ),
+            mktidx_yahoo.YahooMarketIndex(
+                name='^IXIC',
+                friendlyName='NASDAQ (^IXIC)',
                 cache=st.session_state.cache,
                 refresh=refresh
             ),

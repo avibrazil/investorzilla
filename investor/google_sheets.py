@@ -48,6 +48,10 @@ class GoogleSheetsBalanceAndLedger(object):
         sheet=self.getGoogleSheetRange(sheetID,sheetRange)
 
 
+#         sheet.to_csv(sheetID + '.csv')
+
+        sheet.replace('#N/A',pd.NA, inplace=True)
+
         # Handle monetary columns, remove currency symbols and make them numbers
         remove=['R$ ','$','€',',']
         for c in columnsProfile['monetary']:
