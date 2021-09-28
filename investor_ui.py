@@ -51,7 +51,7 @@ class StreamlitInvestorApp:
 
         if st.session_state['refresh'] or ('cache' not in st.session_state):
             # Data needs refresh or App running from scratch
-            self.make_state(refresh)
+            self.make_state(refresh=st.session_state['refresh'])
 
 
         with st.sidebar:

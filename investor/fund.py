@@ -23,20 +23,20 @@ class KPI(object):
     BALANCE_OVER_SAVINGS    =  'balance ➗ savings'
 
     # Pure gain, on the period or accumulated
-    PERIOD_GAIN             =  'gain'
-    GAINS                   =  'gains'
+    PERIOD_GAIN             =  'gain'   # on each period
+    GAINS                   =  'gains'  # cumulative
 
     # Normalization features
     SHARE_VALUE             =  'share value'
     SHARES                  =  'shares'
 
     # Performance feature, wich is percentage change of share value
-    RATE_RETURN             =  'rate of return'
+    RATE_RETURN             =  'rate of return'  # on each period
 
     # KPIs related to extenral sources as market indexes and benchmarks
     BENCHMARK               =  'benchmark'
-    BENCHMARK_RATE_RETURN   =  'benchmark rate of return'
-    BENCHMARK_EXCESS_RETURN =  'excess return'
+    BENCHMARK_RATE_RETURN   =  'benchmark rate of return'  # on each period
+    BENCHMARK_EXCESS_RETURN =  'excess return'  # relation between RATE_RETURN and BENCHMARK_RATE_RETURN, on each period
 
 
 
@@ -45,6 +45,8 @@ class KPI(object):
 
 
 class Fund(object):
+    initial_share_value=100
+
     periodPairs=[
         dict(
             period='D',
@@ -133,9 +135,9 @@ class Fund(object):
 
 
     benchmarkFeatures=[
-        KPI.BENCHMARK,
+        KPI.BENCHMARK_EXCESS_RETURN,
         KPI.BENCHMARK_RATE_RETURN,
-        KPI.BENCHMARK_EXCESS_RETURN
+        KPI.BENCHMARK,
     ]
 
 
@@ -357,7 +359,9 @@ class Fund(object):
 
 
 
-    def computeShares(self, initial_share_value=100):
+    def computeShares(self, initial_share_value=initial_share_value):
+        self.initial_share_value=initial_share_value
+
         shares=0
         share_value=0
 
@@ -496,8 +500,10 @@ class Fund(object):
                 raise TypeError(f'end parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{end}"')
 
 
+#         self.logger.info("Report range: {} -> {}".format(startOfReport,end))
+
         # Start fresh
-        report=self.shares.copy()[startOfReport:end]
+        report=self.shares.copy() #[startOfReport:end]
 
         # Add ledger to get movements for period
         report=report.join(
@@ -506,64 +512,13 @@ class Fund(object):
                 .drop(('ledger','comment'),axis=1)
                 .droplevel(1, axis=1)
                 .rename(columns=dict(ledger=KPI.MOVEMENTS))
-                .sort_index()[startOfReport:end],
+                .sort_index(), #[startOfReport:end]
             how='left'
         )
-#         report[KPI.MOVEMENTS]=(
-#             self.ledger
-#                 .droplevel(0)
-#                 .drop(('ledger','comment'),axis=1)
-#                 .droplevel(1, axis=1)
-#                 .sort_index()[startOfReport:end]
-#         )
+
         report[KPI.MOVEMENTS] = report[KPI.MOVEMENTS].fillna(0)
 
-        self.report_stage_1=report.copy()
-
-        if period is not None:
-            # Make it a regular time series (M, Y etc), each column aggregated by
-            # different strategy
-            report=(
-                report
-                    .resample(period)
-                    .agg(
-                        {
-                            KPI.SHARES:      'last',
-                            KPI.SHARE_VALUE: 'last',
-                            KPI.MOVEMENTS:   'sum'
-                        }
-                    )
-            )
-
-        report[KPI.SHARES] = report[KPI.SHARES].ffill()
-        report[KPI.SHARE_VALUE] = report[KPI.SHARE_VALUE].ffill()
-
-
-        if period is not None and period!='D':
-            # In order to have period-end rate of return for 1st period, the first
-            # movement is needed, except for high resolution reports, such as Daily or ragged.
-            report=(
-                report
-                    .append(self.shares[startOfReport:].head(1))
-                    .sort_index()
-            )
-
-
-        # Now we have it all computed in a regular period (M, Y etc):
-        # shares, share_value, movements
-
-
-        # Compute rate of return (pure gain excluding movements)
-        report[KPI.RATE_RETURN]=report[KPI.SHARE_VALUE].pct_change().fillna(0)
-
-
-        if period is not None and period!='D':
-            # Remove first row, that was included artificially just to compute
-            # first pct_change()
-            report=report.iloc[1:]
-
-
-        # Add balance
+        # Add balance as a function of shares
         report[KPI.BALANCE]=report[KPI.SHARES]*report[KPI.SHARE_VALUE].ffill()
 
         # Add cumulated savings (cumulated movements)
@@ -575,44 +530,47 @@ class Fund(object):
         # Add cumulative income
         report[KPI.GAINS]=report[KPI.BALANCE]-report[KPI.SAVINGS]
 
-        if report.shape[0]>1:
-            # Pair with shares of the previous period
-            report=report.join(
-                report[[KPI.SHARES,KPI.SHARE_VALUE]].shift(),
-                rsuffix='_prev'
+        # Getting ready to aggregate on a periodic basis
+        aggregationStrategy={
+            KPI.SHARES:                   'last',
+            KPI.SHARE_VALUE:              'last',
+            KPI.MOVEMENTS:                'sum',
+            KPI.BALANCE:                  'last',
+            KPI.SAVINGS:                  'last',
+            KPI.BALANCE_OVER_SAVINGS:     'last',
+            KPI.GAINS:                    'last',
+        }
+
+
+        # On a downsample scenario (e.g. period=M), we'll have more fund data than final report.
+        # On an upsample scenario (e.g. period=D), we'll have more report lines than fund data.
+        # If period=None, number of report lines will match the amount of fund data we have.
+        # These 3 situations affect how benchmark has to be handled.
+
+
+
+
+        # Cut the report just before period-aggregation operation
+        report=report[startOfReport:end]
+
+        if period is not None:
+            # Make it a regular time series (D, M, Y etc), each column aggregated by
+            # different strategy
+            report=(
+                report
+                    .resample(period)
+                    .agg(aggregationStrategy)
             )
 
-
-            # Compute income as the difference between consecutive periods, minus
-            # movements of period
-            report[KPI.PERIOD_GAIN]=report.apply(
-                lambda x: (
-                    # Balance of current period
-                    x[KPI.SHARES]*x[KPI.SHARE_VALUE]
-
-                    # Balance of previous period
-                    -x[KPI.SHARES + '_prev']*x[KPI.SHARE_VALUE + '_prev']
-
-                    # Movements of current period
-                    -x[KPI.MOVEMENTS]
-                ),
-                axis=1
-            )
-            if period is not None and period!='D':
-                # Adjust income of first period only
-                report.loc[report.index[0],KPI.PERIOD_GAIN]+=report.loc[report.index[0],KPI.MOVEMENTS]
-
-        # Adjust income of first period only
-        report.loc[report.index[0],KPI.PERIOD_GAIN]=(
-            report.loc[report.index[0],KPI.BALANCE]-
-            report.loc[report.index[0],KPI.SAVINGS]
-        )
+            # Fill the gaps after aggregation
+    #         report[aggregationStrategy.keys()].ffill(inplace=True)
+            report.ffill(inplace=True)
 
 
         # Add 3 benchmark-related features
         benchmarkFeatures=[]
         if benchmark is not None:
-            # Join with benchmark
+            # Pair with Benchmark
             report=pd.merge_asof(
                 report,
                 benchmark.data[['value']].rename(columns={'value': KPI.BENCHMARK}),
@@ -620,19 +578,110 @@ class Fund(object):
                 right_index=True
             )
 
-            # Normalize benchmark making it start with value 1
-            report[KPI.BENCHMARK] /= report.iloc[0][KPI.BENCHMARK]
+            benchmarkFeatures=self.benchmarkFeatures
 
+            # Define an aggregation strategy for the Benchmark too
+#             aggregationStrategy.update({KPI.BENCHMARK: 'last'})
+
+
+
+        # Compute rate of return (pure gain excluding movements)
+        report[KPI.RATE_RETURN]=report[KPI.SHARE_VALUE].pct_change().fillna(0)
+
+        # The pct_change() above yields ∞ or NaN at the first line, so fix it manually
+        report.loc[report.index[0],KPI.RATE_RETURN]=(
+            (report.loc[report.index[0],KPI.SHARE_VALUE]/self.shares[KPI.SHARE_VALUE].asof(startOfReport))-1
+        )
+
+        # Compute gain per period comparing consecutive Balance and excluding Movements
+#         if report.shape[0]>1:
+        report=report.join(
+            report[KPI.BALANCE].shift(),
+            rsuffix='_prev',
+            sort=True
+        )
+
+        # shift() yields NaN for first position, so fix it
+        if startOfReport==self.start:
+            # Balance is always Zero before the fund ever existed
+            report.loc[report.index[0],KPI.BALANCE+'_prev']=0
+        else:
+            # Compute Balance based on immediate previous data
+            report.loc[report.index[0],KPI.BALANCE+'_prev']=(
+                self.shares[KPI.SHARE_VALUE].asof(startOfReport-pd.Timedelta(seconds=1)) *
+                self.shares[KPI.SHARES].asof(startOfReport-pd.Timedelta(seconds=1))
+            )
+
+        # Compute income as the difference of Balance between consecutive periods,
+        # minus Movements of period
+        report[KPI.PERIOD_GAIN]=report.apply(
+            lambda x: (
+                # Balance of current period
+                x[KPI.BALANCE]
+
+                # Balance of previous period
+                -x[KPI.BALANCE + '_prev']
+
+                # Movements of current period
+                -x[KPI.MOVEMENTS]
+            ),
+            axis=1
+        )
+
+#             if period is not None and period!='D':
+#                 # Adjust income of first period only
+#                 report.loc[report.index[0],KPI.PERIOD_GAIN]+=report.loc[report.index[0],KPI.MOVEMENTS]
+
+        # Compute features that depend on Benchmark
+        if benchmark is not None:
             # Compute benchmark growth
             report[KPI.BENCHMARK_RATE_RETURN]=report[KPI.BENCHMARK].pct_change()
+
+            # The pct_change() above yields ∞ at the first line, so fix it manually
+            report.loc[report.index[0],KPI.BENCHMARK_RATE_RETURN]=(
+                (report.loc[report.index[0],KPI.BENCHMARK]/benchmark.data['value'].asof(startOfReport))-1
+            )
 
             # Compute fund excess growth over benchmark
             report[KPI.BENCHMARK_EXCESS_RETURN]=report[KPI.RATE_RETURN]-report[KPI.BENCHMARK_RATE_RETURN]
 
-            benchmarkFeatures=self.benchmarkFeatures
+            # Normalize benchmark making it start with value 1
+            report[KPI.BENCHMARK] /= report.loc[report.index[0]][KPI.BENCHMARK]
+
+
+
+#         if period is not None and period!='D':
+#             # In order to have period-end rate of return for 1st period, the first
+#             # movement is needed, except for high resolution reports, such as Daily or ragged.
+#             report=(
+#                 report
+#                     .append(self.shares[startOfReport:].head(1))
+#                     .sort_index()
+#             )
+
+
+        # Now we have it all computed in a regular period (M, Y etc):
+        # shares, share_value, movements
+
+
+
+#         if period is not None and period!='D':
+#             # Remove first row, that was included artificially just to compute
+#             # first pct_change()
+#             report=report.iloc[1:]
+
+
+
+
+#         # Adjust income of first period only
+#         report.loc[report.index[0],KPI.PERIOD_GAIN]=(
+#             report.loc[report.index[0],KPI.BALANCE]-
+#             report.loc[report.index[0],KPI.SAVINGS]
+#         )
+
 
         return report[
-            [
+            benchmarkFeatures + [
                 KPI.RATE_RETURN,
                 KPI.PERIOD_GAIN,
                 KPI.BALANCE,
@@ -642,8 +691,7 @@ class Fund(object):
                 KPI.MOVEMENTS,
                 KPI.SHARES,
                 KPI.SHARE_VALUE
-            ] +
-            benchmarkFeatures
+            ]
         ]
 
 
@@ -704,7 +752,6 @@ class Fund(object):
 
 
 
-
     def wealthPlot(self, benchmark, start=None, end=None, type='pyplot'):
         if benchmark.currency!=self.currency:
             self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
@@ -749,10 +796,6 @@ class Fund(object):
 
 
 
-
-
-
-
     def rateOfReturnPlot(self,period='M', confidence_interval=0.95, start=None, end=None, type='pyplot'):
         # Get prototype of data to plot
         data=(
@@ -777,12 +820,15 @@ class Fund(object):
 
 
         if type=='pyplot':
-            return data.plot(
-                kind='hist',
-#                 bins=data.shape[0]/2,
-                bins=200,
-                xlim=(μ-σ,μ+σ)
-            ).get_figure()
+            if data.shape[0]>0:
+                return data.plot(
+                    kind='hist',
+    #                 bins=data.shape[0]/2,
+                    bins=200,
+                    xlim=(μ-σ,μ+σ)
+                ).get_figure()
+            else:
+                return None
         elif type=='raw':
             return data
 
@@ -859,10 +905,10 @@ class Fund(object):
     def report(self, period='M', benchmark=None, output='styled',
                 start=None,
                 end=None,
-                kpi=[
-                    KPI.RATE_RETURN,KPI.PERIOD_GAIN,KPI.BALANCE,KPI.SAVINGS,
-                    KPI.MOVEMENTS,KPI.SHARES,KPI.SHARE_VALUE
-                ] + benchmarkFeatures
+                kpi=benchmarkFeatures + [
+                    KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,        KPI.SAVINGS,
+                    KPI.MOVEMENTS,     KPI.SHARES,        KPI.SHARE_VALUE
+                ]
         ):
         for p in self.periodPairs:
             if p['period']==period:
@@ -872,6 +918,9 @@ class Fund(object):
         if benchmark is None:
             # Remove benchmark features because there is no benchmark
             kpi=[i for i in kpi if i not in self.benchmarkFeatures]
+
+            # Can't use set() operations here because it messes with features order, which
+            # are important to us
 
 
         # Get bigger report with period data
