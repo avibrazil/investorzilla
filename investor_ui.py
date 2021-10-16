@@ -56,6 +56,7 @@ class StreamlitInvestorApp:
 
         with st.sidebar:
             self.interact_funds()
+            self.interact_no_funds()
             self.interact_currencies()
             self.interact_benchmarks()
             self.interact_periods()
@@ -70,8 +71,20 @@ class StreamlitInvestorApp:
         fundset=None
         if 'interact_funds' in st.session_state:
             fundset=st.session_state['interact_funds']
+
             if 'ALL' in fundset:
                 fundset.remove('ALL')
+
+            if 'interact_no_funds' in st.session_state:
+                if len(fundset)==0:
+                    fundset=st.session_state['portfolio'].funds()
+                    fundset=[f[0] for f in fundset]
+
+                fundset=list(
+                    set(fundset) -
+                    set(st.session_state['interact_no_funds'])
+                )
+                print(fundset)
 
         st.session_state['fund']=st.session_state['portfolio'].getFund(
             subset           = fundset,
@@ -101,7 +114,7 @@ class StreamlitInvestorApp:
         ))
 
 
-        col1, col2 = st.beta_columns(2)
+        col1, col2 = st.columns(2)
 
         with col1:
             st.header('Performance')
@@ -222,6 +235,14 @@ class StreamlitInvestorApp:
         st.session_state['interact_funds']=st.multiselect(
             'Select funds',
             ['ALL']+
+            [x[0] for x in st.session_state.portfolio.funds()]
+        )
+
+
+
+    def interact_no_funds(self):
+        st.session_state['interact_no_funds']=st.multiselect(
+            'Except funds',
             [x[0] for x in st.session_state.portfolio.funds()]
         )
 
@@ -424,7 +445,7 @@ class StreamlitInvestorApp:
     def make_state(self,refresh=False):
         st.session_state['cache']=investor.DataCache(st.session_state['cache_file'])
 #         self.cache=investor.DataCache(st.session_state['cache_file'])
-#         self.refresh=refresh
+        self.refresh=refresh
 
 
 #         with concurrent.futures.ProcessPoolExecutor(max_workers=5) as executor:

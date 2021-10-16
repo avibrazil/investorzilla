@@ -47,6 +47,8 @@ class KPI(object):
 class Fund(object):
     initial_share_value=100
 
+
+
     periodPairs=[
         dict(
             period='D',
@@ -85,6 +87,8 @@ class Fund(object):
             macroPeriodFormatter='%m'
         )
     ]
+
+
 
     formatters={
         'DEFAULT': dict(
@@ -134,6 +138,7 @@ class Fund(object):
     }
 
 
+
     benchmarkFeatures=[
         KPI.BENCHMARK_EXCESS_RETURN,
         KPI.BENCHMARK_RATE_RETURN,
@@ -147,17 +152,14 @@ class Fund(object):
 
 
 
-
     def __str__(self):
         return self.name
-
 
 
 
     def __init__(self, ledger, balance, currencyExchange=None, name=None):
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
-
 
 
         # A true pseudo-random number generator in the space of 2 minutes used to add
@@ -203,7 +205,6 @@ class Fund(object):
 
 
 
-
     def normalizeMonetarySheet(self, sheet, naiveTimeShift=12*3600):
         sheet=sheet.copy()
 
@@ -230,18 +231,13 @@ class Fund(object):
         )
 
         ## Find only the duplicate entries, those that will need adjustment
-        repeatedTime=(
-#             (adjust['fund']==adjust['fund_next']) &
-            (adjust['time']==adjust['time_next'])
-        )
+        repeatedTime=(adjust['time']==adjust['time_next'])
 
         ## Adjust time adding a few random seconds
         sheet.loc[repeatedTime, 'time']=(
             sheet[repeatedTime]['time']
             .apply(
                 lambda x: x+pd.to_timedelta(
-#                     random.randint(-60,60),
-#                     secrets.randbelow(120)-60,
                     next(self.twoMinutesGen),
                     unit='s'
                 )
@@ -249,7 +245,6 @@ class Fund(object):
         )
 
         return sheet.set_index(['fund','time']).sort_index()
-
 
 
 
@@ -358,7 +353,6 @@ class Fund(object):
 
 
 
-
     def computeShares(self, initial_share_value=initial_share_value):
         self.initial_share_value=initial_share_value
 
@@ -452,7 +446,6 @@ class Fund(object):
             )
             .set_index('time')
         )
-
 
 
 
@@ -693,7 +686,6 @@ class Fund(object):
                 KPI.SHARE_VALUE
             ]
         ]
-
 
 
 
@@ -1117,8 +1109,10 @@ class Fund(object):
                 i=0
 
 
+
     def getPeriodPairs():
         return [p['period'] for p in Fund.periodPairs]
+
 
 
     def getPeriodPairLabel(period):
