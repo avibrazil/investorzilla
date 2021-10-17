@@ -174,7 +174,9 @@ class Fund(object):
         if name:
             self.name=name
         else:
-            self.name=' ⋃ '.join(ledger['fund'].unique()) + ' @ ' + self.exchange.target
+            fundset=ledger['fund'].unique()
+            fundset.sort()
+            self.name=' ⋃ '.join(fundset) + ' @ ' + self.exchange.target
 
 
         self.ledger = pd.concat(
@@ -208,12 +210,12 @@ class Fund(object):
     def normalizeMonetarySheet(self, sheet, naiveTimeShift=12*3600):
         sheet=sheet.copy()
 
+        timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
 
         # Shift dates that have no time (time part is 00:00:00) to
         # the middle of the day (12:00:00) using naiveTimeShift
         sheet.loc[sheet.time.dt.time==datetime.time(0), 'time'] = (
-            sheet[sheet.time.dt.time==datetime.time(0)]['time'] +
-            pd.to_timedelta(naiveTimeShift, unit='s')
+            sheet[sheet.time.dt.time==datetime.time(0)]['time'] + timeShift
         )
 
 
@@ -897,6 +899,7 @@ class Fund(object):
     def report(self, period='M', benchmark=None, output='styled',
                 start=None,
                 end=None,
+                flatPeriodFirst=True,
                 kpi=benchmarkFeatures + [
                     KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,        KPI.SAVINGS,
                     KPI.MOVEMENTS,     KPI.SHARES,        KPI.SHARE_VALUE
@@ -1087,7 +1090,10 @@ class Fund(object):
 
         # Final cleanup for flat
         out.replace(['nan','nan%'],'', inplace=True)
-        out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
+        if flatPeriodFirst:
+            out.index=['·'.join((p,k)).strip() for (p,k) in out.index.values]
+        else:
+            out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
         level=out.loc[:,pd.IndexSlice['summary of periods',:]].columns.values[0][1]
         out.rename(columns={level:'summary of periods'},inplace=True)
         out.columns=out.columns.droplevel(0)

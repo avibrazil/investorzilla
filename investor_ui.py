@@ -5,6 +5,8 @@ import concurrent.futures
 import numpy as np
 import streamlit as st
 import pandas as pd
+# import st_aggrid
+
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
@@ -75,22 +77,20 @@ class StreamlitInvestorApp:
             if 'ALL' in fundset:
                 fundset.remove('ALL')
 
-            if 'interact_no_funds' in st.session_state:
-                if len(fundset)==0:
-                    fundset=st.session_state['portfolio'].funds()
-                    fundset=[f[0] for f in fundset]
+        if fundset is None or len(fundset)==0:
+            fundset=st.session_state['portfolio'].funds()
+            fundset=[f[0] for f in fundset]
 
-                fundset=list(
-                    set(fundset) -
-                    set(st.session_state['interact_no_funds'])
-                )
-                print(fundset)
+        if 'interact_no_funds' in st.session_state:
+            fundset=list(
+                set(fundset) -
+                set(st.session_state['interact_no_funds'])
+            )
 
         st.session_state['fund']=st.session_state['portfolio'].getFund(
             subset           = fundset,
             currencyExchange = st.session_state['exchange']
         )
-
 
 
 
@@ -187,7 +187,9 @@ class StreamlitInvestorApp:
         st.header('Performance')
         st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state['interact_benchmarks']))
 
-        st.dataframe(st.session_state['fund'].report(
+        st.dataframe(
+#         st_aggrid.AgGrid(
+            st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
                 benchmark=st.session_state.interact_benchmarks,
                 start=st.session_state.interact_start_end[0],
@@ -204,7 +206,9 @@ class StreamlitInvestorApp:
 
         st.header('Wealth Evolution')
 
-        st.dataframe(st.session_state['fund'].report(
+        st.dataframe(
+#         st_aggrid.AgGrid(
+            st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
                 benchmark=st.session_state.interact_benchmarks,
                 start=st.session_state.interact_start_end[0],
@@ -290,7 +294,7 @@ class StreamlitInvestorApp:
             options     = investor.Fund.getPeriodPairs(),
             format_func = investor.Fund.getPeriodPairLabel,
             index       = investor.Fund.getPeriodPairs().index('M'), # the starting default
-            help        = 'Funds will be compared to the selected benchmark'
+            help        = 'Refine observation periods and set relation with summary of periods'
         )
 
 
