@@ -164,9 +164,9 @@ class Fund(object):
 
         # A true pseudo-random number generator in the space of 2 minutes used to add
         # random seconds to entries at the same time. This is why we exclude Zero.
-        self.twoMinutes=pd.Series(range(-59,60))
-        self.twoMinutes=self.twoMinutes[self.twoMinutes!=0].sample(frac=1).reset_index(drop=True)
-        self.twoMinutesGen=self.pseudoRandomUniqueSeconds()
+        self.twoSeconds=pd.Series(range(-999,999))
+        self.twoSeconds=self.twoSeconds[self.twoSeconds!=0].sample(frac=1).reset_index(drop=True)
+        self.twoSecondsGen=self.pseudoRandomUniqueMiliseconds()
 
 
         self.exchange=currencyExchange
@@ -211,11 +211,12 @@ class Fund(object):
         sheet=sheet.copy()
 
         timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
+        timeFilter=(sheet.time.dt.time==datetime.time(0))
 
         # Shift dates that have no time (time part is 00:00:00) to
         # the middle of the day (12:00:00) using naiveTimeShift
-        sheet.loc[sheet.time.dt.time==datetime.time(0), 'time'] = (
-            sheet[sheet.time.dt.time==datetime.time(0)]['time'] + timeShift
+        sheet.loc[timeFilter, 'time'] = (
+            sheet[timeFilter]['time'] + timeShift
         )
 
 
@@ -240,8 +241,8 @@ class Fund(object):
             sheet[repeatedTime]['time']
             .apply(
                 lambda x: x+pd.to_timedelta(
-                    next(self.twoMinutesGen),
-                    unit='s'
+                    next(self.twoSecondsGen),
+                    unit='ms'
                 )
             )
         )
@@ -370,7 +371,16 @@ class Fund(object):
         if len(funds)>1:
             ## Put balance of each fund in a different column,
             ## repeat value for empty times and fillna(0) for first empty values
-            combinedBalance=self.balance.dropna().unstack(level=0).pad()
+            try:
+                combinedBalance=self.balance.dropna().unstack(level=0).pad()
+            except Exception as e:
+                self.logger.debug(e)
+                self.balance.to_csv('balance_dups.csv')
+#                 iii=self.balance.index.to_frame().reset_index(drop=True) #.set_index('time')
+#                 iii.to_csv('index.csv')
+                raise e
+#                 iii=iii.join(iii, rsuffix='_aa')
+#                 self.logger.debug(iii[iii.fund!=iii.fund_aa])
 
             ## Combined balance is the sum() of balances of all funds at each point in time
             combinedBalance['sum']=combinedBalance.sum(axis=1)
@@ -1104,12 +1114,12 @@ class Fund(object):
 
 
 
-    def pseudoRandomUniqueSeconds(self):
+    def pseudoRandomUniqueMiliseconds(self):
         # Cycle over self.twoMinutes which has 118 entries (0 to 117) with random
         # seconds in the range [-59..-1, 1..59]
         i=0
         while i<118:
-            yield self.twoMinutes[i]
+            yield self.twoSeconds[i]
             i+=1
             if (i==118):
                 i=0
