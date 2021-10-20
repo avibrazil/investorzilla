@@ -114,6 +114,45 @@ class StreamlitInvestorApp:
         ))
 
 
+        st.header('Main Metrics')
+        for p in st.session_state['fund'].periodPairs:
+            if p['period']==st.session_state.interact_periods:
+                break
+
+        metricsPeriod=st.session_state['fund'].periodicReport(
+            period=p['period'],
+            start=st.session_state.interact_start_end[0],
+            end=st.session_state.interact_start_end[1],
+        )
+
+        metricsMacroPeriod=st.session_state['fund'].periodicReport(
+            period=p['macroPeriod'],
+            start=st.session_state.interact_start_end[0],
+            end=st.session_state.interact_start_end[1],
+        )
+
+        col1, col2, col3 = st.columns(3)
+
+        col1.metric(
+            label=investor.KPI.RATE_RETURN,
+            value='{:6.2f}%'.format(100*metricsPeriod.iloc[-1][investor.KPI.RATE_RETURN]),
+            delta='{:6.2f}%'.format(100*metricsMacroPeriod.iloc[-1][investor.KPI.RATE_RETURN]),
+        )
+
+        col2.metric(
+            label=investor.KPI.PERIOD_GAIN,
+            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
+            delta='${:0,.2f}'.format(metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
+        )
+
+        col3.metric(
+            label='{} & {}'.format(investor.KPI.BALANCE,investor.KPI.SAVINGS),
+            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.BALANCE]),
+            delta='${:0,.2f}'.format(metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]),
+        )
+
+
+
         col1, col2 = st.columns(2)
 
         with col1:
