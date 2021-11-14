@@ -21,7 +21,7 @@ class BCBMarketIndex(MarketIndex):
             home = 'https://dadosabertos.bcb.gov.br/dataset/11-taxa-de-juros---selic'
         ),
         'IGPM': dict(
-#             url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4175/dados?formato=json",
+            # url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4175/dados?formato=json",
             url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.189/dados?formato=json",
             home = 'https://dadosabertos.bcb.gov.br/dataset/4175-divida-mobiliaria---participacao-por-indexador---posicao-em-carteira---igp-m'
         ),
@@ -33,18 +33,19 @@ class BCBMarketIndex(MarketIndex):
 
 
 
-    def __init__(self,name,isRate=True, cache=None, refresh=False):
+    def __init__(self, name, isRate=True, cache=None, refresh=False):
         if name in self.series:
             s=self.series[name]
         else:
             raise Exception(f'BCBMarketIndex: market index not found: {name}')
 
-        super().__init__(type='BCBMarketIndex', id=name, currency='BRL', isRate=isRate, cache=cache, refresh=refresh)
+        super().__init__(kind='BCBMarketIndex', id=name, currency='BRL', isRate=isRate, cache=cache, refresh=refresh)
 
 
 
     def refreshData(self):
         self.data=pd.read_json(self.series[self.id]['url'])
+
 
 
     def processData(self):

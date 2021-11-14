@@ -7,34 +7,29 @@ from .. import MarketIndex
 
 class YahooMarketIndex(MarketIndex):
     """
-    Any market index from Yahoo Finance
+    Any market index from Yahoo Finance.
+
+    Pass to name attribute index names such as `^DJI` (Dow Jones), `^IXIC` (NASDAQ) etc.
+
     """
 
     url='https://query1.finance.yahoo.com/v7/finance/download/{ticker}?period1={start}&period2={now}&interval=1d&events=history&includeAdjustedClose=true'
 
     def __init__(self, name, friendlyName=None, currency='USD', isRate=False, cache=None, refresh=False):
         super().__init__(
-            type='YahooMarketIndex',
-            id=name,
-            currency=currency,
-            isRate=isRate,
-            cache=cache,
-            refresh=refresh
+            kind     = 'YahooMarketIndex',
+            id       = name,
+            currency = currency,
+            isRate   = isRate,
+            cache    = cache,
+            refresh  = refresh
         )
 
         self.friendlyName=friendlyName
 
 
+
     def refreshData(self):
-#         self.data = pdr.DataReader([self.id], data_source='yahoo')
-
-
-        print(self.url.format(
-                ticker=self.id,
-                start=round(datetime.datetime(1900,1,1).timestamp()),
-                now=round(datetime.datetime.utcnow().timestamp()+3600*24)
-            ))
-
         self.data=pd.read_csv(
             self.url.format(
                 ticker=self.id,
@@ -66,6 +61,7 @@ class YahooMarketIndex(MarketIndex):
 
         # Compute rate from daily values
         self.data['rate']=self.data['value']/self.data.shift()['value']-1
+
 
 
     def __str__(self):

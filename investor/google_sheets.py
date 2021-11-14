@@ -2,9 +2,10 @@ import os
 import datetime
 import pickle
 import logging
+import concurrent.futures
 import pandas as pd
 
-# python3 -m pip install -U google-api-python-client google-auth-httplib2 google-auth-oauthlib
+# python3 -m pip install -U google-api-python-client google-auth-httplib2 google-auth-oauthlib pandas_datareader --user
 
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -103,10 +104,10 @@ class GoogleSheetsBalanceAndLedger(object):
         self.balance = None
 
         if cache is not None:
-            self.logger.debug(cache)
-            self.ledger  = cache.get(type='ledger',  id=self.sheetStructure['sheet'])
-            self.balance = cache.get(type='balance', id=self.sheetStructure['sheet'])
-            self.asof    = cache.last(type='balance', id=self.sheetStructure['sheet'])
+#             self.logger.debug(cache)
+            self.ledger  = cache.get(kind='ledger',  id=self.sheetStructure['sheet'])
+            self.balance = cache.get(kind='balance', id=self.sheetStructure['sheet'])
+            self.asof    = cache.last(kind='balance', id=self.sheetStructure['sheet'])
 
         if refresh or self.ledger is None or self.balance is None:
             if os.path.exists('token.pickle'):
@@ -130,24 +131,46 @@ class GoogleSheetsBalanceAndLedger(object):
                     pickle.dump(self.creds, token)
 
 
-            self.ledger=self.getMonetarySheet(
-                sheetID            = self.sheetStructure['sheet'],
-                sheetRange         = self.sheetStructure['ledger']['sheetRange'],
-                columnsProfile     = self.sheetStructure['ledger']['columns']
-            )
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+                ledgerThread=executor.submit(
+                    self.getMonetarySheet,
+                    **dict(
+                        sheetID            = self.sheetStructure['sheet'],
+                        sheetRange         = self.sheetStructure['ledger']['sheetRange'],
+                        columnsProfile     = self.sheetStructure['ledger']['columns']
+                    )
+                )
 
+                balanceThread=executor.submit(
+                    self.getMonetarySheet,
+                    **dict(
+                        sheetID            = self.sheetStructure['sheet'],
+                        sheetRange         = self.sheetStructure['balance']['sheetRange'],
+                        columnsProfile     = self.sheetStructure['balance']['columns']
+                    )
+                )
 
-            self.balance=self.getMonetarySheet(
-                sheetID            = self.sheetStructure['sheet'],
-                sheetRange         = self.sheetStructure['balance']['sheetRange'],
-                columnsProfile     = self.sheetStructure['balance']['columns']
-            )
+            self.ledger=ledgerThread.result()
+            self.balance=balanceThread.result()
+
+#             self.ledger=self.getMonetarySheet(
+#                 sheetID            = self.sheetStructure['sheet'],
+#                 sheetRange         = self.sheetStructure['ledger']['sheetRange'],
+#                 columnsProfile     = self.sheetStructure['ledger']['columns']
+#             )
+#
+#
+#             self.balance=self.getMonetarySheet(
+#                 sheetID            = self.sheetStructure['sheet'],
+#                 sheetRange         = self.sheetStructure['balance']['sheetRange'],
+#                 columnsProfile     = self.sheetStructure['balance']['columns']
+#             )
 
             self.asof=pd.Timestamp.utcnow()
 
             if cache:
-                cache.set(type='ledger',  id=self.sheetStructure['sheet'], data=self.ledger)
-                cache.set(type='balance', id=self.sheetStructure['sheet'], data=self.balance)
+                cache.set(kind='ledger',  id=self.sheetStructure['sheet'], data=self.ledger)
+                cache.set(kind='balance', id=self.sheetStructure['sheet'], data=self.balance)
 
         self.ledger['time']  = pd.to_datetime(self.ledger['time'])
         self.balance['time'] = pd.to_datetime(self.balance['time'])
@@ -155,7 +178,6 @@ class GoogleSheetsBalanceAndLedger(object):
         # asof has UTC time, convert to TZ-aware localtime
         utcoffset=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
         self.asof=self.asof.tz_convert(utcoffset)
-
 
 
 
@@ -237,7 +259,3 @@ class GoogleSheetsBalanceAndLedger(object):
             # convert to tuples
             .itertuples(index=False, name=None)
         )
-
-
-
-

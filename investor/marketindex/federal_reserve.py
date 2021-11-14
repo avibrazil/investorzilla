@@ -7,9 +7,13 @@ from .. import MarketIndex
 class FREDMarketIndex(MarketIndex):
     """
     Any market index from https://fred.stlouisfed.org/categories/32255
+
+    Use the tag in the URL in the `name` parameter. For example, in the page above,
+    the `S&P 500` has URL https://fred.stlouisfed.org/series/SP500, so use name=SP500.
+
     """
     def __init__(self, name, isRate=False, cache=None, refresh=False):
-        super().__init__(type='DataReaderFRED', id=name, currency='USD', isRate=isRate, cache=cache, refresh=refresh)
+        super().__init__(kind='DataReaderFRED', id=name, currency='USD', isRate=isRate, cache=cache, refresh=refresh)
 
 
     def refreshData(self):

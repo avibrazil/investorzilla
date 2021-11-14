@@ -1,5 +1,5 @@
-import sqlite3
 import logging
+import sqlalchemy
 import pandas as pd
 
 
@@ -9,29 +9,82 @@ import pandas as pd
 class DataCache(object):
     idCol       = '__DataCache_id'
     timeCol     = '__DataCache_time'
-    typeTable   = 'DataCache__{type}'
+    typeTable   = 'DataCache__{kind}'
 
 
 
-    def __init__(self, dbFile='cache.db', recycle=5):
-        self.dbFile=dbFile
+    def __init__(self, url='sqlite:///cache.db', recycle=5):
+        self.url=url
+        self.db=None
         self.recycle=recycle
 
         # Setup logging
-        self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
+        self.getLogger()
 
+        self.getDB()
 
 
     def __repr__(self):
-        return 'DataCache(dbFile={db},recycle={recycle})'.format(db=self.dbFile,recycle=self.recycle)
+        return 'DataCache(url={url},recycle={recycle})'.format(url=self.url,recycle=self.recycle)
 
 
-    def last(self, type, id):
+
+#     def __del__(self):
+#         if hasattr(self,'db') and self.db:
+#             self.db.close()
+#             self.db=None
+
+
+
+    def __getstate__(self):
+        o = self.__dict__
+        o.update(
+            dict(
+                db = None,
+                logger = None
+            )
+        )
+        return o
+
+
+
+    def getLogger(self):
+        if hasattr(self,'logger')==False or self.logger is None:
+            self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
+
+        return self.logger
+
+
+    def getDB(self):
+        sqlite_fake_multithreading=dict(
+            poolclass         = sqlalchemy.pool.QueuePool,
+            pool_size         = 1,
+            max_overflow      = 0,
+
+            # virtually wait forever until the used connection is freed
+            pool_timeout      = 3600.0
+        )
+
+        if hasattr(self,'db')==False or self.db is None:
+            self.db=sqlalchemy.create_engine(
+                url = self.url,
+                **sqlite_fake_multithreading
+            )
+
+        return self.db
+
+
+
+
+
+
+
+    def last(self, kind, id):
         """
-        Return last time data was updated on cache for this type and id
+        Return last time data was updated on cache for this kind and id
         """
 
-        table=self.typeTable.format(type=type)
+        table=self.typeTable.format(kind=kind)
 
         q='''
             SELECT max({timeCol}) AS last
@@ -39,7 +92,7 @@ class DataCache(object):
             WHERE {idCol} = '{id}'
         '''
 
-        self.db=sqlite3.connect(self.dbFile)
+        self.getDB()
 
         query=q.format(
             typeTable=table,
@@ -49,23 +102,22 @@ class DataCache(object):
         )
 
         try:
-            self.logger.debug(f'Trying cache as {query}')
+            self.getLogger().debug(f'Trying cache as {query}')
 
             df=pd.read_sql(query,con=self.db)
-            self.db.close()
 
             if df.shape[0]>0:
-                self.logger.debug(f"Successful cache hit for type={type} and id={id}")
+                self.logger.debug(f"Successful cache hit for kind={kind} and id={id}")
                 df['last']=pd.to_datetime(df['last'])
                 ret=df['last'][0]
                 if ret.tzinfo is None or ret.tzinfo.utcoffset(ret) is None:
                     ret=ret=ret.tz_localize('UTC')
             else:
-                self.logger.info(f"Cache empty for type={type} and id={id}")
+                self.getLogger().info(f"Cache empty for kind={kind} and id={id}")
                 ret=None
         except Exception as e:
-            self.logger.info(f"No cache for type={type} and id={id}")
-            self.logger.info(e)
+            self.getLogger().info(f"No cache for kind={kind} and id={id}")
+            self.getLogger().info(e)
             ret=None
 
 
@@ -73,16 +125,16 @@ class DataCache(object):
 
 
 
-    def get(self, type, id, time=None):
+    def get(self, kind, id, time=None):
         """
-        type leads to table DataCache_{type}
+        kind leads to table DataCache_{kind}
 
         id is written to column __DataCache_id
 
         time makes it search on column __DataCache_time for entries with id recent up to time
         """
 
-        table=self.typeTable.format(type=type)
+        table=self.typeTable.format(kind=kind)
 
         if time is None:
             pointInTime='''
@@ -131,31 +183,29 @@ class DataCache(object):
             pointInTime=pointInTime
         )
 
-        self.db=sqlite3.connect(self.dbFile)
+        self.getDB()
 
         try:
-            self.logger.debug(f'Trying cache as {query}')
+            self.getLogger().debug(f'Trying cache as {query}')
 
             df=pd.read_sql(query,con=self.db)
-            self.db.close()
 
             if df.shape[0]>0:
-                self.logger.debug(f"Successful cache hit for type={type} and id={id}")
+                self.getLogger().debug(f"Successful cache hit for kind={kind} and id={id}")
                 ret=df.drop(columns=[self.timeCol,self.idCol])
             else:
-                self.logger.info(f"Cache empty for type={type} and id={id}")
+                self.getLogger().info(f"Cache empty for kind={kind} and id={id}")
                 ret=None
         except Exception as e:
-            self.logger.info(f"No cache for type={type} and id={id}")
-            self.logger.info(e)
+            self.getLogger().info(f"No cache for kind={kind} and id={id}")
+            self.getLogger().info(e)
             ret=None
-
 
         return ret
 
 
 
-    def cleanOld(self, type, id):
+    def cleanOld(self, kind, id):
         cleanQuery='''
             DELETE
             FROM {typeTable}
@@ -171,20 +221,20 @@ class DataCache(object):
 
         if self.recycle is not None:
             cleanQuery=cleanQuery.format(
-                typeTable=self.typeTable.format(type=type),
-                idCol=self.idCol,
-                timeCol=self.timeCol,
-                id=id,
-                recycle=self.recycle
+                typeTable    = self.typeTable.format(kind=kind),
+                idCol        = self.idCol,
+                timeCol      = self.timeCol,
+                id           = id,
+                recycle      = self.recycle
             )
 
-            self.db.execute(cleanQuery)
+            self.getDB().execute(cleanQuery)
 
 
 
-    def set(self, type, id, data):
+    def set(self, kind, id, data):
         """
-        type leads to table DataCache_{type}
+        kind leads to table DataCache_{kind}
 
         id is written to column __DataCache_id
 
@@ -199,18 +249,15 @@ class DataCache(object):
         d[self.timeCol]=pd.Timestamp.utcnow()
 
 
-        self.db=sqlite3.connect(self.dbFile)
+        self.getLogger().info(f'Set cache to kind={kind}, id={id}, time={d[self.timeCol]}')
 
         d[[self.idCol,self.timeCol] + columns].to_sql(
-            self.typeTable.format(type=type),
-            index=False,
-            if_exists='append',
-            con=self.db,
-            method='multi'
+            self.typeTable.format(kind=kind),
+            index       = False,
+            if_exists   = 'append',
+            chunksize   = 999,
+            con         = self.getDB(),
+            method      = 'multi'
         )
 
-        self.cleanOld(type,id)
-
-        self.db.close()
-
-
+        self.cleanOld(kind, id)

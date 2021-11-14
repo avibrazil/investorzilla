@@ -1,5 +1,4 @@
 import datetime
-import logging
 import urllib
 import requests
 import pandas as pd
@@ -9,8 +8,10 @@ from .. import CurrencyConverter
 
 class CryptoCompareCurrencyConverter(CurrencyConverter):
     """
-    Crypto currency converter with data from
+    Crypto currency converter to USD with data from
     https://min-api.cryptocompare.com/documentation?key=Historical&cat=dataSymbolHistoday
+
+    Pass to currencyFrom crypto names such as `BTC`, `ETH` etc.
     """
 
     api='https://min-api.cryptocompare.com/data/v2/histoday?fsym={cfrom}&tsym={cto}&limit=2000&toTs={maxTime}&api_key={key}'
@@ -23,13 +24,12 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
             currencyFrom  = currencyFrom,
             currencyTo    = 'USD',
 
-            type          = 'CryptoCompareCurrencyConverter',
+            kind          = 'CryptoCompareCurrencyConverter',
             id            = currencyFrom,
 
             cache         = cache,
             refresh       = refresh
         )
-
 
 
 
@@ -68,6 +68,7 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
                 maxTime=data['Data']['TimeFrom']
 
         self.data = self.data[self.data.close != 0]
+
 
 
     def processData(self):

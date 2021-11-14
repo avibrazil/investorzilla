@@ -51,40 +51,46 @@ class Fund(object):
 
     periodPairs=[
         dict(
-            period='D',
-            periodLabel='day',
-            periodFormatter='%w·%a',
+            period                     = 'D',
+            periodLabel                = 'day',
+            periodFormatter            = '%w·%a',
 
-            macroPeriod='W',
-            macroPeriodLabel='week',
-            macroPeriodFormatter='%Y-w%U'
+            macroPeriod                = 'W',
+            macroPeriodLabel           = 'week',
+            macroPeriodFormatter       = '%Y-w%U'
         ),
-        dict(
-            period='M',
-            periodLabel='month',
-            periodFormatter='%m·%b',
 
-            macroPeriod='Y',
-            macroPeriodLabel='year',
-            macroPeriodFormatter='%Y'
+
+        dict(
+            period                     = 'M',
+            periodLabel                = 'month',
+            periodFormatter            = '%m·%b',
+
+            macroPeriod                = 'Y',
+            macroPeriodLabel           = 'year',
+            macroPeriodFormatter       = '%Y'
         ),
-        dict(
-            period='Q',
-            periodLabel='quarter',
-            periodFormatter='%m',
 
-            macroPeriod='Y',
-            macroPeriodLabel='year',
-            macroPeriodFormatter='%Y'
+
+        dict(
+            period                     = 'Q',
+            periodLabel                = 'quarter',
+            periodFormatter            = '%m',
+
+            macroPeriod                = 'Y',
+            macroPeriodLabel           = 'year',
+            macroPeriodFormatter       = '%Y'
         ),
-        dict(
-            period='SM',
-            periodLabel='month half',
-            periodFormatter='%d',
 
-            macroPeriod='M',
-            macroPeriodLabel='month',
-            macroPeriodFormatter='%m'
+
+        dict(
+            period                     = 'SM',
+            periodLabel                = 'month half',
+            periodFormatter            = '%d',
+
+            macroPeriod                = 'M',
+            macroPeriodLabel           = 'month',
+            macroPeriodFormatter       = '%m'
         )
     ]
 
@@ -578,7 +584,7 @@ class Fund(object):
             # Pair with Benchmark
             report=pd.merge_asof(
                 report,
-                benchmark.data[['value']].rename(columns={'value': KPI.BENCHMARK}),
+                benchmark.getData()[['value']].rename(columns={'value': KPI.BENCHMARK}),
                 left_index=True,
                 right_index=True
             )
@@ -644,7 +650,7 @@ class Fund(object):
 
             # The pct_change() above yields ∞ at the first line, so fix it manually
             report.loc[report.index[0],KPI.BENCHMARK_RATE_RETURN]=(
-                (report.loc[report.index[0],KPI.BENCHMARK]/benchmark.data['value'].asof(startOfReport))-1
+                (report.loc[report.index[0],KPI.BENCHMARK]/benchmark.getData()['value'].asof(startOfReport))-1
             )
 
             # Compute fund excess growth over benchmark

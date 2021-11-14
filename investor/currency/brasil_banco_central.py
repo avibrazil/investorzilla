@@ -22,7 +22,7 @@ class BCBCurrencyConverter(CurrencyConverter):
             currencyFrom  = currencyFrom,
             currencyTo    = 'BRL',
 
-            type          = 'BCBCurrencyConverter',
+            kind          = 'BCBCurrencyConverter',
             id            = currencyFrom,
 
             cache         = cache,
@@ -51,11 +51,13 @@ class BCBCurrencyConverter(CurrencyConverter):
 
         response=requests.get(ptax,params=ptaxParamsStr)
 
-        logging.debug(response.content[:700])
+#         logging.debug(response.content[:700])
 
         self.data=pd.DataFrame(response.json()['value'])
 
         self.data.rename(columns={'dataHoraCotacao': 'time'}, inplace=True)
+
+#         print(self.data.head())
 
 
 
