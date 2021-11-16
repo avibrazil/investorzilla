@@ -357,6 +357,8 @@ class StreamlitInvestorApp:
                 else:
                     raise Exception(f'Can’t find "{item.kind}" CurrencyConverter to make a MarketIndex from.')
 
+        st.session_state.benchmarks.sort()
+
 
 
     def make_state(self, refresh=False):

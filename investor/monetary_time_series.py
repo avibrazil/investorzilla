@@ -31,6 +31,18 @@ class MonetaryTimeSeries(object):
 
 
 
+    def __lt__(self, other):
+        # Make Streamlit happy
+        return str(self) < str(other)
+
+
+
+    def __gt__(self, other):
+        # Make Streamlit happy
+        return str(self) > str(other)
+
+
+
     def tryCacheData(self, kind, id, cache=None):
         if cache is not None:
             self.data=cache.get(kind=kind, id=id)
