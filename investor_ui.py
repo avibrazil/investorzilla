@@ -12,6 +12,7 @@ import pandas as pd
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
+# Import your configuration as portfolio, currencies and market indexes
 from investor_ui_config import context
 
 import investor
@@ -37,12 +38,12 @@ class StreamlitInvestorApp:
     def __init__(self, refresh=False):
 
         # Private var is needed instead of streamlit.session_state due to parallelism
-        self._state={}
+#         self._state={}
 
-        st.session_state['cache_file']              = context['cache_file']
-        st.session_state['crypto_compare_apiKey']   = context['crypto_compare_apiKey']
-        st.session_state['google_credentials_file'] = context['google_credentials_file']
-        st.session_state['finance_sheet_structure'] = context['finance_sheet_structure']
+#         st.session_state['cache_file']              = context['cache_file']
+#         st.session_state['crypto_compare_apiKey']   = context['crypto_compare_apiKey']
+#         st.session_state['google_credentials_file'] = context['google_credentials_file']
+#         st.session_state['finance_sheet_structure'] = context['finance_sheet_structure']
 
 
 
@@ -59,7 +60,6 @@ class StreamlitInvestorApp:
                     ('cache' not in st.session_state)
             ):
             # Data needs refresh or App running from scratch
-#             self.make_state(refresh=st.session_state['refresh'])
             self.make_state(refresh=refresh)
 
 
@@ -72,7 +72,6 @@ class StreamlitInvestorApp:
 
 
         self.update_content()
-
 
 
 
@@ -282,7 +281,139 @@ class StreamlitInvestorApp:
 
 
 
+    def work_on_task(self, part, klass, params):
+        # Set thread context to make Streamlit happy
+        # https://stackoverflow.com/a/69363860/367824
+        st.report_thread.add_report_ctx(threading.currentThread(), self.thread_context)
 
+        params.update(
+            dict(
+                cache             = st.session_state.cache,
+                refresh           = (
+                    st.session_state.refresh_portfolio
+                    if part == 'portfolio'
+                    else st.session_state.refresh_market
+                )
+            )
+        )
+
+        return klass(**params)
+
+
+
+    def get_investor_data(self, part, executor):
+        """
+        Returns Future tasks being executed in parallel.
+        Requires post processing by concurrent.futures.as_completed()
+        """
+
+        tasks={}
+
+        for desc in context[part]:
+            if 'klass' in desc:
+                task=executor.submit(
+                    self.work_on_task,
+                    part,
+                    desc['klass'],
+                    desc['params']
+                )
+                tasks[task]=(part,desc)
+
+        return tasks
+
+
+
+    def augment_investor_data(self):
+        for item in context['benchmarks']:
+            if 'kind' in item and item['kind'] == 'from_currency_converter':
+                curFrom = item['from_to'][:3]
+                curTo   = item['from_to'][3:]
+
+                benchmark_signature = '[{currency}] {name}'.format(
+                    name=item['from_to'],
+                    currency=curTo
+                )
+
+                # Check if this CurrencyConvert-derived benchmark is already in
+                for bi in range(len(st.session_state.benchmarks)):
+                    if str(st.session_state.benchmarks[bi]) == benchmark_signature:
+                        if st.session_state.refresh_market:
+                            del st.session_state.benchmarks[bi]
+                            break
+
+                cc_as_mi=None
+
+                # Scan all currency converters we have to find a match
+                for cc in st.session_state.currency_converters:
+                    if curFrom == cc.currencyFrom and curTo == cc.currencyTo:
+                        cc_as_mi=investor.MarketIndex().fromCurrencyConverter(cc)
+                        break
+                    elif curTo == cc.currencyFrom and curFrom == cc.currencyTo:
+                        cc_as_mi=investor.MarketIndex().fromCurrencyConverter(cc.invert())
+                        break
+
+                if cc_as_mi:
+                    st.session_state.benchmarks.append(cc_as_mi)
+                else:
+                    raise Exception(f'Can’t find "{item.kind}" CurrencyConverter to make a MarketIndex from.')
+
+
+
+    def make_state(self, refresh=False):
+        if 'cache' not in st.session_state:
+            st.session_state['cache']=investor.DataCache(context['cache_database'])
+
+        st.session_state['refresh_portfolio'] = st.session_state.interact_refresh_both or st.session_state.interact_refresh_portfolio
+        st.session_state['refresh_market']    = st.session_state.interact_refresh_both or st.session_state.interact_refresh_market
+        self.thread_context                   = st.report_thread.get_report_ctx()
+
+        executor = concurrent.futures.ThreadPoolExecutor()
+        tasks = dict()
+
+        refresh_map = [
+            ('portfolio',              st.session_state.refresh_portfolio),
+            ('currency_converters',    st.session_state.refresh_market),
+            ('benchmarks',             st.session_state.refresh_market),
+        ]
+
+        # Trigger all portfolio/benchmark/currency data load tasks in parallel
+        for ref in refresh_map:
+            if ref[1] or ref[0] not in st.session_state:
+                if ref[0] in st.session_state:
+                    del st.session_state[ref[0]]
+                tasks.update(self.get_investor_data(ref[0], executor))
+
+        # Wait for all parallel data loading to complete
+        for task in concurrent.futures.as_completed(tasks):
+            if tasks[task][0] in st.session_state:
+                st.session_state[tasks[task][0]].append(task.result())
+            else:
+                st.session_state[tasks[task][0]]=[task.result()]
+
+        executor.shutdown()
+
+        if st.session_state.refresh_market or 'exchange' not in st.session_state:
+            st.session_state['exchange']=investor.CurrencyExchange('USD')
+
+            # Put all CurrencyConverters in a single useful CurrencyExchange machine
+            for curr in st.session_state['currency_converters']:
+                st.session_state.exchange.addCurrency(curr)
+
+        #
+        # At this point we have all that is required for the app:
+        # - st.session_state.portfolio containing balance and ledger
+        # - st.session_state.exchange with flexible currency converters
+        # - st.session_state.benchmarks with market indexes etc
+        #
+        # Now construct some derivate objects such as:
+        # - Market indexes from currency converters
+        # - An actual composite fund from a UI-selected part of the portfolio
+        #
+
+        # Scan and do whatever else is required
+        self.augment_investor_data()
+
+#         self.update_content_fund()
 
 
 
@@ -374,336 +505,8 @@ class StreamlitInvestorApp:
 
 
 
-    def work_on_task(self, stItem, task, params, thread_context):
-        st.report_thread.add_report_ctx(threading.currentThread(), thread_context)
-
-        params.update(
-            dict(
-                cache             = st.session_state.cache,
-                refresh           = (
-                    st.session_state.refresh_portfolio
-                    if stItem=='portfolio'
-                    else st.session_state.refresh_market
-                )
-            )
-        )
-
-        if stItem in st.session_state:
-            st.session_state[stItem].append(task(**params))
-        else:
-            st.session_state[stItem]=[task(**params)]
 
 
-
-    work_description = [
-        dict(
-            stItem='portfolio',
-            task=investor.GoogleSheetsBalanceAndLedger,
-            params=dict(
-                sheetStructure    = context['finance_sheet_structure'],
-                credentialsFile   = context['google_credentials_file']
-            )
-        ),
-
-        dict(
-            stItem='currency_converters',
-            task=currency_bcb.BCBCurrencyConverter,
-            params=dict(
-                currencyFrom='USD',
-            )
-        ),
-
-        dict(
-            stItem='currency_converters',
-            task=currency_bcb.BCBCurrencyConverter,
-            params=dict(
-                currencyFrom='EUR',
-            )
-        ),
-
-        dict(
-            stItem='currency_converters',
-            task=currency_cryptocompare.CryptoCompareCurrencyConverter,
-            params=dict(
-                currencyFrom='BTC',
-                apiKey=context['crypto_compare_apiKey']
-            )
-        ),
-
-        dict(
-            stItem='currency_converters',
-            task=currency_cryptocompare.CryptoCompareCurrencyConverter,
-            params=dict(
-                currencyFrom='ETH',
-                apiKey=context['crypto_compare_apiKey']
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_bcb.BCBMarketIndex,
-            params=dict(
-                name='IPCA',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_bcb.BCBMarketIndex,
-            params=dict(
-                name='CDI',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_bcb.BCBMarketIndex,
-            params=dict(
-                name='SELIC',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_bcb.BCBMarketIndex,
-            params=dict(
-                name='IGPM',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_bcb.BCBMarketIndex,
-            params=dict(
-                name='INPC',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_yahoo.YahooMarketIndex,
-            params=dict(
-                name='^BVSP',
-                friendlyName='Índice BoVESPa (^BVSP)',
-                currency='BRL',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_yahoo.YahooMarketIndex,
-            params=dict(
-                name='^GSPC',
-                friendlyName='S&P 500 (^GSPC)',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_yahoo.YahooMarketIndex,
-            params=dict(
-                name='^DJI',
-                friendlyName='Dow Jones (^DJI)',
-            )
-        ),
-
-        dict(
-            stItem='benchmarks',
-            task=mktidx_yahoo.YahooMarketIndex,
-            params=dict(
-                name='^IXIC',
-                friendlyName='NASDAQ (^IXIC)',
-            )
-        )
-    ]
-
-
-
-    def make_state(self,refresh=False):
-        if 'cache' not in st.session_state:
-            st.session_state['cache']=investor.DataCache(st.session_state.cache_file)
-#         self.cache=investor.DataCache(st.session_state['cache_file'])
-
-#         self.refresh=refresh
-        st.session_state['refresh_portfolio'] = st.session_state.interact_refresh_both or st.session_state.interact_refresh_portfolio
-        st.session_state['refresh_market']    = st.session_state.interact_refresh_both or st.session_state.interact_refresh_market
-
-
-#         with concurrent.futures.ThreadPoolExecutor() as executor:
-#             thread_context = st.report_thread.get_report_ctx()
-#
-#             # Trigger all work in parallel
-#             futureWorks = {
-#                 executor.submit(
-#                     self.work_on_task,
-#                     work['stItem'],
-#                     work['task'],
-#                     work['params'],
-#                     thread_context
-#                 ): work for work in self.work_description
-#             }
-#
-# #             print(futureWorks)
-#
-#             # Wait for finish and collect results
-#             for future in concurrent.futures.as_completed(futureWorks):
-#                 future.result()  # Raise any exception here
-#                 work = futureWorks[future]
-#                 print('Done {}'.format(work['task']))
-#
-#         # st.session_state.update(self._state)
-
-
-
-
-
-
-
-
-#         self.get_portfolio()
-#         self.get_currencies()
-#         self.get_market()
-#         ---
-#         integrate()
-#         fund()
-
-
-
-
-
-
-
-
-
-
-
-
-        st.session_state['portfolio']=[investor.GoogleSheetsBalanceAndLedger(
-            sheetStructure    = st.session_state.finance_sheet_structure,
-            credentialsFile   = st.session_state.google_credentials_file,
-            cache             = st.session_state.cache,
-            refresh           = st.session_state.refresh_portfolio
-        )]
-
-
-        if 'currency_converters' not in st.session_state or st.session_state.refresh_market:
-            st.session_state['currency_converters']=dict(
-                usdbrl=currency_bcb.BCBCurrencyConverter(
-                    currencyFrom       = 'USD',
-                    cache              = st.session_state.cache,
-                    refresh            = st.session_state.refresh_market
-                ),
-
-                eurbrl=currency_bcb.BCBCurrencyConverter(
-                    currencyFrom       = 'EUR',
-                    cache              = st.session_state.cache,
-                    refresh            = st.session_state.refresh_market
-                ),
-
-                btcusd=currency_cryptocompare.CryptoCompareCurrencyConverter(
-                    currencyFrom       = 'BTC',
-                    apiKey             = st.session_state.crypto_compare_apiKey,
-                    cache              = st.session_state.cache,
-                    refresh            = st.session_state.refresh_market
-                ),
-
-                ethusd=currency_cryptocompare.CryptoCompareCurrencyConverter(
-                    currencyFrom       = 'ETH',
-                    apiKey             = st.session_state.crypto_compare_apiKey,
-                    cache              = st.session_state.cache,
-                    refresh            = st.session_state.refresh_market
-                ),
-            )
-
-            brlusd=copy.deepcopy(st.session_state.currency_converters['usdbrl'])
-            brlusd.invert()
-
-            curr=st.session_state.currency_converters
-
-            st.session_state.exchange=investor.CurrencyExchange('BRL').addCurrency(curr['usdbrl'])
-
-            for c in curr:
-                if curr[c].currencyFrom not in st.session_state['exchange'].currencies():
-                    # If converter still not added to exchange...
-                    st.session_state['exchange']=st.session_state['exchange'].setTarget(curr[c].currencyTo)
-                    st.session_state['exchange']=st.session_state['exchange'].addCurrency(curr[c])
-
-        if 'benchmarks' not in st.session_state or st.session_state.refresh_market:
-            st.session_state['benchmarks']=[
-                (
-                    investor.MarketIndex()
-                    .fromCurrencyConverter(st.session_state.currency_converters['usdbrl'])
-                ),
-                (
-                    investor.MarketIndex()
-                    .fromCurrencyConverter(st.session_state.currency_converters['eurbrl'])
-                ),
-                (
-                    investor.MarketIndex()
-                    .fromCurrencyConverter(brlusd)
-                ),
-                (
-                    investor.MarketIndex()
-                    .fromCurrencyConverter(st.session_state.currency_converters['btcusd'])
-                ),
-                (
-                    investor.MarketIndex()
-                    .fromCurrencyConverter(st.session_state.currency_converters['ethusd'])
-                ),
-                mktidx_bcb.BCBMarketIndex(
-                    name='IPCA',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_bcb.BCBMarketIndex(
-                    name='CDI',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_bcb.BCBMarketIndex(
-                    name='SELIC',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_bcb.BCBMarketIndex(
-                    name='IGPM',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_bcb.BCBMarketIndex(
-                    name='INPC',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_yahoo.YahooMarketIndex(
-                    name='^BVSP',
-                    friendlyName='Índice BoVESPa (^BVSP)',
-                    currency='BRL',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_yahoo.YahooMarketIndex(
-                    name='^GSPC',
-                    friendlyName='S&P 500 (^GSPC)',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_yahoo.YahooMarketIndex(
-                    name='^DJI',
-                    friendlyName='Dow Jones (^DJI)',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-                mktidx_yahoo.YahooMarketIndex(
-                    name='^IXIC',
-                    friendlyName='NASDAQ (^IXIC)',
-                    cache=st.session_state.cache,
-                    refresh=st.session_state.refresh_market
-                ),
-            ]
-
-
-        self.update_content_fund()
 
 
 

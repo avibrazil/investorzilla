@@ -25,7 +25,10 @@ class DataCache(object):
 
 
     def __repr__(self):
-        return 'DataCache(url={url},recycle={recycle})'.format(url=self.url,recycle=self.recycle)
+        return 'DataCache(url={url},recycle={recycle})'.format(
+            url=self.url,
+            recycle=self.recycle
+        )
 
 
 
@@ -75,10 +78,6 @@ class DataCache(object):
 
 
 
-
-
-
-
     def last(self, kind, id):
         """
         Return last time data was updated on cache for this kind and id
@@ -95,10 +94,10 @@ class DataCache(object):
         self.getDB()
 
         query=q.format(
-            typeTable=table,
-            idCol=self.idCol,
-            timeCol=self.timeCol,
-            id=id
+            typeTable     = table,
+            idCol         = self.idCol,
+            timeCol       = self.timeCol,
+            id            = id
         )
 
         try:
@@ -160,11 +159,11 @@ class DataCache(object):
             '''
 
         pointInTime=pointInTime.format(
-            timeCol=self.timeCol,
-            time=time,
-            idCol=self.idCol,
-            id=id,
-            typeTable=table
+            timeCol      = self.timeCol,
+            time         = time,
+            idCol        = self.idCol,
+            id           = id,
+            typeTable    = table
         )
 
         query='''
@@ -176,11 +175,11 @@ class DataCache(object):
         '''
 
         query=query.format(
-            typeTable=table,
-            idCol=self.idCol,
-            timeCol=self.timeCol,
-            id=id,
-            pointInTime=pointInTime
+            typeTable    = table,
+            idCol        = self.idCol,
+            timeCol      = self.timeCol,
+            id           = id,
+            pointInTime  = pointInTime
         )
 
         self.getDB()
@@ -246,10 +245,11 @@ class DataCache(object):
         columns=list(d.columns)
 
         d[self.idCol]=id
-        d[self.timeCol]=pd.Timestamp.utcnow()
+        now=pd.Timestamp.utcnow()
+        d[self.timeCol]=now
 
 
-        self.getLogger().info(f'Set cache to kind={kind}, id={id}, time={d[self.timeCol]}')
+        self.getLogger().info(f'Set cache to kind={kind}, id={id}, time={now}')
 
         d[[self.idCol,self.timeCol] + columns].to_sql(
             self.typeTable.format(kind=kind),

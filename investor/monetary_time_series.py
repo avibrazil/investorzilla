@@ -1,3 +1,4 @@
+import copy
 import pandas as pd
 from . import DataCache
 
@@ -19,6 +20,8 @@ class MonetaryTimeSeries(object):
         self.kind=kind
         self.nextRefresh=refresh
         self.cache=cache
+
+        self.getData()
 
 
 
@@ -103,24 +106,34 @@ class CurrencyConverter(MonetaryTimeSeries):
 
 
     def invert(self):
-        self.getData()
-        self.data['value']=1/self.data['value']
-        to=self.currencyTo
-        self.currencyTo=self.currencyFrom
-        self.currencyFrom=to
+        """
+        Return a new object with switched currencies.
 
-        return self
+        So if data is ready to convert from BRL to USD (USD=BRL×data), new object, with
+        converted data, works from USD to BRL (BRL=USD×data).
+        """
+
+        inverted = CurrencyConverter(
+            currencyFrom    = self.currencyTo,
+            currencyTo      = self.currencyFrom,
+            kind            = self.kind,
+            id              = self.currencyTo
+        )
+
+        inverted.data = 1/self.getData()
+
+        return inverted
 
 
 
     def __repr__(self):
         return '{klass}(from={cfrom},to={cto},start={start},end={end},len={length})'.format(
-            cfrom=self.currencyFrom,
-            cto=self.currencyTo,
-            start=self.data.index.min(),
-            end=self.data.index.max(),
-            length=self.data.shape[0],
-            klass=type(self).__name__
+            cfrom           = self.currencyFrom,
+            cto             = self.currencyTo,
+            start           = self.data.index.min(),
+            end             = self.data.index.max(),
+            length          = self.data.shape[0],
+            klass           = type(self).__name__
         )
 
 
