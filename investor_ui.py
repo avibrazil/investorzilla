@@ -112,14 +112,6 @@ class StreamlitInvestorApp:
 
         self.interact_start_end()
 
-        st.markdown('Data good for **{}**'.format(st.session_state.portfolio[0].asof))
-
-        st.markdown('Graph data between **{}** and **{}**'.format(
-            st.session_state.interact_start_end[0],
-            st.session_state.interact_start_end[1]
-        ))
-
-
         st.header('Main Metrics')
         for p in st.session_state['fund'].periodPairs:
             if p['period']==st.session_state.interact_periods:
@@ -273,6 +265,15 @@ class StreamlitInvestorApp:
                 output='flat'
             )
         )
+
+
+        st.markdown('Data good for **{}**'.format(st.session_state.portfolio[0].asof))
+
+        st.markdown('Graph data between **{}** and **{}**'.format(
+            st.session_state.interact_start_end[0],
+            st.session_state.interact_start_end[1]
+        ))
+
 
 
 
