@@ -3,6 +3,7 @@ import logging
 import threading
 import datetime
 import concurrent.futures
+import yaml
 import numpy as np
 import streamlit as st
 import pandas as pd
@@ -13,9 +14,10 @@ logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
 # Import your configuration as portfolio, currencies and market indexes
-from investor_ui_config import context
+# from investor_ui_config import context
 
 import investor
+import investor.google_sheets
 import investor.currency.brasil_banco_central        as currency_bcb
 import investor.currency.cryptocompare               as currency_cryptocompare
 import investor.marketindex.brasil_banco_central     as mktidx_bcb
@@ -36,22 +38,8 @@ import investor.marketindex.yahoo_finance            as mktidx_yahoo
 
 class StreamlitInvestorApp:
     def __init__(self, refresh=False):
-
-        # Private var is needed instead of streamlit.session_state due to parallelism
-#         self._state={}
-
-#         st.session_state['cache_file']              = context['cache_file']
-#         st.session_state['crypto_compare_apiKey']   = context['crypto_compare_apiKey']
-#         st.session_state['google_credentials_file'] = context['google_credentials_file']
-#         st.session_state['finance_sheet_structure'] = context['finance_sheet_structure']
-
-
-
-#         st.session_state['refresh']=refresh
-
         with st.sidebar:
             self.interact_refresh()
-#             st.session_state['refresh']=st.session_state['interact_refresh']
 
         if (
                     st.session_state.interact_refresh_portfolio or
@@ -282,7 +270,12 @@ class StreamlitInvestorApp:
 
 
 
-    def work_on_task(self, part, klass, params):
+    def work_on_task(self, part, thetype, params):
+        """
+        Instantiate an object of the class specified in the YAML file 'type'
+        entry with instrumented parameters from the 'param' entry.
+        """
+
         # Set thread context to make Streamlit happy
         # https://stackoverflow.com/a/69363860/367824
         st.report_thread.add_report_ctx(threading.currentThread(), self.thread_context)
@@ -298,24 +291,27 @@ class StreamlitInvestorApp:
             )
         )
 
-        return klass(**params)
+        return thetype(**params)
 
 
 
     def get_investor_data(self, part, executor):
         """
-        Returns Future tasks being executed in parallel.
-        Requires post processing by concurrent.futures.as_completed()
+        Iterate over each portfolio|currency_converters|benchmarks/type of the
+        pre-loaded YAML file. Call work_on_task() for each.
+        
+        Returns a dict of Future tasks being executed in parallel.
+        Requires post-processing by concurrent.futures.as_completed()
         """
 
         tasks={}
 
-        for desc in context[part]:
-            if 'klass' in desc:
+        for desc in self.context[part]:
+            if 'type' in desc:
                 task=executor.submit(
                     self.work_on_task,
                     part,
-                    desc['klass'],
+                    desc['type'],
                     desc['params']
                 )
                 tasks[task]=(part,desc)
@@ -325,7 +321,7 @@ class StreamlitInvestorApp:
 
 
     def augment_investor_data(self):
-        for item in context['benchmarks']:
+        for item in self.context['benchmarks']:
             if 'kind' in item and item['kind'] == 'from_currency_converter':
                 curFrom = item['from_to'][:3]
                 curTo   = item['from_to'][3:]
@@ -362,38 +358,47 @@ class StreamlitInvestorApp:
 
 
 
-    def make_state(self, refresh=False):
-        if 'cache' not in st.session_state:
-            st.session_state['cache']=investor.DataCache(context['cache_database'])
+    def load_portfolio(self):
+        portfolio="investor_ui_config.yaml"
 
+        with open(portfolio, 'r') as file:
+            self.context = yaml.load(file, Loader=yaml.FullLoader)
+
+
+
+    def make_state(self, refresh=False):
+        self.load_portfolio()
+
+        if 'cache' not in st.session_state:
+            st.session_state['cache']=investor.DataCache(self.context['cache_database'])
+
+        # Collect some flags about what to load from cache, reafresh from Internet etc
         st.session_state['refresh_portfolio'] = st.session_state.interact_refresh_both or st.session_state.interact_refresh_portfolio
         st.session_state['refresh_market']    = st.session_state.interact_refresh_both or st.session_state.interact_refresh_market
         self.thread_context                   = st.report_thread.get_report_ctx()
 
-        executor = concurrent.futures.ThreadPoolExecutor()
-        tasks = dict()
+        with concurrent.futures.ThreadPoolExecutor(thread_name_prefix='load_portfolio') as executor:
+            tasks = dict()
 
-        refresh_map = [
-            ('portfolio',              st.session_state.refresh_portfolio),
-            ('currency_converters',    st.session_state.refresh_market),
-            ('benchmarks',             st.session_state.refresh_market),
-        ]
+            refresh_map = [
+                ('portfolio',              st.session_state.refresh_portfolio),
+                ('currency_converters',    st.session_state.refresh_market),
+                ('benchmarks',             st.session_state.refresh_market),
+            ]
 
-        # Trigger all portfolio/benchmark/currency data load tasks in parallel
-        for ref in refresh_map:
-            if ref[1] or ref[0] not in st.session_state:
-                if ref[0] in st.session_state:
-                    del st.session_state[ref[0]]
-                tasks.update(self.get_investor_data(ref[0], executor))
+            # Trigger all portfolio/benchmark/currency data load tasks in parallel
+            for ref in refresh_map:
+                if ref[1] or ref[0] not in st.session_state:
+                    if ref[0] in st.session_state:
+                        del st.session_state[ref[0]]
+                    tasks.update(self.get_investor_data(ref[0], executor))
 
-        # Wait for all parallel data loading to complete
-        for task in concurrent.futures.as_completed(tasks):
-            if tasks[task][0] in st.session_state:
-                st.session_state[tasks[task][0]].append(task.result())
-            else:
-                st.session_state[tasks[task][0]]=[task.result()]
-
-        executor.shutdown()
+            # Wait for all parallel data loading to complete
+            for task in concurrent.futures.as_completed(tasks):
+                if tasks[task][0] in st.session_state:
+                    st.session_state[tasks[task][0]].append(task.result())
+                else:
+                    st.session_state[tasks[task][0]]=[task.result()]
 
         if st.session_state.refresh_market or 'exchange' not in st.session_state:
             st.session_state['exchange']=investor.CurrencyExchange('USD')

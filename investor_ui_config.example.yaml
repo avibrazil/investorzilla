@@ -1,0 +1,209 @@
+---
+# The Investor app requires 3 things to let you navigate and visualize your
+# portfolio:
+#
+# 1. Your portfolio worksheet
+#    This is a GoogleSheet that contains 2 time series:
+#      a. Dated balance of all your funds
+#      b. All in and out movements from your fund (ledger)
+#    From the funds found in your worksheet, new fund compositions can be
+#    created. In other words you can view two (or more) of your investments as
+#    a new fund, so compound fund share value and number of shares will be
+#    computed. For example, you can view your "Crypto Holds" and "Crypto ETFs"
+#    as one single fund to study movements and performance.
+#
+# 2. Currency converters
+#    The currencies you work with (including crypto) and where to pull
+#    historical data about them.
+#
+# 3. Market benchmarks or indexes
+#    Benchmarks as the Nasdaq index, S&P 500 or simply daily Bitcoin price for
+#    you to compare the performance of your investments.
+#
+# This file describes all of it. Paste its content in tools like
+# https://codebeautify.org/yaml-editor-online to have a more structured view of
+# it.
+# 
+
+
+portfolio:
+    - type: !!python/name:investor.google_sheets.GoogleSheetsBalanceAndLedger ''
+      params:
+        # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
+        credentialsFile: credentials.json
+        sheetStructure:
+            sheet: 1i...so
+            
+            # In here you describe how the BALANCE and LEDGER data is
+            # organized in sheets and columns
+            balance:
+                # The sheet/tab range with your balances
+                sheetRange: Saldos!A:D
+                columns:
+                    # Time is in column called 'Data'
+                    time: Data
+                    
+                    # Name of funds on each row is under this column
+                    fund: Fundo composto
+                    
+                    # Column called 'Saldo USD' contains values in 'USD' and so on.
+                    monetary:
+                        - currency:     BRL
+                          name:         Saldo BRL
+                        - currency:     USD
+                          name:         Saldo USD
+            
+            ledger:
+                # The sheet/tab with all your in and out movements (ledger)
+                sheetRange: Entradas e saidas brutas!A:E
+                columns:
+                    time: Data
+                    fund: Fundo composto
+                    
+                    # Name of columns with random comments
+                    comment: Comentário
+                    monetary:
+                        - currency:     BRL
+                          name:         Movimento BRL
+                        - currency:     USD
+                          name:         Movimento USD
+
+
+
+currency_converters:
+    # Included CurrencyConverter python classes are:
+    # - investor.currency.brasil_banco_central.BCBCurrencyConverter:
+    #       Pulls daily USD/EUR currency data from Banco Central do Brasil,
+    #       compared to BRL.
+    #
+    # - investor.currency.cryptocompare.CryptoCompareCurrencyConverter
+    #       Pulls daily crypto data (BTC/ETH etc) from CryptoCompare,
+    #       compared to USD.
+    
+    # Inside the app there is the investor.monetary_time_series.CurrencyExchange
+    # class that contains many CurrencyConverter’s data and is capable of many
+    # currency conversion operations between them.
+
+    
+
+    # USD➔BRL
+    - type: &BCBCurrencyConverter !!python/name:investor.currency.brasil_banco_central.BCBCurrencyConverter ''
+      params:
+            currencyFrom: USD
+
+    # EUR➔BRL
+    - type: *BCBCurrencyConverter
+      params:
+            currencyFrom: EUR
+
+    # USD➔BTC
+    - type: &CryptoCompareCurrencyConverter !!python/name:investor.currency.cryptocompare.CryptoCompareCurrencyConverter ''
+      params:
+            # Get your API key at https://www.cryptocompare.com/cryptopian/api-keys
+            apiKey: &cckey b1...123
+            currencyFrom: BTC
+
+    # USD➔ETH
+    - type: *CryptoCompareCurrencyConverter
+      params:
+            # Notice how we reference with *cckey a piece of data previously
+            # tagged as &cckey
+            apiKey: *cckey
+            currencyFrom: ETH
+
+
+
+benchmarks:
+    # Describe the benchmarks you want to use.
+    #
+    # Included MarketIndex python classes are:
+    #
+    # - investor.marketindex.brasil_banco_central.BCBMarketIndex
+    #       Pulls Brazilian indexes from Banco Central do Brasil, as INPC, CDI etc
+    #
+    # - investor.marketindex.brasil_banco_central.YahooMarketIndex
+    #       Pulls global indexes from Yahoo Finance
+    #
+    # - investor.marketindex.brasil_banco_central.FREDMarketIndex
+    #       Pulls market indexes from Federal Reserve
+
+
+    - kind: from_currency_converter
+      from_to: BRLUSD
+      
+    - kind: from_currency_converter
+      from_to: USDBRL
+      
+    - kind: from_currency_converter
+      from_to: BTCUSD
+      
+    - type: &BCBMarketIndex !!python/name:investor.marketindex.brasil_banco_central.BCBMarketIndex ''
+      params:
+            name: IPCA
+        
+    - type: *BCBMarketIndex
+      params:
+            name: CDI
+        
+    - type: *BCBMarketIndex
+      params:
+            name: SELIC
+        
+    - type: *BCBMarketIndex
+      params:
+            name: IGPM
+        
+    - type: *BCBMarketIndex
+      params:
+            name: INPC
+        
+    - type: &YahooMarketIndex !!python/name:investor.marketindex.yahoo_finance.YahooMarketIndex ''
+      params:
+            currency: BRL
+            friendlyName: Índice BoVESPa (^BVSP)
+            name: ^BVSP
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: SPDR S&P 500 ETF Trust
+            name: SPY
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: iShares Core S&P 500 ETF (IVV)
+            name: IVV
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Vanguard S&P 500 ETF (VOO)
+            name: VOO
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: S&P 500 (^GSPC)
+            name: ^GSPC
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Dow Jones (^DJI)
+            name: ^DJI
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: NASDAQ (^IXIC)
+            name: ^IXIC
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Invesco Nasdaq 100 ETF (QQQM)
+            name: QQQM
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Invesco QQQ
+            name: QQQ
+
+
+
+# The «?check_same_thread=False» is important for SQLite and SQLAlchemy multithreading support
+cache_database: sqlite:///investor.cache?check_same_thread=False

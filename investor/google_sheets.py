@@ -48,9 +48,6 @@ class GoogleSheetsBalanceAndLedger(object):
 
         sheet=self.getGoogleSheetRange(sheetID,sheetRange)
 
-
-#         sheet.to_csv(sheetID + '.csv')
-
         sheet.replace('#N/A',pd.NA, inplace=True)
 
         # Handle monetary columns, remove currency symbols and make them numbers
@@ -59,18 +56,16 @@ class GoogleSheetsBalanceAndLedger(object):
 
             ## Remove currency symbols and junk
             for r in remove:
-                sheet[c[1]]=sheet[c[1]].str.replace(r, '', regex=False)
+                sheet[c['name']]=sheet[c['name']].str.replace(r, '', regex=False)
 
             ## Make NaNs of empty ('') cells
-            sheet[c[1]]=sheet[c[1]].str.replace(r'^\s*$','nan', regex=True)
+            sheet[c['name']]=sheet[c['name']].str.replace(r'^\s*$','nan', regex=True)
 
             ## Convert to number
-            sheet[c[1]]=sheet[c[1]].astype(float)
+            sheet[c['name']]=sheet[c['name']].astype(float)
 
             ## Rename column to its currency name (BRL, USD, BTC etc)
-            sheet.rename(columns={c[1]: c[0]}, inplace=True)
-
-
+            sheet.rename(columns={c['name']: c['currency']}, inplace=True)
 
 
         # Rename fund name column to 'fund'
@@ -222,7 +217,7 @@ class GoogleSheetsBalanceAndLedger(object):
             self.ledger[
                 ['fund'] +
                 # Get only currency names
-                [x[0] for x in self.sheetStructure['ledger']['columns']['monetary']]
+                [x['currency'] for x in self.sheetStructure['ledger']['columns']['monetary']]
             ]
 
             .set_index('fund')
