@@ -133,13 +133,19 @@ class StreamlitInvestorApp:
         col2.metric(
             label=label.format(p=p,kpi=investor.KPI.PERIOD_GAIN),
             value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
-            delta='${:0,.2f}'.format(metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
+            delta='{sign}${value:0,.2f}'.format(
+                value=abs(metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
+                sign=('-' if metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]<0 else '')
+            )
         )
 
         col3.metric(
             label='current {} & {}'.format(investor.KPI.BALANCE,investor.KPI.SAVINGS),
             value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.BALANCE]),
-            delta='${:0,.2f}'.format(metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]),
+            delta='{sign}${value:0,.2f}'.format(
+                value=abs(metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]),
+                sign=('-' if metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]<0 else '')
+            )
         )
 
 
@@ -299,7 +305,7 @@ class StreamlitInvestorApp:
         """
         Iterate over each portfolio|currency_converters|benchmarks/type of the
         pre-loaded YAML file. Call work_on_task() for each.
-        
+
         Returns a dict of Future tasks being executed in parallel.
         Requires post-processing by concurrent.futures.as_completed()
         """

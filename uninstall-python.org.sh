@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Uninstall Python from python.org
+# On macOS, completely uninstall python.org’s Python package
 
 for pkg in `pkgutil --pkgs | grep -i python`; do
 

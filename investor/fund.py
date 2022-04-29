@@ -817,7 +817,11 @@ class Fund(object):
             .pct_change()
             .replace([np.inf, -np.inf], np.nan)
             .dropna()
-            .rename(columns=dict(share_value='rate of return %'))
+            .rename(
+                columns={
+                    KPI.SHARE_VALUE: 'rate of return %, frequency per period'
+                }
+            )
             *100
         )
 
@@ -835,7 +839,7 @@ class Fund(object):
                     kind='hist',
     #                 bins=data.shape[0]/2,
                     bins=200,
-                    xlim=(μ-σ,μ+σ)
+                    xlim=(μ-2*σ,μ+2*σ)
                 ).get_figure()
             else:
                 return None

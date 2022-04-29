@@ -1,4 +1,7 @@
 ---
+# Rename this file to investor_ui_config.yaml and edit it with your information
+
+
 # The Investor app requires 3 things to let you navigate and visualize your
 # portfolio:
 #
@@ -32,41 +35,43 @@ portfolio:
         # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
         credentialsFile: credentials.json
         sheetStructure:
-            sheet: 1i...so
+            # This Google Sheet is an example that should work out of the box
+            sheet: 1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk
             
             # In here you describe how the BALANCE and LEDGER data is
             # organized in sheets and columns
             balance:
                 # The sheet/tab range with your balances
-                sheetRange: Saldos!A:D
+                sheetRange: Balances!A:D
                 columns:
                     # Time is in column called 'Data'
-                    time: Data
+                    time: Date and time
                     
                     # Name of funds on each row is under this column
-                    fund: Fundo composto
+                    fund: Compound fund
                     
                     # Column called 'Saldo USD' contains values in 'USD' and so on.
                     monetary:
                         - currency:     BRL
-                          name:         Saldo BRL
+                          name:         Balance BRL
                         - currency:     USD
-                          name:         Saldo USD
+                          name:         Balance USD
             
             ledger:
                 # The sheet/tab with all your in and out movements (ledger)
-                sheetRange: Entradas e saidas brutas!A:E
+                sheetRange: Ledger!A:E
                 columns:
-                    time: Data
-                    fund: Fundo composto
+                    time: Date and time
+                    fund: Compound fund
                     
                     # Name of columns with random comments
-                    comment: Comentário
+                    comment: Comment
                     monetary:
                         - currency:     BRL
-                          name:         Movimento BRL
+                          name:         Mov BRL
                         - currency:     USD
-                          name:         Movimento USD
+                          name:         Mov USD
+
 
 
 
@@ -96,20 +101,22 @@ currency_converters:
       params:
             currencyFrom: EUR
 
+    # You can enable crypto daily currency converter and benchmarks once you get a
+    # CryptoCompare API key
     # USD➔BTC
-    - type: &CryptoCompareCurrencyConverter !!python/name:investor.currency.cryptocompare.CryptoCompareCurrencyConverter ''
-      params:
-            # Get your API key at https://www.cryptocompare.com/cryptopian/api-keys
-            apiKey: &cckey b1...123
-            currencyFrom: BTC
+#    - type: &CryptoCompareCurrencyConverter !!python/name:investor.currency.cryptocompare.CryptoCompareCurrencyConverter ''
+#      params:
+#            # Get your API key at https://www.cryptocompare.com/cryptopian/api-keys
+#            apiKey: &cckey b1...123
+#            currencyFrom: BTC
 
     # USD➔ETH
-    - type: *CryptoCompareCurrencyConverter
-      params:
-            # Notice how we reference with *cckey a piece of data previously
-            # tagged as &cckey
-            apiKey: *cckey
-            currencyFrom: ETH
+#    - type: *CryptoCompareCurrencyConverter
+#      params:
+#            # Notice how we reference with *cckey a piece of data previously
+#            # tagged as &cckey
+#            apiKey: *cckey
+#            currencyFrom: ETH
 
 
 
@@ -134,8 +141,8 @@ benchmarks:
     - kind: from_currency_converter
       from_to: USDBRL
       
-    - kind: from_currency_converter
-      from_to: BTCUSD
+#    - kind: from_currency_converter
+#      from_to: BTCUSD
       
     - type: &BCBMarketIndex !!python/name:investor.marketindex.brasil_banco_central.BCBMarketIndex ''
       params:
