@@ -997,7 +997,8 @@ class Fund(object):
 
             # Add to main report transposing it into a true row (we were columns until now)
             if report is not None:
-                report=report.append(line.T, sort=True)
+#                 report=report.append(line.T, sort=True)
+                report=pd.concat([report,line.T], sort=True)
             else:
                 report=line.T
 
