@@ -30,7 +30,7 @@
 
 
 portfolio:
-    - type: !!python/name:investor.google_sheets.GoogleSheetsBalanceAndLedger ''
+    - type: !!python/name:investor.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
       params:
         # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
         credentialsFile: credentials.json

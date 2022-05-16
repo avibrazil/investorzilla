@@ -13,27 +13,13 @@ import pandas as pd
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
-# Import your configuration as portfolio, currencies and market indexes
-# from investor_ui_config import context
-
 import investor
-import investor.google_sheets
+import investor.portfolios.google_sheets             as google_sheets
 import investor.currency.brasil_banco_central        as currency_bcb
 import investor.currency.cryptocompare               as currency_cryptocompare
 import investor.marketindex.brasil_banco_central     as mktidx_bcb
 import investor.marketindex.federal_reserve          as mktidx_fred
 import investor.marketindex.yahoo_finance            as mktidx_yahoo
-
-#  import (
-#     DataCache,
-#     Fund,
-#     GoogleSheetsBalanceAndLedger,
-#     MarketIndex,
-#     CurrencyConverter,
-#     CurrencyExchange
-# )
-
-
 
 
 class StreamlitInvestorApp:
@@ -53,7 +39,7 @@ class StreamlitInvestorApp:
 
         with st.sidebar:
             self.interact_funds()
-            self.interact_no_funds()
+            self.interact_exclude_funds()
             self.interact_currencies()
             self.interact_benchmarks()
             self.interact_periods()
@@ -440,7 +426,7 @@ class StreamlitInvestorApp:
 
 
 
-    def interact_no_funds(self):
+    def interact_exclude_funds(self):
         st.session_state['interact_no_funds']=st.multiselect(
             'Except funds',
             [x[0] for x in st.session_state.portfolio[0].funds()]

@@ -3,10 +3,39 @@ import sqlalchemy
 import pandas as pd
 
 
-
+# TODO: Convert all to SQLAlchemy
 
 
 class DataCache(object):
+    """
+    Implements a simple generic cache in a local SQLite database.
+
+    Time series for market indexes, currency converters and even your portfolio kept on
+    Google Sheets takes a lot of time to load because they are published as slow web APIs.
+
+    To speed up initial data loading, all classes in the investor framework know how to
+    work with a DataCache.
+
+    A dataset that needs to be cached can have arbitrary columns and is usually the raw
+    data as returned by the web API, before cleanup and processing.
+
+    A dataset has a `kind` and `ID`. So for example, the YahooMarketIndex class has kind
+    `YahooMarketIndex` and the `ID` might be `^IXIC` or `^GSPC` the name of the market
+    index you put in your portfolio configuration.
+
+    DataCache will organize tables in the database with names `DataCache__{kind}`. And
+    then each table will have columns:
+
+    - __DataCache_id: values for our YahooMarketIndex examples will be `^IXIC` or `^GSPC`
+    - __DataCache_time: UTC time the cache was set
+    - other arbitrary columns found in the data attribute of set() method
+
+    DataCache will keep multiple versions of the dataset, differentiated by
+    __DataCache_time and it will always use the last version (max(__DataCache_time)). The
+    maximum number of versions kept are defined by the __init__()’s recycle attribute.
+    Older versions of data will be automatically deleted.
+    """
+
     idCol       = '__DataCache_id'
     timeCol     = '__DataCache_time'
     typeTable   = 'DataCache__{kind}'
@@ -151,8 +180,8 @@ class DataCache(object):
                 SELECT DISTINCT {timeCol}
                 FROM {typeTable}
                 WHERE
-                    {idCol} = '{id}'
-                    AND {timeCol} <= '{time}'
+                    {idCol}    = '{id}' AND
+                    {timeCol} <= '{time}'
                 ORDER BY {timeCol} DESC
                 LIMIT 1
             )
@@ -170,8 +199,8 @@ class DataCache(object):
             SELECT *
             FROM {typeTable}
             WHERE
-                {idCol} = '{id}'
-                AND {timeCol} = {pointInTime}
+                {idCol}   = '{id}' AND
+                {timeCol} = {pointInTime}
         '''
 
         query=query.format(

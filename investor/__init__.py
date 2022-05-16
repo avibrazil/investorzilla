@@ -1,9 +1,8 @@
+# The main interfaces of the investor framework
 
-
-__all__=['DataCache', 'Fund', 'GoogleSheetsBalanceAndLedger', 'MarketIndex', 'CurrencyConverter', 'CurrencyExchange']
+__all__=['DataCache', 'Fund', 'Portfolio', 'MarketIndex', 'CurrencyConverter', 'CurrencyExchange']
 
 from .datacache              import DataCache
-from .fund                   import Fund
-from .fund                   import KPI
-from .google_sheets          import GoogleSheetsBalanceAndLedger
+from .fund                   import Fund, KPI
+from .portfolio              import Portfolio
 from .monetary_time_series   import MarketIndex, CurrencyConverter, CurrencyExchange
