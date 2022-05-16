@@ -12,11 +12,63 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 
-from . import Fund
-from . import DataCache
+from .. import *
 
 
-class GoogleSheetsBalanceAndLedger(object):
+class GoogleSheetsBalanceAndLedger(Portfolio):
+    """
+    Use this Portfolio class if you keep your balance and ledger in a Google Sheet.
+    An example spreadsheet is here: https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk/edit#gid=476533794
+
+    The UI passes a sheet structure dict to this class constructor so it which tabs and
+    columns contains the information it needs. The UI get this information from
+    investor_ui_config.yaml file, under portfolio.params.sheetStructure, which in turns
+    define where in the spreadsheet are balance and ledger information. Here is an example
+    for a investor_ui_config.yaml:
+
+    portfolio:
+        - type: !!python/name:investor.google_sheets.GoogleSheetsBalanceAndLedger ''
+          params:
+            credentialsFile: credentials.json
+            sheetStructure:
+                # This Google Sheet is an example that should work out of the box
+                # See it at https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk
+                sheet: 1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk
+
+                # In here you describe how the BALANCE and LEDGER data is
+                # organized in sheets and columns
+                balance:
+                    # The sheet/tab range with your balances
+                    sheetRange: Balances!A:D
+                    columns:
+                        # Time is in column called 'Data'
+                        time: Date and time
+
+                        # Name of funds on each row is under this column
+                        fund: Compound fund
+
+                        # Column called 'Saldo USD' contains values in 'USD' and so on.
+                        monetary:
+                            - currency:     BRL
+                              name:         Balance BRL
+                            - currency:     USD
+                              name:         Balance USD
+
+                ledger:
+                    # The sheet/tab with all your in and out movements (ledger)
+                    sheetRange: Ledger!A:E
+                    columns:
+                        time: Date and time
+                        fund: Compound fund
+
+                        # Name of columns with random comments
+                        comment: Comment
+                        monetary:
+                            - currency:     BRL
+                              name:         Mov BRL
+                            - currency:     USD
+                              name:         Mov USD
+    """
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
     def getGoogleSheetRange(self, SPREADSHEET_ID, DATA_TO_PULL):
@@ -87,16 +139,11 @@ class GoogleSheetsBalanceAndLedger(object):
 
 
     def __init__(self, sheetStructure=None, credentialsFile='credentials.json', cache=None, refresh=False):
-        # Setup logging
-        self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
-
+        super().__init__(cache=cache, refresh=refresh)
 
         self.sheetStructure = sheetStructure
 
         self.creds = None
-
-        self.ledger = None
-        self.balance = None
 
         if cache is not None:
 #             self.logger.debug(cache)
@@ -173,84 +220,3 @@ class GoogleSheetsBalanceAndLedger(object):
         # asof has UTC time, convert to TZ-aware localtime
         utcoffset=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
         self.asof=self.asof.tz_convert(utcoffset)
-
-
-
-    def getFund(self, subset=None, name=None, currencyExchange=None):
-        if subset is None or (isinstance(subset,list) and len(subset)==0):
-            # Return all funds
-            return Fund(
-                name=name,
-                ledger=self.ledger,
-                balance=self.balance,
-                currencyExchange=currencyExchange,
-            )
-        else:
-            if isinstance(subset, str):
-                # If only 1 fund passed, turn it into a list
-                subset=[subset]
-
-
-            # And return only this subset of funds
-            return Fund(
-                name=name,
-                ledger=self.ledger[self.ledger.fund.isin(subset)],
-                balance=self.balance[self.balance.fund.isin(subset)],
-                currencyExchange=currencyExchange,
-            )
-
-
-
-    def funds(self):
-        """
-        Return list of tuples as:
-        [
-            ('fund1',['currency1']),
-            ('fund2',['currency1', 'currency2']),
-            ('fund3',['currency2'])
-        ]
-
-        Which is the list of funds, each with the currencies they present data.
-        """
-        return list(
-#             self.ledger.droplevel(1)[
-            self.ledger[
-                ['fund'] +
-                # Get only currency names
-                [x['currency'] for x in self.sheetStructure['ledger']['columns']['monetary']]
-            ]
-
-            .set_index('fund')
-
-            # replace by True where there is NaN
-            .isnull()
-
-
-            # Convert a False (has value) to currency name
-            .apply(
-                lambda x: x.index[x==False][0],
-                axis=1
-            )
-
-
-            # make fund name a regular column
-            .reset_index()
-
-
-            .drop_duplicates()
-
-
-
-            # Group by fund and make list of currencies
-            .groupby(by='fund').agg(list)
-
-
-
-            # make fund name a regular column
-            .reset_index()
-
-
-
-            # convert to tuples
-            .itertuples(index=False, name=None)
-        )
