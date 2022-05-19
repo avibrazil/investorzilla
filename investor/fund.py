@@ -103,7 +103,7 @@ class Fund(object):
 
         KPI.PERIOD_GAIN: dict(
             format="${:,.2f}",
-            summaryFormat='{}'
+            # summaryFormat='{}'
         ),
 
         KPI.GAINS: dict(
@@ -1004,16 +1004,16 @@ class Fund(object):
 
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
-            if KPI.PERIOD_GAIN in kpi:
-                macroPeriod.loc[macroPeriod.index[i],'new ' + KPI.PERIOD_GAIN]='{n} × {inc}'.format(
-                    n=nPeriods,
-                    inc=incomeFormatter.format(
-                        macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
-                    )
-                )
+#             if KPI.PERIOD_GAIN in kpi:
+#                 macroPeriod.loc[macroPeriod.index[i],'new ' + KPI.PERIOD_GAIN]='{n} × {inc}'.format(
+#                     n=nPeriods,
+#                     inc=incomeFormatter.format(
+#                         macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
+#                     )
+#                 )
 
-        if KPI.PERIOD_GAIN in kpi:
-            macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
+#         if KPI.PERIOD_GAIN in kpi:
+#             macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
 
         # Make summary report a column, sort and name labels for perfect join
         macroPeriod=(

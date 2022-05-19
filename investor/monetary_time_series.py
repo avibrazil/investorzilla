@@ -64,7 +64,11 @@ class MonetaryTimeSeries(object):
                 # Don't want to get new data from the Internet, so try cache first.
                 self.tryCacheData(self.kind,self.id,self.cache)
 
-            if self.data is None or (self.data is not None and self.data.shape[0]==0) or (self.cache is not None and self.nextRefresh):
+            if (
+                    self.data is None or
+                    (self.data is not None and self.data.shape[0]==0) or
+                    (self.cache is not None and self.nextRefresh)
+                ):
                 # Call a child-implemented method to refresh data from Internet APIs
                 self.refreshData()
 
@@ -82,13 +86,22 @@ class MonetaryTimeSeries(object):
 
 
     def refreshData(self):
-        # Pure virtual method, needs to be implemented in derived classes
+        """
+        Pure virtual method, needs to be implemented in derived classes.
+
+        Will be called when MonetaryTimeSeries feels the need to update its data.
+        """
         pass
 
 
 
     def processData(self):
-        # Pure virtual method, needs to be implemented in derived classes
+        """
+        Pure virtual method, needs to be implemented in derived classes.
+
+        Will be called right after raw data is loaded from cache or from its original
+        source (API) to clean it up.
+        """
         pass
 
 

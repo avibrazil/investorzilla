@@ -111,10 +111,10 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                 sheet[c['name']]=sheet[c['name']].str.replace(r, '', regex=False)
 
             ## Make NaNs of empty ('') cells
-            sheet[c['name']]=sheet[c['name']].str.replace(r'^\s*$','nan', regex=True)
+            sheet[c['name']]=sheet[c['name']].str.replace(r'^\s*$','', regex=True)
 
             ## Convert to number
-            sheet[c['name']]=sheet[c['name']].astype(float)
+            sheet[c['name']]=pd.to_numeric(sheet[c['name']]) #.astype(float)
 
             ## Rename column to its currency name (BRL, USD, BTC etc)
             sheet.rename(columns={c['name']: c['currency']}, inplace=True)

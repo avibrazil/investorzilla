@@ -25,6 +25,7 @@ import investor.marketindex.yahoo_finance            as mktidx_yahoo
 class StreamlitInvestorApp:
     def __init__(self, refresh=False):
         with st.sidebar:
+            # Get the kind of refresh user wants, if any
             self.interact_refresh()
 
         if (
@@ -38,18 +39,23 @@ class StreamlitInvestorApp:
 
 
         with st.sidebar:
+            # Put controls in the sidebar
             self.interact_funds()
             self.interact_exclude_funds()
             self.interact_currencies()
             self.interact_benchmarks()
             self.interact_periods()
 
-
+        # Render main content with plots and tables
         self.update_content()
 
 
 
     def update_content_fund(self):
+        """
+        Generate a virtual fund (shares and share value) based on portfolio items selected in sidebar.
+        """
+
         fundset=None
         if 'interact_funds' in st.session_state:
             fundset=st.session_state.interact_funds
@@ -81,11 +87,13 @@ class StreamlitInvestorApp:
 
         self.update_content_fund()
 
+        # Render title
         st.title(st.session_state['fund'].name)
 
-
+        # Render period slider
         self.interact_start_end()
 
+        # Render main metrics
         st.header('Main Metrics')
         for p in st.session_state['fund'].periodPairs:
             if p['period']==st.session_state.interact_periods:
@@ -222,7 +230,7 @@ class StreamlitInvestorApp:
                     investor.KPI.BENCHMARK_EXCESS_RETURN,
                     investor.KPI.PERIOD_GAIN
                 ],
-                output='flat'
+#                 output='plain'
             )
         )
 
@@ -242,17 +250,20 @@ class StreamlitInvestorApp:
                     investor.KPI.SAVINGS,
                     investor.KPI.MOVEMENTS
                 ],
-                output='flat'
+#                 output='plain'
             )
         )
 
 
+        # Render footer
         st.markdown('Data good for **{}**'.format(st.session_state.portfolio[0].asof))
 
         st.markdown('Graph data between **{}** and **{}**'.format(
             st.session_state.interact_start_end[0],
             st.session_state.interact_start_end[1]
         ))
+
+        st.markdown('Report by [investor](https://github.com/avibrazil/investor).')
 
 
 
@@ -270,7 +281,9 @@ class StreamlitInvestorApp:
 
         # Set thread context to make Streamlit happy
         # https://stackoverflow.com/a/69363860/367824
-        st.report_thread.add_report_ctx(threading.currentThread(), self.thread_context)
+#         self.thread_context.add_report_ctx(threading.currentThread(), self.thread_context)
+#         st.ReportThread.add_report_ctx(None,self.thread_context)
+        st.scriptrunner.add_script_run_ctx(threading.currentThread(),self.thread_context)
 
         params.update(
             dict(
@@ -313,6 +326,17 @@ class StreamlitInvestorApp:
 
 
     def augment_investor_data(self):
+        """
+        Make benchmarks from currency converters.
+
+        Entries such as the following from the investor_ui_config.yaml file will be
+        converted:
+
+        benchmarks:
+            - kind: from_currency_converter
+              from_to: BRLUSD
+
+        """
         for item in self.context['benchmarks']:
             if 'kind' in item and item['kind'] == 'from_currency_converter':
                 curFrom = item['from_to'][:3]
@@ -367,7 +391,7 @@ class StreamlitInvestorApp:
         # Collect some flags about what to load from cache, reafresh from Internet etc
         st.session_state['refresh_portfolio'] = st.session_state.interact_refresh_both or st.session_state.interact_refresh_portfolio
         st.session_state['refresh_market']    = st.session_state.interact_refresh_both or st.session_state.interact_refresh_market
-        self.thread_context                   = st.report_thread.get_report_ctx()
+        self.thread_context                   = st.scriptrunner.script_run_context.get_script_run_ctx()
 
         with concurrent.futures.ThreadPoolExecutor(thread_name_prefix='load_portfolio') as executor:
             tasks = dict()

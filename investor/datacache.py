@@ -3,7 +3,7 @@ import sqlalchemy
 import pandas as pd
 
 
-# TODO: Convert all to SQLAlchemy
+# TODO: Convert all queries to SQLAlchemy methods
 
 
 class DataCache(object):
@@ -98,6 +98,8 @@ class DataCache(object):
         )
 
         if hasattr(self,'db')==False or self.db is None:
+            self.getLogger().debug(f"Creating a DB engine on {self.url}")
+
             self.db=sqlalchemy.create_engine(
                 url = self.url,
                 **sqlite_fake_multithreading
@@ -234,29 +236,78 @@ class DataCache(object):
 
 
     def cleanOld(self, kind, id):
-        cleanQuery='''
+        # Next query is overcomplicated because couldn’t make work its simplest version:
+        # cleanQuery='''
+        #     DELETE
+        #     FROM {typeTable}
+        #     WHERE {idCol} = '{id}'
+        #     AND {timeCol} <= coalesce(
+        #         (
+        #             SELECT DISTINCT {timeCol}
+        #             FROM {typeTable}
+        #             WHERE {idCol} = '{id}'
+        #             ORDER BY {timeCol} DESC
+        #             limit 1 offset {recycle}
+        #         ),
+        #         date(0)
+        #     )
+        # '''
+
+        # This query also doesn’t work flawlessly probably because of dead lock
+        # https://stackoverflow.com/a/52467973/367824
+        # cleanQuery='''
+        #     WITH oldest AS (
+        #         SELECT DISTINCT {timeCol}
+        #         FROM {typeTable}
+        #         WHERE {idCol} = '{id}'
+        #         ORDER BY {timeCol} DESC limit 1 offset {recycle}
+        #     )
+        #     DELETE FROM {typeTable}
+        #     WHERE EXISTS (
+        #         SELECT 1
+        #         FROM oldest
+        #         WHERE {typeTable}.{timeCol} <= oldest.{timeCol}
+        #     )
+        # '''
+
+        versionSelector='''
+            SELECT DISTINCT {timeCol} AS deprecated
+            FROM {typeTable}
+            WHERE {idCol} = '{id}'
+            ORDER BY {timeCol} DESC limit 1 offset {recycle}
+        '''
+
+        cleaner='''
             DELETE
             FROM {typeTable}
             WHERE {idCol} = '{id}'
-            AND {timeCol} <= (
-                SELECT DISTINCT {timeCol}
-                FROM {typeTable}
-                WHERE {idCol} = '{id}'
-                ORDER BY {timeCol} DESC
-                limit 1 offset {recycle}
-            )
+            AND {timeCol} <= '{deprecated}'
         '''
 
         if self.recycle is not None:
-            cleanQuery=cleanQuery.format(
-                typeTable    = self.typeTable.format(kind=kind),
-                idCol        = self.idCol,
-                timeCol      = self.timeCol,
-                id           = id,
-                recycle      = self.recycle
+            deprecated=pd.read_sql_query(
+                versionSelector.format(
+                    typeTable    = self.typeTable.format(kind=kind),
+                    idCol        = self.idCol,
+                    timeCol      = self.timeCol,
+                    id           = id,
+                    recycle      = self.recycle
+                ),
+                con=self.getDB()
             )
 
-            self.getDB().execute(cleanQuery)
+            if deprecated.shape[0]>0:
+                cleanQuery=cleaner.format(
+                    typeTable    = self.typeTable.format(kind=kind),
+                    idCol        = self.idCol,
+                    timeCol      = self.timeCol,
+                    id           = id,
+                    deprecated   = deprecated.deprecated.iloc[0],
+                    recycle      = self.recycle
+                )
+
+                self.getLogger().debug(f'Clean old cache entries as {cleanQuery}')
+                self.getDB().execute(cleanQuery)
 
 
 

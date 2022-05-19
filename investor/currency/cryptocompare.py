@@ -60,7 +60,7 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
             if self.data is None:
                 self.data=table
             else:
-                self.data=self.data.append(table)
+                self.data=pd.concat([self.data,table])
 
             if table[table['time']==data['Data']['TimeFrom']]['close'][0]==0:
                 break
