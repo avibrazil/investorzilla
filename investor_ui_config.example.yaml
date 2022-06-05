@@ -214,3 +214,6 @@ benchmarks:
 
 # The «?check_same_thread=False» is important for SQLite and SQLAlchemy multithreading support
 cache_database: sqlite:///investor.cache?check_same_thread=False
+
+
+currency: USD
