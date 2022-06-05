@@ -12,7 +12,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 
-from .. import *
+from .. import Fund, Portfolio
 
 
 class GoogleSheetsBalanceAndLedger(Portfolio):
@@ -220,3 +220,15 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         # asof has UTC time, convert to TZ-aware localtime
         utcoffset=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
         self.asof=self.asof.tz_convert(utcoffset)
+
+
+
+
+    def __repr__(self):
+        return '{klass}({sheetid},balance={balance},ledger={ledger})'.format(
+            sheetid         = self.sheetStructure['sheet'],
+            balance         = self.sheetStructure['balance']['sheetRange'],
+            ledger          = self.sheetStructure['ledger']['sheetRange'],
+            klass           = type(self).__name__
+        )
+

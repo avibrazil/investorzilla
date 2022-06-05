@@ -14,6 +14,11 @@ class Portfolio(object):
     """
     A simple interface for a generic Portfolio.
 
+    A Portfolio is the keeper of raw balance and ledger of multiple investment
+    instruments, funds etc. Members of a Portfolio can be aggregated to generate one Fund
+    which in turns has a time series for number of shares and a time series for share
+    value.
+
     Derived classes must set self.ledger and self.balance in order for the Fund creation
     logic to work.
     """

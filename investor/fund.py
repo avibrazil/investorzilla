@@ -62,6 +62,16 @@ class Fund(object):
 
 
         dict(
+            period                     = 'W',
+            periodLabel                = 'week',
+
+            macroPeriod                = '4W',
+            macroPeriodLabel           = '4 week',
+            macroPeriodFormatter       = '%Y-w%U'
+        ),
+
+
+        dict(
             period                     = 'M',
             periodLabel                = 'month',
             periodFormatter            = '%m·%b',
@@ -991,7 +1001,10 @@ class Fund(object):
 
             # Convert index from full DateTimeIndex to something that can be matched
             # across macro-periods, as just '08·Aug'
-            line[p['periodLabel']]=line.index.strftime(p['periodFormatter'])
+            if 'periodFormatter' in p:
+                line[p['periodLabel']]=line.index.strftime(p['periodFormatter'])
+            else:
+                line[p['periodLabel']]=range(1,nPeriods+1,1)
             line.set_index(p['periodLabel'], inplace=True)
             line=pd.concat([line], axis=0, keys=['periods'])
 
