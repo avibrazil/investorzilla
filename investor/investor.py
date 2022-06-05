@@ -1,3 +1,4 @@
+import logging
 import concurrent.futures
 import pandas
 import yaml
@@ -110,6 +111,9 @@ class Investor(object):
 
 
     def __init__(self,file,refreshMap=dict(zip(domains,len(domains)*[False]))):
+        # Setup logging
+        self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
+
         defaultRefreshMap=dict(zip(self.domains,len(self.domains)*[False]))
 
         refresh=defaultRefreshMap
@@ -123,9 +127,13 @@ class Investor(object):
         with open(file, 'r') as f:
             self.context = yaml.load(f, Loader=yaml.FullLoader)
 
+        # Load all time series data from cache or web
         self.loadDomains(refresh)
+
+        # Setup some more benchmarks from some loaded currency converters
         self.augmentDomains()
 
+        # Setup a multiple currency exchange machine
         self.exchange=CurrencyExchange(self.context['currency'])
 
         # Put all CurrencyConverters in a single useful CurrencyExchange machine
