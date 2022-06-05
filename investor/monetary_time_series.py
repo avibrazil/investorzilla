@@ -209,6 +209,24 @@ class MarketIndex(MonetaryTimeSeries):
 
 
 
+    def __repr__(self):
+        if self.data is not None and self.data.shape[0]>0:
+            return '{klass}({id},currency={curr},start={start},end={end},len={length})'.format(
+                id              = self.id,
+                curr            = self.currency,
+                start           = self.data.index.min(),
+                end             = self.data.index.max(),
+                length          = self.data.shape[0],
+                klass           = type(self).__name__
+            )
+        else:
+            return '{klass}({id},currency={curr})'.format(
+                id              = self.id,
+                curr            = self.currency,
+                klass           = type(self).__name__
+            )
+
+
 
 
 
@@ -290,4 +308,12 @@ class CurrencyExchange(object):
 
         return c
 
+
+
+    def __repr__(self):
+        return '{klass}({target},currencies={currlist})'.format(
+            target          = self.target,
+            currlist        = self.currencies(),
+            klass           = type(self).__name__
+        )
 
