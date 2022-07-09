@@ -24,7 +24,7 @@ class KPI(object):
 
     # Pure gain, on the period or accumulated
     PERIOD_GAIN             =  'gain'   # on each period
-    GAINS                   =  'gains'  # cumulative
+    GAINS                   =  'cumulative gains'
 
     # Normalization features
     SHARE_VALUE             =  'share value'
@@ -1012,10 +1012,10 @@ class Fund(object):
                             if 'periodFormatter' in p
                             else range(1,nPeriods+1,1)
                         ),
-                        'firstindex': 'periods'
+                        '': 'periods'
                     }
                 )
-                .set_index(['firstindex',p['periodLabel']])
+                .set_index(['',p['periodLabel']])
             )
 
             # Add to main report transposing it into a true row (we were columns until now)
