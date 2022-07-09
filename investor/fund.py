@@ -499,13 +499,14 @@ class Fund(object):
         startOfReport=self.start
 
 
-
+        errorMsg='{par} parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{value}"'
+        
         if start is not None:
             # Check if we have a good start time and make appropriate type conversions.
             if isinstance(start,str):
                 start=datetime.datetime.fromisoformat(start)
             if not (isinstance(start,datetime.date) or isinstance(start,datetime.time) or isinstance(start,pd.Timestamp)):
-                raise TypeError(f'start parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{start}"')
+                raise TypeError(errorMsg.format(par='start',value=start))
 
             # Now see if start time is more recent than the beginning of our data, and
             # use it
@@ -518,7 +519,7 @@ class Fund(object):
             if isinstance(end,str):
                 end=datetime.datetime.fromisoformat(end)
             if not (isinstance(end,datetime.date) or isinstance(end,datetime.time) or isinstance(end,pd.Timestamp)):
-                raise TypeError(f'end parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{end}"')
+                raise TypeError(errorMsg.format(par='end',value=end))
 
 
 #         self.logger.info("Report range: {} -> {}".format(startOfReport,end))
@@ -577,16 +578,21 @@ class Fund(object):
         if period is not None:
             # Make it a regular time series (D, M, Y etc), each column aggregated by
             # different strategy
+
+            # Day 0 for Pandas is Monday, while it is Sunday for Python.
+            # Make Pandas handle day 0 as Sunday.
+            dateOffset=pd.tseries.offsets.Week(weekday=5) if period=='W' else period
+            
             report=(
                 report
-                    .resample(period)
+                    .resample(dateOffset)
+                
+                    # Compute summarizations for each KPI
                     .agg(aggregationStrategy)
+                    
+                    # Fill the gaps after aggregation
+                    .ffill()
             )
-
-            # Fill the gaps after aggregation
-    #         report[aggregationStrategy.keys()].ffill(inplace=True)
-            report.ffill(inplace=True)
-
 
         # Add 3 benchmark-related features
         benchmarkFeatures=[]
@@ -948,27 +954,24 @@ class Fund(object):
             # are important to us
 
 
-        # Get bigger report with period data
+        # Get bigger part of report with period data
         period = self.periodicReport(
-            p['period'],
-            benchmark=benchmark,
-            start=start,
-            end=end
+            period     = p['period'],
+            benchmark  = benchmark,
+            start      = start,
+            end        = end
         )[kpi]
 
-        # Get summary report with summary of a period set
+        # Get summary part report with summary of a period set
         macroPeriod = self.periodicReport(
-            p['macroPeriod'],
-            benchmark=benchmark,
-            start=start,
-            end=end
+            period     = p['macroPeriod'],
+            benchmark  = benchmark,
+            start      = start,
+            end        = end
         )[kpi]
 
 
         report=None
-
-#         macroPeriod['new income']=None
-
 
         # KPI income has a special formatter
         if KPI.PERIOD_GAIN in self.formatters:
@@ -993,27 +996,34 @@ class Fund(object):
                 line=period[currentRange]
                 nPeriods=period[currentRange].shape[0]
 
-            # Add a row label, as '2020'
-            line=pd.concat([line], axis=1, keys=[macroPeriod.index[i]])
+            line=(
+                # Add a row label, as '2020' or '4·Thu'
+                pd.concat([line], axis=1, keys=[macroPeriod.index[i]])
 
-            # Rename the title for labels so we can join latter
-            line.rename_axis(['time','KPI'], axis='columns', inplace=True)
+                # Rename the title for labels so we can join latter
+                .rename_axis(['time','KPI'], axis='columns')
 
-            # Convert index from full DateTimeIndex to something that can be matched
-            # across macro-periods, as just '08·Aug'
-            if 'periodFormatter' in p:
-                line[p['periodLabel']]=line.index.strftime(p['periodFormatter'])
-            else:
-                line[p['periodLabel']]=range(1,nPeriods+1,1)
-            line.set_index(p['periodLabel'], inplace=True)
-            line=pd.concat([line], axis=0, keys=['periods'])
+                # Convert index from full DateTimeIndex to something that can be matched
+                # across macro-periods, as just '08·Aug'
+                .assign(
+                    **{
+                        p['periodLabel']: (
+                            line.index.strftime(p['periodFormatter'])
+                            if 'periodFormatter' in p
+                            else range(1,nPeriods+1,1)
+                        ),
+                        'firstindex': 'periods'
+                    }
+                )
+                .set_index(['firstindex',p['periodLabel']])
+            )
 
             # Add to main report transposing it into a true row (we were columns until now)
-            if report is not None:
-#                 report=report.append(line.T, sort=True)
-                report=pd.concat([report,line.T], sort=True)
-            else:
-                report=line.T
+            report=(
+                pd.concat([report,line.T], sort=True)
+                if report is not None
+                else line.T
+            )
 
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
@@ -1120,8 +1130,6 @@ class Fund(object):
             # Styled report is ready to go
             return out
 
-
-
         # Final cleanup for flat
         out.replace(['nan','nan%'],'', inplace=True)
         if flatPeriodFirst:
@@ -1131,8 +1139,6 @@ class Fund(object):
         level=out.loc[:,pd.IndexSlice['summary of periods',:]].columns.values[0][1]
         out.rename(columns={level:'summary of periods'},inplace=True)
         out.columns=out.columns.droplevel(0)
-
-
 
         return out
 
