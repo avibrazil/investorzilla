@@ -88,21 +88,23 @@ class Investor(object):
 #                             self.logger.info(f"processing {part['type']}")
 #                             self.logger.info(f"{part['params'].copy()}")
                             # If it contains a class that needs activation or loading
+    
+                            # Prepare parameters
+                            theparams=part['params'].copy()
+                            theparams.update(
+                                dict(
+                                    cache   = self.cache,
+                                    refresh = refresh[domain]
+                                )
+                            )
+
+    
                             task=executor.submit(
                                 # The class
                                 part['type'],
 
-                                **part['params']
-
-                                # The parameters
-#                                 **(
-#                                     part['params'].copy().update(
-#                                         dict(
-#                                             cache   = self._cache,
-#                                             refresh = refresh[domain]
-#                                         )
-#                                     )
-#                                 )
+                                # The parameters for class’ __init__()
+                                **theparams
                             )
                             tasks[task]=(domain,part)
 

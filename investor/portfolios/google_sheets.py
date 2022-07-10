@@ -166,7 +166,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         super().__init__(cache=cache, refresh=refresh)
 
         self.sheetStructure = sheetStructure
-
+        
         self.creds = None
 
         if cache is not None:
