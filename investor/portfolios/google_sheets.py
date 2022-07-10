@@ -72,6 +72,12 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
     def getGoogleSheetRange(self, SPREADSHEET_ID, DATA_TO_PULL):
+        """
+        Pull raw data from a Google Sheet, given the GSheets ID and the cell range.
+
+        SPREADSHEET_ID is something like '1iBlzY...wuY_b...so'
+        DATA_TO_PULL is like 'Balances!A:D'
+        """
         service = build('sheets', 'v4', credentials=self.creds)
         sheet = service.spreadsheets()
         result = sheet.values().get(
@@ -97,7 +103,25 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
 
     def getMonetarySheet(self, sheetID, sheetRange, columnsProfile):
+        """
+        Pull raw data from a Google Sheet, given the GSheets ID and the cell range.
+        And then clean, interpret and add semantic based on columnsProfile.
 
+        columnsProfile is a dict with this layout:
+
+            # Time is in column called 'Date and time'
+            time: Date and time
+
+            # Name of funds on each row is under this column
+            fund: Compound fund
+
+            # Column called 'Saldo USD' contains values in 'USD' and so on.
+            monetary:
+                - currency:     BRL
+                  name:         Balance BRL
+                - currency:     USD
+                  name:         Balance USD
+        """
         sheet=self.getGoogleSheetRange(sheetID,sheetRange)
 
         sheet.replace('#N/A',pd.NA, inplace=True)
@@ -142,7 +166,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         super().__init__(cache=cache, refresh=refresh)
 
         self.sheetStructure = sheetStructure
-
+        
         self.creds = None
 
         if cache is not None:

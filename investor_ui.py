@@ -14,29 +14,25 @@ logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
 import investor
-import investor.portfolios.google_sheets             as google_sheets
-import investor.currency.brasil_banco_central        as currency_bcb
-import investor.currency.cryptocompare               as currency_cryptocompare
-import investor.marketindex.brasil_banco_central     as mktidx_bcb
-import investor.marketindex.federal_reserve          as mktidx_fred
-import investor.marketindex.yahoo_finance            as mktidx_yahoo
 
 
 class StreamlitInvestorApp:
+    defaultRefreshMap=dict(
+        zip(
+            investor.Investor.domains,
+            len(investor.Investor.domains)*[False]
+        )
+    )
+
     def __init__(self, refresh=False):
         with st.sidebar:
             # Get the kind of refresh user wants, if any
-            self.interact_refresh()
+            self.refreshMap=self.interact_refresh()
 
-        if (
-                    st.session_state.interact_refresh_portfolio or
-                    st.session_state.interact_refresh_market or
-                    st.session_state.interact_refresh_both or
-                    ('cache' not in st.session_state)
-            ):
-            # Data needs refresh or App running from scratch
-            self.make_state(refresh=refresh)
-
+        if 'investor' not in st.session_state:
+            st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
+        elif True in self.refreshMap.values():
+            st.session_state['investor']
 
         with st.sidebar:
             # Put controls in the sidebar
@@ -64,7 +60,7 @@ class StreamlitInvestorApp:
                 fundset.remove('ALL')
 
         if fundset is None or len(fundset)==0:
-            fundset=st.session_state.portfolio[0].funds()
+            fundset=st.session_state.investor.portfolio[0]['obj'].funds()
             fundset=[f[0] for f in fundset]
 
         if 'interact_no_funds' in st.session_state:
@@ -73,17 +69,15 @@ class StreamlitInvestorApp:
                 set(st.session_state.interact_no_funds)
             )
 
-        st.session_state['fund']=st.session_state.portfolio[0].getFund(
+        st.session_state['fund']=st.session_state.investor.portfolio[0]['obj'].getFund(
             subset           = fundset,
-            currencyExchange = st.session_state.exchange
+            currencyExchange = st.session_state.investor.exchange
         )
 
 
 
     def update_content(self):
-        st.session_state['exchange'].setTarget(
-            st.session_state['interact_currencies']
-        )
+        st.session_state['investor'].currency=st.session_state['interact_currencies']
 
         self.update_content_fund()
 
@@ -111,7 +105,7 @@ class StreamlitInvestorApp:
             end=st.session_state.interact_start_end[1],
         )
 
-        if st.session_state.interact_benchmarks.currency!=st.session_state.fund.currency:
+        if st.session_state.interact_benchmarks['obj'].currency!=st.session_state.fund.currency:
             st.warning('Fund and Benchmark have different currencies. Benchamrk comparisons won’t make sense.')
 
         col1, col2, col3 = st.columns(3)
@@ -150,7 +144,7 @@ class StreamlitInvestorApp:
             st.header('Performance')
             st.line_chart(
                 st.session_state['fund'].performancePlot(
-                    benchmark=st.session_state.interact_benchmarks,
+                    benchmark=st.session_state.interact_benchmarks['obj'],
                     start=st.session_state.interact_start_end[0],
                     end=st.session_state.interact_start_end[1],
                     type='raw'
@@ -179,7 +173,7 @@ class StreamlitInvestorApp:
             )
 
             wealthPlotData=st.session_state['fund'].wealthPlot(
-                benchmark=st.session_state.interact_benchmarks,
+                benchmark=st.session_state.interact_benchmarks['obj'],
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
                 type='raw'
@@ -215,13 +209,13 @@ class StreamlitInvestorApp:
 
 
         st.header('Performance')
-        st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state['interact_benchmarks']))
+        st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state.interact_benchmarks['obj']))
 
         st.dataframe(
 #         st_aggrid.AgGrid(
             st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
-                benchmark=st.session_state.interact_benchmarks,
+                benchmark=st.session_state.interact_benchmarks['obj'],
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
                 kpi=[
@@ -240,7 +234,7 @@ class StreamlitInvestorApp:
 #         st_aggrid.AgGrid(
             st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
-                benchmark=st.session_state.interact_benchmarks,
+                benchmark=st.session_state.interact_benchmarks['obj'],
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
                 kpi=[
@@ -256,7 +250,7 @@ class StreamlitInvestorApp:
 
 
         # Render footer
-        st.markdown('Data good for **{}**'.format(st.session_state.portfolio[0].asof))
+        st.markdown('Data good for **{}**'.format(st.session_state.investor.portfolio[0]['obj'].asof))
 
         st.markdown('Graph data between **{}** and **{}**'.format(
             st.session_state.interact_start_end[0],
@@ -445,7 +439,7 @@ class StreamlitInvestorApp:
         st.session_state['interact_funds']=st.multiselect(
             'Select funds',
             ['ALL']+
-            [x[0] for x in st.session_state.portfolio[0].funds()]
+            [x[0] for x in st.session_state.investor.portfolio[0]['obj'].funds()]
         )
 
 
@@ -453,7 +447,7 @@ class StreamlitInvestorApp:
     def interact_exclude_funds(self):
         st.session_state['interact_no_funds']=st.multiselect(
             'Except funds',
-            [x[0] for x in st.session_state.portfolio[0].funds()]
+            [x[0] for x in st.session_state.investor.portfolio[0]['obj'].funds()]
         )
 
 
@@ -461,7 +455,7 @@ class StreamlitInvestorApp:
     def interact_currencies(self):
         st.session_state['interact_currencies']=st.radio(
             label     = 'Convert all to currency',
-            options   = st.session_state.exchange.currencies(),
+            options   = st.session_state.investor.exchange.currencies(),
             help      = 'Everything will be converted to this currency'
         )
 
@@ -470,8 +464,8 @@ class StreamlitInvestorApp:
     def interact_benchmarks(self):
         st.session_state['interact_benchmarks']=st.radio(
             label       = 'Select a benchmark to compare with',
-            options     = st.session_state.benchmarks,
-            format_func = str,
+            options     = st.session_state.investor.benchmarks,
+            format_func = lambda bench: str(bench['obj']),
             help        = 'Funds will be compared to the selected benchmark'
         )
 
@@ -507,26 +501,34 @@ class StreamlitInvestorApp:
 
 
     def interact_refresh(self):
+        self.refreshMap=self.defaultRefreshMap.copy()
 
         st.subheader('Refresh data')
 
         col1, col2, col3 = st.columns(3)
 
-        st.session_state['interact_refresh_portfolio']=col1.button(
+        if col1.button(
             label       = 'Portfolio',
             help        = 'Invalidate cache and update your Portfolio data from the Internet'
-        )
+        ):
+            self.refreshMap['portfolio']=True
 
-        st.session_state['interact_refresh_market']=col2.button(
+        if col2.button(
             label       = 'Market',
             help        = 'Invalidate cache and update Market Indexes and Currency Converters data from the Internet'
-        )
+        ):
+            self.refreshMap['currency_converters']=True
+            self.refreshMap['benchmarks']=True
 
-        st.session_state['interact_refresh_both']=col3.button(
+        if col3.button(
             label       = 'Both',
             help        = 'Invalidate cache and update all data from the Internet'
-        )
+        ):
+            self.refreshMap['currency_converters']=True
+            self.refreshMap['benchmarks']=True
+            self.refreshMap['portfolio']=True
 
+        return self.refreshMap
 
 
 

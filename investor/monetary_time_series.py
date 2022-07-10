@@ -115,9 +115,8 @@ class CurrencyConverter(MonetaryTimeSeries):
 
     currencyFrom × value = currencyTo
 
-    So if currencyFrom is 'USD', currencyTo is 'BRL' and 5 is the value for a certain date, 3 USD can be converted to 15 BRL because:
-
-    3 × 5 = 15
+    So if currencyFrom is 'USD', currencyTo is 'BRL' and 5 is the value for a certain
+    date, 3 USD can be converted to 15 BRL because 3 × 5 = 15
 
     Example of CurrencyConverter would be USDBRL, for BRL to USD conversion, or USDBTC,
     for BTC to USD conversion.
@@ -239,7 +238,7 @@ class CurrencyExchange(object):
 
     def __init__(self, target):
         self.data=None
-        self.setTarget(target)
+        self.currency=target
 
 
 
@@ -270,8 +269,14 @@ class CurrencyExchange(object):
         return self
 
 
+    @property
+    def currency(self):
+        return self.target
 
-    def setTarget(self, currency: str):
+
+
+    @currency.setter
+    def currency(self, currency: str):
         """
         Make this CurrencyExchange now convert to another currency.
         For example, target was 'USD' and we had data for 'BRL' and 'EUR' (to USD conversion).
