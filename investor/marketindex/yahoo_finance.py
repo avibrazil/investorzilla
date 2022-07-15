@@ -42,7 +42,7 @@ class YahooMarketIndex(MarketIndex):
 
     def processData(self):
         # Convert time to a new column
-        self.data['time']=pd.to_datetime(self.data.Date)
+        self.data['time']=pd.to_datetime(self.data.Date,utc=True)
 
         # Set it as the index
         self.data.set_index('time', inplace=True)

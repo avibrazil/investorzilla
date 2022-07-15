@@ -3,13 +3,15 @@ import concurrent.futures
 import pandas
 import yaml
 
-from . import DataCache, MarketIndex, CurrencyExchange
+from . import DataCache, MarketIndex, CurrencyExchange, PortfolioAggregator
 from .currency     import brasil_banco_central     as currency_bcb
 from .currency     import cryptocompare            as currency_cryptocompare
 from .marketindex  import brasil_banco_central     as mktidx_bcb
 from .marketindex  import federal_reserve          as mktidx_fred
 from .marketindex  import yahoo_finance            as mktidx_yahoo
 from .portfolios   import google_sheets            as google_sheets
+from .portfolios   import uri                      as uri
+
 
 
 
@@ -118,8 +120,17 @@ class Investor(object):
                 # Add to internal inventory
                 getattr(self,domain).append(part)
 
+        # Add more benchmarks as per config file
         if augmentDomains:
             self.augmentDomains()
+        
+        # Rearrange Portfolio
+        if len(self.portfolio)>1:
+            agg=PortfolioAggregator()
+            agg.append([p['obj'] for p in self.portfolio])
+            self.portfolio=agg
+        else:
+            self.porfolio=self.porfolio[0]['obj']
 
         if updateCurrencyExchange:
             # Setup a multiple currency exchange machine
@@ -132,8 +143,8 @@ class Investor(object):
 
     def augmentDomains(self):
         """
-        Fabricate more benchmarks from currency converters, as specified by YAML config
-        file.
+        Fabricate more benchmarks from currency converters, as specified by
+        YAML config file.
 
         Entries such as the following from the YAML file will be engineered:
 
@@ -202,7 +213,7 @@ class Investor(object):
     def __repr__(self):
         return yaml.dump(
             {
-                'Portfolio': [x.__repr__() for x in self.portfolio],
+                'Portfolio': self.portfolio.__repr__(),
                 'Exchange': self.exchange.__repr__(),
                 'Benchmarks': [x.__repr__() for x in self.benchmarks],
                 'Currency converters': [x.__repr__() for x in self.currency_converters],

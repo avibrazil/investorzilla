@@ -86,11 +86,13 @@ class Portfolio(object):
 
         Which is the list of funds, each with the currencies they present data.
         """
+        nonMonetary={'fund', 'time', 'comment'}
+
         return list(
             self.ledger[
                 ['fund'] +
                 # Get only currency names
-                [x['currency'] for x in self.sheetStructure['ledger']['columns']['monetary']]
+                list(set(self.ledger.columns) - nonMonetary)
             ]
 
             .set_index('fund')
@@ -246,4 +248,106 @@ class Portfolio(object):
 
     
     
+
+class PortfolioAggregator(Portfolio):
+    def __init__(self, cache=None, refresh=False):
+        self.members=[]
+        
+        super().__init__(
+            kind       = 'aggregator',
+            id         = None,
+            cache      = cache,
+            refresh    = refresh
+        )
+
+
+    def append(self,portfolio):
+        if isinstance(portfolio, list):
+            self.members += portfolio
+        else:
+            self.members.append(portfolio)
+
+
+
+    ############################################################################
+    ##
+    ## Virtual methods.
+    ##
+    ## Need to be defined in derived classes.
+    ##
+    ############################################################################
+    
+    def refreshData(self):
+        self.submitToMembers('refreshData')
+
+
+
+    def processData(self):
+        self.submitToMembers('processData')
+
+
+
+    @property
+    def has_balance(self):
+        has = False
+        for p in self.members:
+            has = has or p.has_balance
+            if has:
+                break
+            
+        return has
+
+
+
+    @property
+    def has_ledger(self):
+        has = False
+        for p in self.members:
+            has = has or p.has_ledger
+            if has:
+                break
+            
+        return has
+
+
+
+    @property
+    def _balance(self):
+        return (
+            pd.concat(
+                [p._balance for p in self.members if p.has_balance]
+            )
+            .reset_index(drop=True)
+        )
+
+
+
+    @property
+    def _ledger(self):
+        return (
+            pd.concat(
+                [p._ledger for p in self.members if p.has_ledger]
+            )
+            .reset_index(drop=True)
+        )
+
+
+
+    def tryCacheData(self):
+        self.submitToMembers('tryCacheData')
+
+
+
+    def submitToMembers(self, method: str):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            tasks={}
+            for p in self.members:
+                m = getattr(p,method)
+                task[executor.submit(m)] = p
+                
+            for task in concurrent.futures.as_completed(tasks):
+                self.debug(f'Done {tasks[task]}')
+                
+                # The return of submited method (processData) or the raise of error
+                task.result()
 

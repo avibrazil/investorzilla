@@ -1,14 +1,9 @@
-import os
-import datetime
-import pickle
-import logging
-import concurrent.futures
 import pandas as pd
 
 from .. import Portfolio
 
 
-class URIBalanceAndLedger(Portfolio):
+class URIBalanceOrLedger(Portfolio):
     """
     Use this Portfolio class if you keep your balance and ledger in a Google Sheet.
     An example spreadsheet is here: https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk/edit#gid=476533794
@@ -63,15 +58,16 @@ class URIBalanceAndLedger(Portfolio):
                               name:         Mov USD
     """
 
-    def __init__(self, URI, sheetStructure, cache=None, refresh=False):
+    def __init__(self, URI, kind, sheetStructure, cache=None, refresh=False):
         self.URI = URI
+        self.kind = kind
         self.sheetStructure = sheetStructure
 
         self._balance = None
         self._ledger = None
 
         super().__init__(
-            kind       = 'uri',
+            kind       = f'uri::{kind}',
             id         = self.URI,
             cache      = cache,
             refresh    = refresh
@@ -166,20 +162,6 @@ class URIBalanceAndLedger(Portfolio):
             )
         )
 
-        # Handle monetary columns, remove currency symbols and make them numbers
-        remove=['R$ ','$','€',',']
-        for c in columnsProfile['monetary']:
-
-            ## Remove currency symbols and junk
-            for r in remove:
-                sheet[c['currency']]=sheet[c['currency']].str.replace(r, '', regex=False)
-
-            ## Make NaNs of empty ('') cells
-            sheet[c['currency']]=sheet[c['currency']].str.replace(r'^\s*$','', regex=True)
-
-            ## Convert to number
-            sheet[c['currency']]=pd.to_numeric(sheet[c['currency']]) #.astype(float)
-            
         setattr(self,f'_{prop}',sheet)
 
 

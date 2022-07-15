@@ -54,7 +54,7 @@ class BCBMarketIndex(MarketIndex):
             
             # Create columns
             .assign(
-                time=pd.to_datetime(self.data.data,dayfirst=True),
+                time=pd.to_datetime(self.data.data,dayfirst=True,utc=True),
                 rate=self.data.valor/100
             )
             

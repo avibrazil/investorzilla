@@ -224,9 +224,43 @@ class Fund(object):
 
 
     def normalizeMonetarySheet(self, sheet, naiveTimeShift=12*3600):
-        sheet=sheet.copy()
-
+        # Convert naiveTimeShift into something more useful
         timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
+
+        # Get current timezone
+        currtz=(
+            datetime.datetime.now(datetime.timezone.utc)
+            .astimezone()
+            .tzinfo
+        )
+        
+        sheet=(
+            sheet
+            
+            # Assign current time zone to the TZ-naive entries
+            .assign(
+                time=lambda table:
+                    table.apply(
+                        lambda row:
+                            row.time.tz_localize(currtz)
+                            if row.time.tzinfo is None
+                            else row.time,
+                        axis=1
+                    )
+            )
+            
+            # Convert all to current time zone
+            .assign(
+                time=lambda table:
+                    table.time.apply(lambda t: t.tz_convert(currtz))
+            )
+        )        
+        
+        
+        # 1. Detect TZ-naive entries
+        # 2. Add current timezone to them
+        # 3. Convert all to current local timezone
+
         timeFilter=(sheet.time.dt.time==datetime.time(0))
 
         # Shift dates that have no time (time part is 00:00:00) to
