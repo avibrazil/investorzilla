@@ -12,7 +12,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
 
-from .. import Fund, Portfolio
+from .. import Portfolio
 
 
 class GoogleSheetsBalanceAndLedger(Portfolio):

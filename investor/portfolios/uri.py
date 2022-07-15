@@ -5,7 +5,7 @@ import logging
 import concurrent.futures
 import pandas as pd
 
-from .. import Fund, Portfolio
+from .. import Portfolio
 
 
 class URIBalanceAndLedger(Portfolio):
@@ -101,7 +101,10 @@ class URIBalanceAndLedger(Portfolio):
     
     
     def refreshData(self):
-        df=pd.read_csv(self.URI)
+        df=pd.read_csv(
+            filepath_or_buffer = self.URI,
+            sep = self.sheetStructure['separator'] if 'separator' in self.sheetStructure else ','
+        )
         
         if self.has_balance:
             prop='balance'
