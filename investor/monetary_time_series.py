@@ -15,11 +15,11 @@ class MonetaryTimeSeries(object):
     """
 
     def __init__(self, kind, id, cache=None, refresh=False):
-        self.data=None
-        self.id=id
-        self.kind=kind
-        self.nextRefresh=refresh
-        self.cache=cache
+        self.data        = None
+        self.id          = id
+        self.kind        = kind
+        self.nextRefresh = refresh
+        self.cache       = cache
 
         self.getData()
 
@@ -74,7 +74,6 @@ class MonetaryTimeSeries(object):
 
                 # Write APIs-retrieved data to cache database
                 self.cacheUpdate(self.kind,self.id,self.cache)
-
 
             # Data cleanup and feature engineering
             self.processData()

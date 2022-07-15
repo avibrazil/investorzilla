@@ -22,29 +22,42 @@ class Portfolio(object):
     Derived classes must set self.ledger and self.balance in order for the Fund creation
     logic to work.
     """
-    def __init__(self, cache=None, refresh=False):
+    def __init__(self, kind, id, cache=None, refresh=False):
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
 
-        self.ledger = None
-        self.balance = None
+        # Suffix for DataCache table
+        self.kind=kind
+        
+        # ID of dataset
+        self.id=id
 
+        # Last updated at
         self.asof = None
+        
+        self.cache=cache
+        self.nextRefresh=refresh
+        
+        # Force data load
+        self.balance
+        self.ledger
 
 
 
     def getFund(self, subset=None, name=None, currencyExchange=None):
         """
-        Given one or more investment items names, passed in the subset attribute, return
-        a Fund object which allows handling it as share, share value and currency.
+        Given one or more investment items names, passed in the subset
+        attribute, return a Fund object which allows handling it as share,
+        share value and currency.
         """
+        
         if subset is None or (isinstance(subset,list) and len(subset)==0):
             # Return all funds
             return Fund(
-                name=name,
-                ledger=self.ledger,
-                balance=self.balance,
-                currencyExchange=currencyExchange,
+                name             = name,
+                ledger           = self.ledger,
+                balance          = self.balance,
+                currencyExchange = currencyExchange,
             )
         else:
             if isinstance(subset, str):
@@ -54,10 +67,10 @@ class Portfolio(object):
 
             # And return only this subset of funds
             return Fund(
-                name=name,
-                ledger=self.ledger[self.ledger.fund.isin(subset)],
-                balance=self.balance[self.balance.fund.isin(subset)],
-                currencyExchange=currencyExchange,
+                name             = name,
+                ledger           = self.ledger[self.ledger.fund.isin(subset)],
+                balance          = self.balance[self.balance.fund.isin(subset)],
+                currencyExchange = currencyExchange,
             )
 
 
@@ -74,7 +87,6 @@ class Portfolio(object):
         Which is the list of funds, each with the currencies they present data.
         """
         return list(
-#             self.ledger.droplevel(1)[
             self.ledger[
                 ['fund'] +
                 # Get only currency names
@@ -115,3 +127,106 @@ class Portfolio(object):
             # convert to tuples
             .itertuples(index=False, name=None)
         )
+
+
+
+    @property
+    def balance(self):
+        return self.getProperty('balance')
+
+
+
+    @property
+    def ledger(self):
+        return self.getProperty('ledger')
+
+
+    
+    def getProperty(self,prop):
+        if getattr(self,f'has_{prop}') is False:
+            return None
+        
+        if self.nextRefresh:
+            self.refreshData()
+            self.nextRefresh=False
+        elif getattr(self,f'_{prop}') is None:
+            if self.tryCacheData() is False:
+                self.refreshData()
+        else:
+            return getattr(self,f'_{prop}')
+        
+        # At this point we have raw data from cache or internet
+
+        # Data cleanup and feature engineering
+        self.processData()
+        
+        return getattr(self,f'_{prop}')
+
+
+
+    def tryCacheData(self):
+        if self.cache is not None:
+            self._ledger  = self.cache.get(kind=f'{self.kind}__ledger', id=self.id)
+            self._balance = self.cache.get(kind=f'{self.kind}__balance', id=self.id)
+
+            if self._ledger is not None or self._balance is not None:
+                return True
+            
+        return False
+
+
+
+    def cacheUpdate(self):
+        """
+        Set new data to DataCache
+        """
+        if self.cache is not None:
+            if self._ledger is not None:
+                cache.set(kind=f'{self.kind}__ledger', id=self.id, data=self._ledger)
+            if self.balance is not None:
+                cache.set(kind=f'{self.kind}__balance', id=self.id, data=self._balance)
+
+
+    ############################################################################
+    ##
+    ## Virtual methods.
+    ##
+    ## Need to be defined in derived classes.
+    ##
+    ############################################################################
+    
+    def refreshData(self):
+        """
+        Called when Portfolio feels the need to update its data.
+        Pure virtual method, needs to be implemented in derived classes.
+        """
+        pass
+
+
+
+    def processData(self):
+        """
+        Called right after raw data is loaded from cache or from its original
+        source (API) to clean it up.
+
+        Pure virtual method, needs to be implemented in derived classes.
+        """
+        pass
+
+
+
+    @property
+    def has_balance(self):
+        # Let derived classes define this
+        return None
+
+
+
+    @property
+    def has_ledger(self):
+        # Let derived classes define this
+        return None
+
+    
+    
+

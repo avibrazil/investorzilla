@@ -190,7 +190,7 @@ class Fund(object):
         if name:
             self.name=name
         else:
-            fundset=ledger['fund'].unique()
+            fundset=list(ledger['fund'].unique())
             fundset.sort()
             self.name=' ⋃ '.join(fundset) + ' @ ' + self.exchange.target
 
