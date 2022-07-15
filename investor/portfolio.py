@@ -147,11 +147,11 @@ class Portfolio(object):
             return None
         
         if self.nextRefresh:
-            self.refreshData()
+            self.callRefreshData()
             self.nextRefresh=False
         elif getattr(self,f'_{prop}') is None:
             if self.tryCacheData() is False:
-                self.refreshData()
+                self.callRefreshData()
         else:
             return getattr(self,f'_{prop}')
         
@@ -187,6 +187,23 @@ class Portfolio(object):
                 cache.set(kind=f'{self.kind}__balance', id=self.id, data=self._balance)
 
 
+            
+    def callRefreshData(self):
+        self.refreshData()
+        
+        self.asof=(
+            pd.Timestamp.utcnow()
+            .tz_convert(
+                datetime.datetime.now(
+                    datetime.timezone.utc
+                )
+                .astimezone()
+                .tzinfo
+            )
+        )
+        
+        
+        
     ############################################################################
     ##
     ## Virtual methods.
