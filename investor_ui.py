@@ -29,10 +29,20 @@ class StreamlitInvestorApp:
             # Get the kind of refresh user wants, if any
             self.refreshMap=self.interact_refresh()
 
+        # investor    refresh
+        #   None         X.     => load
+        #     X          True.  => load
+        #     X.         False. => reuse
+        #     None.      False. => load
+            
+        
         if 'investor' not in st.session_state:
             st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
         elif True in self.refreshMap.values():
-            st.session_state['investor']
+            st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
+        # else:
+        #     # Simply reuse what you have
+        #     st.session_state['investor']
 
         with st.sidebar:
             # Put controls in the sidebar
@@ -224,7 +234,7 @@ class StreamlitInvestorApp:
                     investor.KPI.BENCHMARK_EXCESS_RETURN,
                     investor.KPI.PERIOD_GAIN
                 ],
-#                 output='plain'
+                output='flat'
             )
         )
 
@@ -244,7 +254,7 @@ class StreamlitInvestorApp:
                     investor.KPI.SAVINGS,
                     investor.KPI.MOVEMENTS
                 ],
-#                 output='plain'
+                output='flat'
             )
         )
 

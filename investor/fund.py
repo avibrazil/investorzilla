@@ -178,15 +178,35 @@ class Fund(object):
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
 
 
-        # A true pseudo-random number generator in the space of 2 minutes used to add
-        # random seconds to entries at the same time. This is why we exclude Zero.
-        self.twoSeconds=pd.Series(range(-999,999))
-        self.twoSeconds=self.twoSeconds[self.twoSeconds!=0].sample(frac=1).reset_index(drop=True)
-        self.twoSecondsGen=self.pseudoRandomUniqueMiliseconds()
+        # A true pseudo-random number generator in the space of 2 minutes used
+        # to add random seconds to entries that have same time. This is why we
+        # exclude Zero.
+        self.twoSeconds=(
+            pd.concat(
+                [
+                    # -999 .. -1
+                    pd.Series(range(-999,0)),
+                    
+                    # 0 is excluded here
+                    
+                    # 1 .. 999
+                    pd.Series(range(1,1000))
+                ]
+            )
+            
+            # Randomize, but make it deterministic
+            .sample(frac=1,random_state=42)
+            .reset_index(drop=True)
+        )
+        self.twoSecondsGen=self.pseudoRandomUniqueMilliseconds()
 
 
+        # Configure a multi-currency converter engine
         self.exchange=currencyExchange
+        self.currency=currencyExchange.target
 
+
+        # Set fund name
         if name:
             self.name=name
         else:
@@ -194,7 +214,9 @@ class Fund(object):
             fundset.sort()
             self.name=' ⋃ '.join(fundset) + ' @ ' + self.exchange.target
 
-
+        
+        # Homogenize time entries of ledger table and group all columns under a
+        # ‘ledger’ multi-index
         self.ledger = pd.concat(
             [self.normalizeMonetarySheet(ledger)],
             axis=1,
@@ -202,30 +224,43 @@ class Fund(object):
         )
 
 
-        # Shift naive entries in 12h3m, just to put them after ledger's default 12h0m
+        # Homogenize time entries of balance table, shift naive entries in
+        # 12h3m, just to put them after ledger's default 12h0m and group all
+        # columns under a ‘balance’ multi-index
         self.balance = pd.concat(
             [self.normalizeMonetarySheet(balance, naiveTimeShift = 12*3600 + 3*60)],
             axis=1,
             keys=[KPI.BALANCE]
         )
 
-
+        
+        # Homogenize all to same currency
         self.ledger  = self.convertCurrency(self.ledger)
         self.balance = self.convertCurrency(self.balance)
 
-        self.currency=currencyExchange.target
+        
+        # Compute number of shares and share value over time
+        try:
+            self.computeShares()
 
-        self.computeShares()
-
-        # Date and time the fund begins and ends
-        self.start=((self.shares[KPI.SHARES] != 0) | (self.shares[KPI.SHARE_VALUE] != 0)).idxmax()
-        self.end=self.shares.tail(1).index.item()
+            # Date and time the fund begins and ends
+            self.start=((self.shares[KPI.SHARES] != 0) | (self.shares[KPI.SHARE_VALUE] != 0)).idxmax()
+            self.end=self.shares.tail(1).index.item()
+        except Exception as e:
+            self.logger.warning(
+                f'Failed to compute shares with error "{e}". ' +
+                'Returning an incomplete object for debug purposes'
+            )
 
 
 
     def normalizeMonetarySheet(self, sheet, naiveTimeShift=12*3600):
         # Convert naiveTimeShift into something more useful
         timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
+
+        # 1. Detect TZ-naive entries
+        # 2. Add current timezone to them
+        # 3. Convert all to current local timezone
 
         # Get current timezone
         currtz=(
@@ -252,25 +287,22 @@ class Fund(object):
             # Convert all to current time zone
             .assign(
                 time=lambda table:
-                    table.time.apply(lambda t: t.tz_convert(currtz))
+                    table.time.apply(lambda cell: cell.tz_convert(currtz))
             )
         )        
         
-        
-        # 1. Detect TZ-naive entries
-        # 2. Add current timezone to them
-        # 3. Convert all to current local timezone
-
+        # Detect all dates that have no time (time part is 00:00:00)
         timeFilter=(sheet.time.dt.time==datetime.time(0))
 
-        # Shift dates that have no time (time part is 00:00:00) to
-        # the middle of the day (12:00:00) using naiveTimeShift
+        # Shift dates that have no time to the middle of the day (12:00:00)
+        # using naiveTimeShift parameter
         sheet.loc[timeFilter, 'time'] = (
             sheet[timeFilter]['time'] + timeShift
         )
 
 
-        # Adjust duplicate datetime entries of funds adding random number of seconds
+        # Adjust duplicate datetime entries of funds adding random number
+        # of seconds
         sheet.sort_values('time', inplace=True)
 
         ## Get a dataframe with only the time entries of the
@@ -286,15 +318,11 @@ class Fund(object):
         ## Find only the duplicate entries, those that will need adjustment
         repeatedTime=(adjust['time']==adjust['time_next'])
 
-        ## Adjust time adding a few random seconds
+        ## Cirurgically adjust time adding a few random seconds only on
+        ## duplicate items
         sheet.loc[repeatedTime, 'time']=(
-            sheet[repeatedTime]['time']
-            .apply(
-                lambda x: x+pd.to_timedelta(
-                    next(self.twoSecondsGen),
-                    unit='ms'
-                )
-            )
+            sheet[repeatedTime][['time']]
+            .apply(lambda row: row.time + next(self.twoSecondsGen),axis=1)
         )
 
         return sheet.set_index(['fund','time']).sort_index()
@@ -1178,14 +1206,18 @@ class Fund(object):
 
 
 
-    def pseudoRandomUniqueMiliseconds(self):
-        # Cycle over self.twoMinutes which has 118 entries (0 to 117) with random
-        # seconds in the range [-59..-1, 1..59]
+    def pseudoRandomUniqueMilliseconds(self):
+        # Cycle over self.twoMinutes which has 1998 entries (0 to 1997) with
+        # random milliseconds in the range [-999..-1, 1..999]
+        
+        twoSecondsLength=len(self.twoSeconds)
+        
         i=0
-        while i<118:
-            yield self.twoSeconds[i]
+        while i<twoSecondsLength:
+            # print('generating')
+            yield pd.to_timedelta(self.twoSeconds[i],unit='ms')
             i+=1
-            if (i==118):
+            if (i==twoSecondsLength):
                 i=0
 
 

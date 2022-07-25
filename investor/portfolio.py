@@ -3,6 +3,7 @@ import datetime
 import pickle
 import logging
 import concurrent.futures
+import numpy
 import pandas as pd
 
 
@@ -33,7 +34,7 @@ class Portfolio(object):
         self.id=id
 
         # Last updated at
-        self.asof = None
+        # self.asof = None
         
         self.cache=cache
         self.nextRefresh=refresh
@@ -168,10 +169,11 @@ class Portfolio(object):
 
     def tryCacheData(self):
         if self.cache is not None:
-            self._ledger  = self.cache.get(kind=f'{self.kind}__ledger', id=self.id)
-            self._balance = self.cache.get(kind=f'{self.kind}__balance', id=self.id)
+            (self._ledger,ledger_age)  = self.cache.get(kind=f'{self.kind}__ledger', id=self.id)
+            (self._balance,balance_age) = self.cache.get(kind=f'{self.kind}__balance', id=self.id)
 
             if self._ledger is not None or self._balance is not None:
+                self.asof=ledger_age if ledger_age else balance_age
                 return True
             
         return False
@@ -184,15 +186,17 @@ class Portfolio(object):
         """
         if self.cache is not None:
             if self._ledger is not None:
-                cache.set(kind=f'{self.kind}__ledger', id=self.id, data=self._ledger)
-            if self.balance is not None:
-                cache.set(kind=f'{self.kind}__balance', id=self.id, data=self._balance)
+                self.cache.set(kind=f'{self.kind}__ledger', id=self.id, data=self._ledger)
+            if self._balance is not None:
+                self.cache.set(kind=f'{self.kind}__balance', id=self.id, data=self._balance)
 
 
             
     def callRefreshData(self):
         self.refreshData()
+        self.cacheUpdate()
         
+        # Time zone aware current time
         self.asof=(
             pd.Timestamp.utcnow()
             .tz_convert(
@@ -330,6 +334,12 @@ class PortfolioAggregator(Portfolio):
             )
             .reset_index(drop=True)
         )
+
+
+
+    @property
+    def asof(self):
+        return numpy.max([p.asof for p in self.members])
 
 
 

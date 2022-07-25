@@ -1,5 +1,6 @@
 import copy
 import pandas as pd
+import logging
 from . import DataCache
 
 
@@ -15,6 +16,9 @@ class MonetaryTimeSeries(object):
     """
 
     def __init__(self, kind, id, cache=None, refresh=False):
+        # Setup logging
+        self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
+
         self.data        = None
         self.id          = id
         self.kind        = kind
@@ -45,7 +49,7 @@ class MonetaryTimeSeries(object):
 
     def tryCacheData(self, kind, id, cache=None):
         if cache is not None:
-            self.data=cache.get(kind=kind, id=id)
+            (self.data,age)=cache.get(kind=kind, id=id)
             if self.data is not None:
                 return True
         return False

@@ -67,7 +67,7 @@ class URIBalanceOrLedger(Portfolio):
         self._ledger = None
 
         super().__init__(
-            kind       = f'uri::{kind}',
+            kind       = f'uri•{kind}',
             id         = self.URI,
             cache      = cache,
             refresh    = refresh

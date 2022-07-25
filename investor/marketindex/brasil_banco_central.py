@@ -44,7 +44,11 @@ class BCBMarketIndex(MarketIndex):
 
 
     def refreshData(self):
-        self.data=pd.read_json(self.series[self.id]['url'])
+        try:
+            self.data=pd.read_json(self.series[self.id]['url'])
+        except BaseException as err:
+            self.logger.warning(f"URL was: {self.series[self.id]['url']}")
+            raise
 
 
 

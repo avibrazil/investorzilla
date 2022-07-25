@@ -4,6 +4,7 @@ import pickle
 import logging
 import concurrent.futures
 import pandas as pd
+import numpy
 
 # python3 -m pip install -U google-api-python-client google-auth-httplib2 google-auth-oauthlib pandas_datareader --user
 
@@ -189,7 +190,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             # Optimize and be gentle with storage
             .astype(
                 dict(
-                    fund      = 'category'
+                    fund = 'category'
                 )
             )
         )
@@ -197,16 +198,16 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         # Handle monetary columns, remove currency symbols and make them numbers
         remove=['R$ ','$','€',',']
         for c in columnsProfile['monetary']:
+            if sheet[c['currency']].dtype==numpy.dtype('O'):
+                ## Remove currency symbols and junk
+                for r in remove:
+                    sheet[c['currency']]=sheet[c['currency']].str.replace(r, '', regex=False)
 
-            ## Remove currency symbols and junk
-            for r in remove:
-                sheet[c['currency']]=sheet[c['currency']].str.replace(r, '', regex=False)
+                ## Make NaNs of empty ('') cells
+                sheet[c['currency']]=sheet[c['currency']].str.replace(r'^\s*$','', regex=True)
 
-            ## Make NaNs of empty ('') cells
-            sheet[c['currency']]=sheet[c['currency']].str.replace(r'^\s*$','', regex=True)
-
-            ## Convert to number
-            sheet[c['currency']]=pd.to_numeric(sheet[c['currency']]) #.astype(float)
+                ## Convert to number
+                sheet[c['currency']]=pd.to_numeric(sheet[c['currency']]) #.astype(float)
             
         setattr(self,f'_{prop}',sheet)
 

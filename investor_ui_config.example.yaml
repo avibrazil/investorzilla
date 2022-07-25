@@ -30,6 +30,27 @@
 
 
 portfolio:
+    - type: !!python/name:investor.portfolios.uri.URIBalanceOrLedger ''
+      params:
+        URI: balances.txt
+        kind: traderbot_balance
+        sheetStructure:
+            separator: "|"
+            # In here you describe how the BALANCE and LEDGER data is
+            # organized in sheets and columns
+            balance:
+                columns:
+                    # Time is in column called 'time'
+                    time: time
+                    
+                    # Name of funds on each row is under this column
+                    fund: fund
+                    
+                    # Column called 'Saldo USD' contains values in 'USD' and so on.
+                    monetary:
+                        - currency:     USD
+                          name:         USD
+    
     - type: !!python/name:investor.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
       params:
         # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
