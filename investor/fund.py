@@ -163,16 +163,12 @@ class Fund(object):
 
 
 
-    def __repr__(self):
-        return '{self.__class__.__name__}(name={self.name}, currency={self.exchange.target})'.format(self=self)
-
-
-
-    def __str__(self):
-        return self.name
-
-
-
+    ############################################################################
+    ##
+    ## Initialization and data standadization methods
+    ##
+    ############################################################################    
+    
     def __init__(self, ledger, balance, currencyExchange=None, name=None):
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
@@ -539,6 +535,224 @@ class Fund(object):
 
 
 
+    ############################################################################
+    ##
+    ## Reporting methods
+    ##
+    ############################################################################    
+    
+    def report(self, period='M', benchmark=None, output='styled',
+                start=None,
+                end=None,
+                flatPeriodFirst=True,
+                kpi=benchmarkFeatures + [
+                    KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,        KPI.SAVINGS,
+                    KPI.MOVEMENTS,     KPI.SHARES,        KPI.SHARE_VALUE
+                ]
+        ):
+        for p in self.periodPairs:
+            if p['period']==period:
+                break
+
+
+        if benchmark is None:
+            # Remove benchmark features because there is no benchmark
+            kpi=[i for i in kpi if i not in self.benchmarkFeatures]
+
+            # Can't use set() operations here because it messes with features order, which
+            # are important to us
+
+
+        # Get bigger part of report with period data
+        period = self.periodicReport(
+            period     = p['period'],
+            benchmark  = benchmark,
+            start      = start,
+            end        = end
+        )[kpi]
+
+        # Get summary part report with summary of a period set
+        macroPeriod = self.periodicReport(
+            period     = p['macroPeriod'],
+            benchmark  = benchmark,
+            start      = start,
+            end        = end
+        )[kpi]
+
+
+        report=None
+
+        # KPI income has a special formatter
+        if KPI.PERIOD_GAIN in self.formatters:
+            incomeFormatter=self.formatters[KPI.PERIOD_GAIN]['format']
+        else:
+            incomeFormatter=self.formatters['DEFAULT']['format']
+
+
+        # Break the periodic report in chunks equivalent to the summary report
+        for i in range(len(macroPeriod.index)):
+
+            currentRange=None
+
+            if i==0:
+                line=period[:macroPeriod.index[i]]
+                nPeriods=period[:macroPeriod.index[i]].shape[0]
+            else:
+                currentRange=(
+                    (period.index > macroPeriod.index[i-1]) &
+                    (period.index <= macroPeriod.index[i])
+                )
+                line=period[currentRange]
+                nPeriods=period[currentRange].shape[0]
+
+            line=(
+                # Add a row label, as '2020' or '4·Thu'
+                pd.concat([line], axis=1, keys=[macroPeriod.index[i]])
+
+                # Rename the title for labels so we can join latter
+                .rename_axis(['time','KPI'], axis='columns')
+
+                # Convert index from full DateTimeIndex to something that can be matched
+                # across macro-periods, as just '08·Aug'
+                .assign(
+                    **{
+                        p['periodLabel']: (
+                            line.index.strftime(p['periodFormatter'])
+                            if 'periodFormatter' in p
+                            else range(1,nPeriods+1,1)
+                        ),
+                        '': 'periods'
+                    }
+                )
+                .set_index(['',p['periodLabel']])
+            )
+
+            # Add to main report transposing it into a true row (we were columns until now)
+            report=(
+                pd.concat([report,line.T], sort=True)
+                if report is not None
+                else line.T
+            )
+
+            # Make the 'income' value of summary report the average multiplied
+            # by number of periods
+#             if KPI.PERIOD_GAIN in kpi:
+#                 macroPeriod.loc[macroPeriod.index[i],'new ' + KPI.PERIOD_GAIN]='{n} × {inc}'.format(
+#                     n=nPeriods,
+#                     inc=incomeFormatter.format(
+#                         macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
+#                     )
+#                 )
+
+#         if KPI.PERIOD_GAIN in kpi:
+#             macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
+
+        # Make summary report a column, sort and name labels for perfect join
+        macroPeriod=(
+            macroPeriod
+                .rename_axis(columns='KPI')
+                .T
+                .stack()
+                .reorder_levels(['time','KPI'])
+                .sort_index()
+        )
+
+        # Join the summary report to main report
+        report[('summary of periods',p['macroPeriodLabel'])]=macroPeriod
+
+        # Reformat line index from a full DateTimeIndex to something more readable
+        report.index=pd.MultiIndex.from_tuples(
+            [
+                (x[0].strftime(p['macroPeriodFormatter']), x[1])
+                for x in report.index
+            ],
+            name=['time','KPI']
+        )
+
+
+
+
+        # output may be:
+        ## - styled (default): returns a styled Dataframe
+        ## - flat: hard format and simplify the dataframe for Streamlit
+        ## - plain: the Dataframe without style
+
+        if output=='plain':
+            ## Just return the Dataframe
+            return report
+
+        if output=='flat' or output=='flat_unformatted':
+            ## Convert all to object to attain more flexibility per cell
+            out=report.astype(object)
+
+            if output=='flat_unformatted':
+                return out
+
+        if output=='styled':
+            ## Lets work with a styled DataFrame
+            out=report.style
+
+
+        # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
+        # not plain (just the data), we'll have to apply formatting, either as style or
+        # hardcoded (in case of flat).
+
+
+        defaultFormat=None
+        if 'DEFAULT' in self.formatters:
+            defaultFormat=self.formatters['DEFAULT']
+
+        for i in kpi:
+            for g in ['periods', 'summary of periods']:
+                # Select formatter for KPI
+
+                f=defaultFormat['format']
+                if g=='summary of periods' and 'summaryFormat' in defaultFormat:
+                    f=defaultFormat['summaryFormat']
+
+                if i in self.formatters:
+                    if g=='summary of periods' and 'summaryFormat' in self.formatters[i]:
+                        f=self.formatters[i]['summaryFormat']
+                    else:
+                        f=self.formatters[i]['format']
+
+
+                selector=pd.IndexSlice[
+                    # Apply format in KPI row
+                    pd.IndexSlice[:,i],
+
+                    # Apply style in «periods» or «summary of periods»
+                    pd.IndexSlice[g,:]
+                ]
+
+
+                if output=='flat':
+                    out.loc[selector]=out.loc[selector].apply(
+                        lambda s: [f.format(x) for x in s]
+                    )
+                    out.loc[selector]=out.loc[selector].replace('$nan','')
+                elif output=='styled':
+                    # Styler advanced slicing only works in Pandas>=1.3
+                    out=out.format(formatter=f, subset=selector, na_rep='')
+
+        if output=='styled':
+            # Styled report is ready to go
+            return out
+
+        # Final cleanup for flat
+        out.replace(['nan','nan%'],'', inplace=True)
+        if flatPeriodFirst:
+            out.index=['·'.join((p,k)).strip() for (p,k) in out.index.values]
+        else:
+            out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
+        level=out.loc[:,pd.IndexSlice['summary of periods',:]].columns.values[0][1]
+        out.rename(columns={level:'summary of periods'},inplace=True)
+        out.columns=out.columns.droplevel(0)
+
+        return out
+
+
+
     def periodicReport(self, period=None, benchmark=None, start=None, end=None):
         """
         This is the most important summarization and reporting method of the class.
@@ -785,6 +999,12 @@ class Fund(object):
 
 
 
+    ############################################################################
+    ##
+    ## Data visualization
+    ##
+    ############################################################################    
+    
     def performancePlot(self, benchmark, start=None, end=None, type='pyplot'):
         if benchmark.currency!=self.currency:
             self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
@@ -994,218 +1214,12 @@ class Fund(object):
 
 
 
-    def report(self, period='M', benchmark=None, output='styled',
-                start=None,
-                end=None,
-                flatPeriodFirst=True,
-                kpi=benchmarkFeatures + [
-                    KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,        KPI.SAVINGS,
-                    KPI.MOVEMENTS,     KPI.SHARES,        KPI.SHARE_VALUE
-                ]
-        ):
-        for p in self.periodPairs:
-            if p['period']==period:
-                break
-
-
-        if benchmark is None:
-            # Remove benchmark features because there is no benchmark
-            kpi=[i for i in kpi if i not in self.benchmarkFeatures]
-
-            # Can't use set() operations here because it messes with features order, which
-            # are important to us
-
-
-        # Get bigger part of report with period data
-        period = self.periodicReport(
-            period     = p['period'],
-            benchmark  = benchmark,
-            start      = start,
-            end        = end
-        )[kpi]
-
-        # Get summary part report with summary of a period set
-        macroPeriod = self.periodicReport(
-            period     = p['macroPeriod'],
-            benchmark  = benchmark,
-            start      = start,
-            end        = end
-        )[kpi]
-
-
-        report=None
-
-        # KPI income has a special formatter
-        if KPI.PERIOD_GAIN in self.formatters:
-            incomeFormatter=self.formatters[KPI.PERIOD_GAIN]['format']
-        else:
-            incomeFormatter=self.formatters['DEFAULT']['format']
-
-
-        # Break the periodic report in chunks equivalent to the summary report
-        for i in range(len(macroPeriod.index)):
-
-            currentRange=None
-
-            if i==0:
-                line=period[:macroPeriod.index[i]]
-                nPeriods=period[:macroPeriod.index[i]].shape[0]
-            else:
-                currentRange=(
-                    (period.index > macroPeriod.index[i-1]) &
-                    (period.index <= macroPeriod.index[i])
-                )
-                line=period[currentRange]
-                nPeriods=period[currentRange].shape[0]
-
-            line=(
-                # Add a row label, as '2020' or '4·Thu'
-                pd.concat([line], axis=1, keys=[macroPeriod.index[i]])
-
-                # Rename the title for labels so we can join latter
-                .rename_axis(['time','KPI'], axis='columns')
-
-                # Convert index from full DateTimeIndex to something that can be matched
-                # across macro-periods, as just '08·Aug'
-                .assign(
-                    **{
-                        p['periodLabel']: (
-                            line.index.strftime(p['periodFormatter'])
-                            if 'periodFormatter' in p
-                            else range(1,nPeriods+1,1)
-                        ),
-                        '': 'periods'
-                    }
-                )
-                .set_index(['',p['periodLabel']])
-            )
-
-            # Add to main report transposing it into a true row (we were columns until now)
-            report=(
-                pd.concat([report,line.T], sort=True)
-                if report is not None
-                else line.T
-            )
-
-            # Make the 'income' value of summary report the average multiplied
-            # by number of periods
-#             if KPI.PERIOD_GAIN in kpi:
-#                 macroPeriod.loc[macroPeriod.index[i],'new ' + KPI.PERIOD_GAIN]='{n} × {inc}'.format(
-#                     n=nPeriods,
-#                     inc=incomeFormatter.format(
-#                         macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
-#                     )
-#                 )
-
-#         if KPI.PERIOD_GAIN in kpi:
-#             macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
-
-        # Make summary report a column, sort and name labels for perfect join
-        macroPeriod=(
-            macroPeriod
-                .rename_axis(columns='KPI')
-                .T
-                .stack()
-                .reorder_levels(['time','KPI'])
-                .sort_index()
-        )
-
-        # Join the summary report to main report
-        report[('summary of periods',p['macroPeriodLabel'])]=macroPeriod
-
-        # Reformat line index from a full DateTimeIndex to something more readable
-        report.index=pd.MultiIndex.from_tuples(
-            [
-                (x[0].strftime(p['macroPeriodFormatter']), x[1])
-                for x in report.index
-            ],
-            name=['time','KPI']
-        )
-
-
-
-
-        # output may be:
-        ## - styled (default): returns a styled Dataframe
-        ## - flat: hard format and simplify the dataframe for Streamlit
-        ## - plain: the Dataframe without style
-
-        if output=='plain':
-            ## Just return the Dataframe
-            return report
-
-        if output=='flat' or output=='flat_unformatted':
-            ## Convert all to object to attain more flexibility per cell
-            out=report.astype(object)
-
-            if output=='flat_unformatted':
-                return out
-
-        if output=='styled':
-            ## Lets work with a styled DataFrame
-            out=report.style
-
-
-        # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
-        # not plain (just the data), we'll have to apply formatting, either as style or
-        # hardcoded (in case of flat).
-
-
-        defaultFormat=None
-        if 'DEFAULT' in self.formatters:
-            defaultFormat=self.formatters['DEFAULT']
-
-        for i in kpi:
-            for g in ['periods', 'summary of periods']:
-                # Select formatter for KPI
-
-                f=defaultFormat['format']
-                if g=='summary of periods' and 'summaryFormat' in defaultFormat:
-                    f=defaultFormat['summaryFormat']
-
-                if i in self.formatters:
-                    if g=='summary of periods' and 'summaryFormat' in self.formatters[i]:
-                        f=self.formatters[i]['summaryFormat']
-                    else:
-                        f=self.formatters[i]['format']
-
-
-                selector=pd.IndexSlice[
-                    # Apply format in KPI row
-                    pd.IndexSlice[:,i],
-
-                    # Apply style in «periods» or «summary of periods»
-                    pd.IndexSlice[g,:]
-                ]
-
-
-                if output=='flat':
-                    out.loc[selector]=out.loc[selector].apply(
-                        lambda s: [f.format(x) for x in s]
-                    )
-                    out.loc[selector]=out.loc[selector].replace('$nan','')
-                elif output=='styled':
-                    # Styler advanced slicing only works in Pandas>=1.3
-                    out=out.format(formatter=f, subset=selector, na_rep='')
-
-        if output=='styled':
-            # Styled report is ready to go
-            return out
-
-        # Final cleanup for flat
-        out.replace(['nan','nan%'],'', inplace=True)
-        if flatPeriodFirst:
-            out.index=['·'.join((p,k)).strip() for (p,k) in out.index.values]
-        else:
-            out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
-        level=out.loc[:,pd.IndexSlice['summary of periods',:]].columns.values[0][1]
-        out.rename(columns={level:'summary of periods'},inplace=True)
-        out.columns=out.columns.droplevel(0)
-
-        return out
-
-
-
+    ############################################################################
+    ##
+    ## Internal and operational methods
+    ##
+    ############################################################################    
+    
     def pseudoRandomUniqueMilliseconds(self):
         # Cycle over self.twoMinutes which has 1998 entries (0 to 1997) with
         # random milliseconds in the range [-999..-1, 1..999]
@@ -1231,6 +1245,16 @@ class Fund(object):
         for p in Fund.periodPairs:
             if p['period']==period:
                 return '{p1} & {p2}'.format(p1=p['periodLabel'],p2=p['macroPeriodLabel'])
+
+
+
+    def __repr__(self):
+        return '{self.__class__.__name__}(name={self.name}, currency={self.exchange.target})'.format(self=self)
+
+
+
+    def __str__(self):
+        return self.name
 
 
 
