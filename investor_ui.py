@@ -29,10 +29,20 @@ class StreamlitInvestorApp:
             # Get the kind of refresh user wants, if any
             self.refreshMap=self.interact_refresh()
 
+        # investor    refresh
+        #   None         X.     => load
+        #     X          True.  => load
+        #     X.         False. => reuse
+        #     None.      False. => load
+            
+        
         if 'investor' not in st.session_state:
             st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
         elif True in self.refreshMap.values():
-            st.session_state['investor']
+            st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
+        # else:
+        #     # Simply reuse what you have
+        #     st.session_state['investor']
 
         with st.sidebar:
             # Put controls in the sidebar
@@ -60,7 +70,7 @@ class StreamlitInvestorApp:
                 fundset.remove('ALL')
 
         if fundset is None or len(fundset)==0:
-            fundset=st.session_state.investor.portfolio[0]['obj'].funds()
+            fundset=st.session_state.investor.portfolio.funds()
             fundset=[f[0] for f in fundset]
 
         if 'interact_no_funds' in st.session_state:
@@ -69,7 +79,7 @@ class StreamlitInvestorApp:
                 set(st.session_state.interact_no_funds)
             )
 
-        st.session_state['fund']=st.session_state.investor.portfolio[0]['obj'].getFund(
+        st.session_state['fund']=st.session_state.investor.portfolio.getFund(
             subset           = fundset,
             currencyExchange = st.session_state.investor.exchange
         )
@@ -224,7 +234,7 @@ class StreamlitInvestorApp:
                     investor.KPI.BENCHMARK_EXCESS_RETURN,
                     investor.KPI.PERIOD_GAIN
                 ],
-#                 output='plain'
+                output='flat'
             )
         )
 
@@ -244,13 +254,13 @@ class StreamlitInvestorApp:
                     investor.KPI.SAVINGS,
                     investor.KPI.MOVEMENTS
                 ],
-#                 output='plain'
+                output='flat'
             )
         )
 
 
         # Render footer
-        st.markdown('Data good for **{}**'.format(st.session_state.investor.portfolio[0]['obj'].asof))
+        st.markdown('Data good for **{}**'.format(st.session_state.investor.portfolio.asof))
 
         st.markdown('Graph data between **{}** and **{}**'.format(
             st.session_state.interact_start_end[0],
@@ -439,7 +449,7 @@ class StreamlitInvestorApp:
         st.session_state['interact_funds']=st.multiselect(
             'Select funds',
             ['ALL']+
-            [x[0] for x in st.session_state.investor.portfolio[0]['obj'].funds()]
+            [x[0] for x in st.session_state.investor.portfolio.funds()]
         )
 
 
@@ -447,7 +457,7 @@ class StreamlitInvestorApp:
     def interact_exclude_funds(self):
         st.session_state['interact_no_funds']=st.multiselect(
             'Except funds',
-            [x[0] for x in st.session_state.investor.portfolio[0]['obj'].funds()]
+            [x[0] for x in st.session_state.investor.portfolio.funds()]
         )
 
 

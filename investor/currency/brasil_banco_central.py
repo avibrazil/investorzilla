@@ -63,7 +63,7 @@ class BCBCurrencyConverter(CurrencyConverter):
 
 
     def processData(self):
-        self.data['time']=pd.to_datetime(self.data['time'])
+        self.data['time']=pd.to_datetime(self.data['time'],utc=True)
         self.data['value']=(self.data['cotacaoCompra']+self.data['cotacaoVenda'])/2
         self.data=(
             self.data.drop('cotacaoCompra cotacaoVenda'.split(),axis=1)

@@ -44,18 +44,43 @@ class BCBMarketIndex(MarketIndex):
 
 
     def refreshData(self):
-        self.data=pd.read_json(self.series[self.id]['url'])
+        try:
+            self.data=pd.read_json(self.series[self.id]['url'])
+        except BaseException as err:
+            self.logger.warning(f"URL was: {self.series[self.id]['url']}")
+            raise
 
 
 
     def processData(self):
-        self.data['time']=pd.to_datetime(self.data.data,dayfirst=True)
-        self.data['rate']=self.data.valor/100
-        self.data.drop(['data', 'valor'], axis=1, inplace=True)
-        self.data.set_index('time', inplace=True)
-        self.data.sort_index(inplace=True)
+        self.data=(
+            self.data
+            
+            # Create columns
+            .assign(
+                time=pd.to_datetime(self.data.data,dayfirst=True,utc=True),
+                rate=self.data.valor/100
+            )
+            
+            # Remove unused
+            .drop(columns=['data', 'valor'])
+            
+            # Time as index
+            .set_index('time')
+            .sort_index()
+            
+            # Init a column for value
+            .assign(
+                value=0
+            )
+        )
 
-        self.data['value']=0.0
+        # TODO: optimize this with a join
+        
+        # At this point we have a dataframe indexed by time with 2 columns:
+        # - rate
+        # - value (all with 0)
+        
         start=1
         for i in range(self.data.shape[0]):
             if i==0:

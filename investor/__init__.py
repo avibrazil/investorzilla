@@ -1,12 +1,12 @@
 # The main interfaces of the investor framework
 
 __all__=[
-    'DataCache', 'Fund', 'Portfolio', 'MarketIndex',
-    'CurrencyConverter', 'CurrencyExchange', 'Investor'
+    'DataCache',            'Fund',                 'Portfolio',    'Investor',
+    'CurrencyConverter',    'CurrencyExchange',     'MarketIndex'
 ]
 
 from .datacache              import DataCache
 from .fund                   import Fund, KPI
-from .portfolio              import Portfolio
+from .portfolio              import Portfolio, PortfolioAggregator
 from .monetary_time_series   import MarketIndex, CurrencyConverter, CurrencyExchange
 from .investor               import Investor

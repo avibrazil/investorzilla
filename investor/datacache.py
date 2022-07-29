@@ -10,30 +10,32 @@ class DataCache(object):
     """
     Implements a simple generic cache in a local SQLite database.
 
-    Time series for market indexes, currency converters and even your portfolio kept on
-    Google Sheets takes a lot of time to load because they are published as slow web APIs.
+    Time series for market indices, currency converters and even your portfolio
+    kept on Google Sheets take a lot of time to load because they are published
+    as slow web APIs. To speed up initial data loading, all classes in the
+    investzilla framework know how to work with a DataCache.
 
-    To speed up initial data loading, all classes in the investor framework know how to
-    work with a DataCache.
+    A dataset that needs to be cached can have arbitrary columns and is usually
+    the raw data as returned by the web API, after column names normalization
+    but before cleanup and processing.
 
-    A dataset that needs to be cached can have arbitrary columns and is usually the raw
-    data as returned by the web API, before cleanup and processing.
+    A dataset has a `kind` and `ID`. So for example, the YahooMarketIndex class
+    has kind `YahooMarketIndex` and the `ID` might be `^IXIC` or `^GSPC` -- the
+    name of the market index you put in your portfolio configuration.
 
-    A dataset has a `kind` and `ID`. So for example, the YahooMarketIndex class has kind
-    `YahooMarketIndex` and the `ID` might be `^IXIC` or `^GSPC` the name of the market
-    index you put in your portfolio configuration.
+    DataCache will organize tables in the database with names
+    `DataCache__{kind}`. And then each table will have columns:
 
-    DataCache will organize tables in the database with names `DataCache__{kind}`. And
-    then each table will have columns:
-
-    - __DataCache_id: values for our YahooMarketIndex examples will be `^IXIC` or `^GSPC`
-    - __DataCache_time: UTC time the cache was set
-    - other arbitrary columns found in the data attribute of set() method
+    * __DataCache_id: values for our YahooMarketIndex examples will be `^IXIC`
+      or `^GSPC`
+    * __DataCache_time: UTC time the cache was set
+    * other arbitrary columns found in the data attribute of set() method
 
     DataCache will keep multiple versions of the dataset, differentiated by
-    __DataCache_time and it will always use the last version (max(__DataCache_time)). The
-    maximum number of versions kept are defined by the __init__()’s recycle attribute.
-    Older versions of data will be automatically deleted.
+    __DataCache_time and it will always use the last version
+    (max(__DataCache_time)). The maximum number of versions kept are defined by
+    the __init__()’s recycle attribute. Older versions of data will be
+    automatically deleted.
     """
 
     idCol       = '__DataCache_id'
@@ -42,7 +44,7 @@ class DataCache(object):
 
 
 
-    def __init__(self, url='sqlite:///cache.db', recycle=5):
+    def __init__(self, url='sqlite:///cache.db?check_same_thread=False', recycle=5):
         self.url=url
         self.db=None
         self.recycle=recycle
@@ -53,18 +55,12 @@ class DataCache(object):
         self.getDB()
 
 
+
     def __repr__(self):
         return 'DataCache(url={url},recycle={recycle})'.format(
             url=self.url,
             recycle=self.recycle
         )
-
-
-
-#     def __del__(self):
-#         if hasattr(self,'db') and self.db:
-#             self.db.close()
-#             self.db=None
 
 
 
@@ -85,6 +81,7 @@ class DataCache(object):
             self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
 
         return self.logger
+
 
 
     def getDB(self):
@@ -137,7 +134,7 @@ class DataCache(object):
             df=pd.read_sql(query,con=self.db)
 
             if df.shape[0]>0:
-                self.logger.debug(f"Successful cache hit for kind={kind} and id={id}")
+                self.logger.info(f"Successful cache hit for kind={kind} and id={id}")
                 df['last']=pd.to_datetime(df['last'])
                 ret=df['last'][0]
                 if ret.tzinfo is None or ret.tzinfo.utcoffset(ret) is None:
@@ -146,7 +143,7 @@ class DataCache(object):
                 self.getLogger().info(f"Cache empty for kind={kind} and id={id}")
                 ret=None
         except Exception as e:
-            self.getLogger().info(f"No cache for kind={kind} and id={id}")
+            self.getLogger().warning(f"No cache for kind={kind} and id={id}")
             self.getLogger().info(e)
             ret=None
 
@@ -161,7 +158,10 @@ class DataCache(object):
 
         id is written to column __DataCache_id
 
-        time makes it search on column __DataCache_time for entries with id recent up to time
+        time makes it search on column __DataCache_time for entries with id
+        recent up to time.
+        
+        Returns a tuple with table and time of cache data.
         """
 
         table=self.typeTable.format(kind=kind)
@@ -221,17 +221,18 @@ class DataCache(object):
             df=pd.read_sql(query,con=self.db)
 
             if df.shape[0]>0:
-                self.getLogger().debug(f"Successful cache hit for kind={kind} and id={id}")
-                ret=df.drop(columns=[self.timeCol,self.idCol])
+                age=pd.Timestamp(df[self.timeCol].max())
+                self.getLogger().info(f"Cache age for kind={kind} and id={id}: {age}")
+                return (df.drop(columns=[self.timeCol,self.idCol]),age)
             else:
                 self.getLogger().info(f"Cache empty for kind={kind} and id={id}")
-                ret=None
+                return (None,None)
+            
         except Exception as e:
             self.getLogger().info(f"No cache for kind={kind} and id={id}")
             self.getLogger().info(e)
-            ret=None
-
-        return ret
+            
+            return (None,None)
 
 
 
@@ -313,7 +314,7 @@ class DataCache(object):
 
     def set(self, kind, id, data):
         """
-        kind leads to table DataCache_{kind}
+        kind leads to table DataCache__{kind}
 
         id is written to column __DataCache_id
 
