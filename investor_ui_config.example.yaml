@@ -32,6 +32,8 @@
 portfolio:
     - type: !!python/name:investor.portfolios.uri.URIBalanceOrLedger ''
       params:
+        # The URI can be a local file or even a remote http(s):// URL. Anything supported
+        # by Pandas.read_csv()
         URI: balances.txt
         kind: traderbot_balance
         sheetStructure:
