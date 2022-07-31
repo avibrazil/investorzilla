@@ -144,6 +144,19 @@ class Portfolio(object):
         return self.getProperty('ledger')
 
 
+
+    @property
+    def asof(self):
+        return numpy.max(
+            [t for t in
+                [
+                    self.ledger.time.max()  if self.has_ledger  else None,
+                    self.balance.time.max() if self.has_balance else None
+                ] if t is not None
+            ]
+        )
+    
+    
     
     def getProperty(self,prop):
         if getattr(self,f'has_{prop}') is False:
@@ -168,13 +181,22 @@ class Portfolio(object):
 
 
     def tryCacheData(self):
+        ledger_age = None
+        balance_age = None
+        
         if self.cache is not None:
-            (self._ledger,ledger_age)  = self.cache.get(kind=f'{self.kind}__ledger', id=self.id)
-            (self._balance,balance_age) = self.cache.get(kind=f'{self.kind}__balance', id=self.id)
+            (self._ledger,ledger_age)   = self.cache.get(
+                kind=f'{self.kind}__ledger',
+                id=self.id
+            )
+            
+            (self._balance,balance_age) = self.cache.get(
+                kind=f'{self.kind}__balance',
+                id=self.id
+            )
 
-            if self._ledger is not None or self._balance is not None:
-                self.asof=ledger_age if ledger_age else balance_age
-                return True
+        if ledger_age or balance_age:
+            return True
             
         return False
 
@@ -197,16 +219,16 @@ class Portfolio(object):
         self.cacheUpdate()
         
         # Time zone aware current time
-        self.asof=(
-            pd.Timestamp.utcnow()
-            .tz_convert(
-                datetime.datetime.now(
-                    datetime.timezone.utc
-                )
-                .astimezone()
-                .tzinfo
-            )
-        )
+        # self.asof=(
+        #     pd.Timestamp.utcnow()
+        #     .tz_convert(
+        #         datetime.datetime.now(
+        #             datetime.timezone.utc
+        #         )
+        #         .astimezone()
+        #         .tzinfo
+        #     )
+        # )
         
         
         
@@ -339,7 +361,7 @@ class PortfolioAggregator(Portfolio):
 
     @property
     def asof(self):
-        return numpy.max([p.asof for p in self.members])
+        return numpy.max([p.asof.tz_localize(None) for p in self.members])
 
 
 

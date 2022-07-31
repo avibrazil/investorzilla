@@ -258,9 +258,8 @@ class StreamlitInvestorApp:
             )
         )
 
-
         # Render footer
-        st.markdown('Data good for **{}**'.format(st.session_state.investor.portfolio.asof))
+        st.markdown('Most recent porfolio data is **{}**'.format(st.session_state.investor.portfolio.asof))
 
         st.markdown('Graph data between **{}** and **{}**'.format(
             st.session_state.interact_start_end[0],
@@ -268,12 +267,6 @@ class StreamlitInvestorApp:
         ))
 
         st.markdown('Report by [investor](https://github.com/avibrazil/investor).')
-
-
-
-
-#         st.vega_lite_chart(data=fund.report('M',display=True), use_container_width=True)
-
 
 
 

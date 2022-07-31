@@ -546,24 +546,29 @@ class Fund(object):
                 end=None,
                 flatPeriodFirst=True,
                 kpi=benchmarkFeatures + [
-                    KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,        KPI.SAVINGS,
-                    KPI.MOVEMENTS,     KPI.SHARES,        KPI.SHARE_VALUE
+                    KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,
+                    KPI.SAVINGS,       KPI.MOVEMENTS,     KPI.SHARES,
+                    KPI.SHARE_VALUE
                 ]
         ):
+        
+        # Find period structure
         for p in self.periodPairs:
             if p['period']==period:
                 break
-
-
+                
+        # How many periods fit in a macroPeriod ?
+        periodsInSummary=Fund.div_offsets(p['macroPeriod'],p['period'])
+        
         if benchmark is None:
             # Remove benchmark features because there is no benchmark
             kpi=[i for i in kpi if i not in self.benchmarkFeatures]
 
-            # Can't use set() operations here because it messes with features order, which
-            # are important to us
+            # Can't use set() operations here because it messes with features
+            # order, which are important to us
 
 
-        # Get bigger part of report with period data
+        # Get detailed part of report with period data
         period = self.periodicReport(
             period     = p['period'],
             benchmark  = benchmark,
@@ -588,7 +593,6 @@ class Fund(object):
         else:
             incomeFormatter=self.formatters['DEFAULT']['format']
 
-
         # Break the periodic report in chunks equivalent to the summary report
         for i in range(len(macroPeriod.index)):
 
@@ -596,24 +600,56 @@ class Fund(object):
 
             if i==0:
                 line=period[:macroPeriod.index[i]]
-                nPeriods=period[:macroPeriod.index[i]].shape[0]
+                nPeriods=line.shape[0]
+                
+                completeMe = periodsInSummary - nPeriods
+                
+                if completeMe > 0:
+                    # First line in report use to need leading empty periods if they
+                    # start in the middle of macro period
+                    line=pd.concat(
+                        [
+                            # Preppend empty lines
+                            pd.DataFrame(
+                                index=pd.date_range(
+                                    line.index.shift(-completeMe)[0],
+                                    periods=completeMe,
+                                    freq=line.index.freq
+                                )
+                            ),
+                            line
+                        ]
+                    )
+
+                    nPeriods=line.shape[0]
             else:
                 currentRange=(
                     (period.index > macroPeriod.index[i-1]) &
                     (period.index <= macroPeriod.index[i])
                 )
                 line=period[currentRange]
-                nPeriods=period[currentRange].shape[0]
-
+                nPeriods=line.shape[0]
+                
+            somedict={
+                p['periodLabel']: (
+                    line.index.strftime(p['periodFormatter'])
+                    if 'periodFormatter' in p
+                    else range(1,nPeriods+1,1)
+                ),
+                '': 'periods'
+            }
+                        
+            # Add a row label, as '2020' or '4·Thu' or '2022-w25'
             line=(
-                # Add a row label, as '2020' or '4·Thu'
+                ## Add the time index of the summary report as an additional
+                ## index level to columns
                 pd.concat([line], axis=1, keys=[macroPeriod.index[i]])
 
-                # Rename the title for labels so we can join latter
+                ## Rename the title for labels so we can join latter
                 .rename_axis(['time','KPI'], axis='columns')
 
-                # Convert index from full DateTimeIndex to something that can be matched
-                # across macro-periods, as just '08·Aug'
+                ## Convert index from full DateTimeIndex to something that can
+                ## be matched across macro-periods, as just '08·Aug'
                 .assign(
                     **{
                         p['periodLabel']: (
@@ -626,13 +662,16 @@ class Fund(object):
                 )
                 .set_index(['',p['periodLabel']])
             )
-
-            # Add to main report transposing it into a true row (we were columns until now)
+            
+            # Add to main report transposing it into a true row (we were columns
+            # until now)
             report=(
                 pd.concat([report,line.T], sort=True)
                 if report is not None
                 else line.T
             )
+            
+            self.debugReport=report
 
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
@@ -1123,19 +1162,14 @@ class Fund(object):
             *100
         )
 
-
         # Handle rate of return as a gaussian distribution
         μ=data.mean()[0]
         σ=data.std()[0]
 
-
-
-
         if type=='pyplot':
-            if data.shape[0]>0:
+            if data.shape[0]>1:
                 return data.plot(
                     kind='hist',
-    #                 bins=data.shape[0]/2,
                     bins=200,
                     xlim=(μ-2*σ,μ+2*σ)
                 ).get_figure()
@@ -1245,6 +1279,36 @@ class Fund(object):
         for p in Fund.periodPairs:
             if p['period']==period:
                 return '{p1} & {p2}'.format(p1=p['periodLabel'],p2=p['macroPeriodLabel'])
+
+
+
+    def div_offsets(a, b, date=pd.Timestamp(0)):
+        '''
+        Compute pandas dateoffset ratios using nanosecond conversion
+        https://stackoverflow.com/a/68285031/367824
+        '''
+        a=pd.tseries.frequencies.to_offset(a)
+        b=pd.tseries.frequencies.to_offset(b)
+
+        try:
+            return a.nanos / b.nanos
+        except ValueError:
+            pass
+
+        prev = (date + a) - a
+        ans  = ((prev + a) - prev).delta
+        
+        prev = (date + b) - b
+        bns  = ((prev + b) - prev).delta
+
+        if ans > bns:
+            ratio = round(ans / bns)
+            # assert date + ratio * b == date + a
+            return ratio
+        else:
+            ratio = round(bns / ans)
+            # assert date + b == date + ratio * a
+            return 1 / ratio
 
 
 
