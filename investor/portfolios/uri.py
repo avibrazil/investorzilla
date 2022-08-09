@@ -144,20 +144,30 @@ class URIBalanceOrLedger(Portfolio):
         sheet=getattr(self,f'_{prop}')
         columnsProfile=self.sheetStructure[prop]['columns']
 
+        # Set the naiveTimeShift for ledger and balance
+        naiveTimeShift=12*3600
+        if prop=='balance':
+            naiveTimeShift+=3*60
+        
         sheet=(
             sheet
             .replace('#N/A',pd.NA)
-            .assign(
-                # Convert Date/Time to proper types and name column as 'time'
-                time=pd.to_datetime(sheet.time)
-            )
+
             # Remove rows that don't have fund names
             .dropna(subset=['fund'])
             
             # Optimize and be gentle with storage
             .astype(
                 dict(
-                    fund      = 'category'
+                    fund = 'category'
+                )
+            )
+            
+            .assign(
+                # Convert Date/Time to proper type
+                time=Portfolio.normalizeTime(
+                    pd.to_datetime(sheet.time),
+                    naiveTimeShift
                 )
             )
         )

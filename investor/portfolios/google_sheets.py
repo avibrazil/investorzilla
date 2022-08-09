@@ -174,16 +174,22 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
     ############################################################################
     
     def processSheetData(self, prop):
+        """
+        Given any balance or ledger sheet (defined by prop), clean data,
+        convert data types and normalize time column.
+        """
         sheet=getattr(self,f'_{prop}')
         columnsProfile=self.sheetStructure[prop]['columns']
-
+        
+        # Set the naiveTimeShift for ledger and balance
+        naiveTimeShift=12*3600
+        if prop=='balance':
+            naiveTimeShift+=3*60
+        
         sheet=(
             sheet
             .replace('#N/A',pd.NA)
-            .assign(
-                # Convert Date/Time to proper types and name column as 'time'
-                time=pd.to_datetime(sheet.time)
-            )
+
             # Remove rows that don't have fund names
             .dropna(subset=['fund'])
             
@@ -191,6 +197,14 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             .astype(
                 dict(
                     fund = 'category'
+                )
+            )
+
+            .assign(
+                # Convert Date/Time to proper type
+                time=Portfolio.normalizeTime(
+                    pd.to_datetime(sheet.time),
+                    naiveTimeShift
                 )
             )
         )
@@ -246,8 +260,8 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
     def getMonetarySheet(self, sheetID, sheetRange, columnsProfile):
         """
-        Pull raw data from a Google Sheet, given the GSheets ID and the cell range.
-        And then clean, interpret and add semantic based on columnsProfile.
+        Pull raw data from a Google Sheet, given the GSheets ID and the cell
+        range. And then just rename columns following spec on columnsProfile.
 
         columnsProfile is a dict with this layout:
 

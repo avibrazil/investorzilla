@@ -23,6 +23,33 @@ class Portfolio(object):
     Derived classes must set self.ledger and self.balance in order for the Fund creation
     logic to work.
     """
+
+    # A true pseudo-random number generator in the space of 2 seconds used
+    # to add random miliseconds to entries that have same time. This is why we
+    # exclude Zero.
+    twoSeconds=(
+        pd.concat(
+            [
+                # -999 .. -1
+                pd.Series(range(-999,0)),
+
+                # 0 is excluded here
+
+                # 1 .. 999
+                pd.Series(range(1,1000))
+            ]
+        )
+
+        # Randomize, but make it deterministic
+        .sample(frac=1,random_state=42)
+        .reset_index(drop=True)
+    )
+    
+    # twoSecondsGen=None # to be redefined later
+
+
+
+
     def __init__(self, kind, id, cache=None, refresh=False):
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
@@ -39,6 +66,8 @@ class Portfolio(object):
         self.cache=cache
         self.nextRefresh=refresh
         
+        # self.twoSecondsGen=Portfolio.pseudoRandomUniqueMilliseconds()
+
         # Force data load
         self.balance
         self.ledger
@@ -217,21 +246,9 @@ class Portfolio(object):
     def callRefreshData(self):
         self.refreshData()
         self.cacheUpdate()
-        
-        # Time zone aware current time
-        # self.asof=(
-        #     pd.Timestamp.utcnow()
-        #     .tz_convert(
-        #         datetime.datetime.now(
-        #             datetime.timezone.utc
-        #         )
-        #         .astimezone()
-        #         .tzinfo
-        #     )
-        # )
-        
-        
-        
+
+
+
     ############################################################################
     ##
     ## Virtual methods.
@@ -272,8 +289,119 @@ class Portfolio(object):
         # Let derived classes define this
         return None
 
+
+
+    ############################################################################
+    ##
+    ## Utility methods, to be used in general situations by derived classes
+    ##
+    ############################################################################
     
-    
+
+#     def pseudoRandomUniqueMilliseconds():
+#         # Cycle over self.twoSeconds which has 1998 entries (0 to 1997) with
+#         # random milliseconds in the range [-999..-1, 1..999]
+        
+#         twoSecondsLength=len(Portfolio.twoSeconds)
+        
+#         i=0
+#         while i<twoSecondsLength:
+#             # print('generating')
+#             yield pd.to_timedelta(Portfolio.twoSeconds[i],unit='ms')
+#             i+=1
+#             if (i==twoSecondsLength):
+#                 i=0
+
+
+
+    def normalizeTime(time, naiveTimeShift=12*3600) -> pd.DataFrame:
+        """
+        Get a pandas.Series in ‘time’ and normalize it:
+
+        1. Add naiveTimeShift (in seconds) to time-naive entries
+        2. Add current timezone TZ-naive entries
+        3. Convert all to current timezone
+        
+        Return a normalized pandas.Series ordered and indexed identical to input.
+        
+        Derived classes must use this method to homogenize time handling across
+        the fremework.
+        """
+        def randomTimedeltas(index):
+            """
+            Return a vector of random pandas.Timedelta indexed by `index`.
+            """
+            vec=(
+                pd.to_timedelta(
+                    # Create a long random vector by concatenating
+                    # Portfolio.twoSeconds multiple times
+                    pd.concat(
+                        # How many times we need to concatenate Portfolio.twoSeconds?
+                        int(
+                            numpy.ceil(
+                                len(index) /
+                                len(Portfolio.twoSeconds)
+                            )
+                        ) *
+                        [Portfolio.twoSeconds]
+                    )
+                    
+                    # Get a random sample of a pricise size
+                    .sample(len(index), random_state=42),
+                    unit='ms'
+                )
+            )
+
+            # Overwrite index
+            vec.index=index
+
+            return vec
+        
+        instrumented=time.copy()
+        
+        # Convert naiveTimeShift into something more useful
+        timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
+
+        # Get current timezone
+        currtz=(
+            datetime.datetime.now(datetime.timezone.utc)
+            .astimezone()
+            .tzinfo
+        )
+        
+        # Shift dates that have no time (time part is 00:00:00) to the middle of
+        # the day (12:00:00) using naiveTimeShift parameter
+        instrumented.update(
+            instrumented[instrumented.dt.time==datetime.time(0)]
+            .apply(lambda cell: cell+timeShift)
+        )
+
+        instrumented=(
+            instrumented
+            
+            # Convert all to current time zone, or simply add current time zone
+            # to TZ-naive entries.
+            .apply(
+                lambda cell:
+                    cell.tz_localize(currtz)
+                    if cell.tzinfo is None
+                    else cell.tz_convert(currtz)
+            )
+        )
+        
+        # Cirurgically adjust time adding a few random milliseconds only on
+        # duplicate items
+        duplicated=instrumented[instrumented.duplicated()]
+        instrumented.update(
+            duplicated + randomTimedeltas(duplicated.index)
+        )
+
+        return instrumented
+
+
+
+
+
 
 class PortfolioAggregator(Portfolio):
     def __init__(self, cache=None, refresh=False):
@@ -382,4 +510,6 @@ class PortfolioAggregator(Portfolio):
                 
                 # The return of submited method (processData) or the raise of error
                 task.result()
+
+
 

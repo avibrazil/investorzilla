@@ -173,30 +173,6 @@ class Fund(object):
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
 
-
-        # A true pseudo-random number generator in the space of 2 minutes used
-        # to add random seconds to entries that have same time. This is why we
-        # exclude Zero.
-        self.twoSeconds=(
-            pd.concat(
-                [
-                    # -999 .. -1
-                    pd.Series(range(-999,0)),
-                    
-                    # 0 is excluded here
-                    
-                    # 1 .. 999
-                    pd.Series(range(1,1000))
-                ]
-            )
-            
-            # Randomize, but make it deterministic
-            .sample(frac=1,random_state=42)
-            .reset_index(drop=True)
-        )
-        self.twoSecondsGen=self.pseudoRandomUniqueMilliseconds()
-
-
         # Configure a multi-currency converter engine
         self.exchange=currencyExchange
         self.currency=currencyExchange.target
@@ -209,27 +185,21 @@ class Fund(object):
             fundset=list(ledger['fund'].unique())
             fundset.sort()
             self.name=' ⋃ '.join(fundset) + ' @ ' + self.exchange.target
-
         
-        # Homogenize time entries of ledger table and group all columns under a
-        # ‘ledger’ multi-index
+        # Group all columns under a ‘ledger’ multi-index
         self.ledger = pd.concat(
-            [self.normalizeMonetarySheet(ledger)],
+            [ledger.set_index(['fund','time']).sort_index()],
             axis=1,
             keys=['ledger']
         )
 
-
-        # Homogenize time entries of balance table, shift naive entries in
-        # 12h3m, just to put them after ledger's default 12h0m and group all
-        # columns under a ‘balance’ multi-index
+        # Group all columns under a ‘balance’ multi-index
         self.balance = pd.concat(
-            [self.normalizeMonetarySheet(balance, naiveTimeShift = 12*3600 + 3*60)],
+            [balance.set_index(['fund','time']).sort_index()],
             axis=1,
             keys=[KPI.BALANCE]
         )
 
-        
         # Homogenize all to same currency
         self.ledger  = self.convertCurrency(self.ledger)
         self.balance = self.convertCurrency(self.balance)
@@ -247,81 +217,6 @@ class Fund(object):
                 f'Failed to compute shares with error "{e}". ' +
                 'Returning an incomplete object for debug purposes'
             )
-
-
-
-    def normalizeMonetarySheet(self, sheet, naiveTimeShift=12*3600):
-        # Convert naiveTimeShift into something more useful
-        timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
-
-        # 1. Detect TZ-naive entries
-        # 2. Add current timezone to them
-        # 3. Convert all to current local timezone
-
-        # Get current timezone
-        currtz=(
-            datetime.datetime.now(datetime.timezone.utc)
-            .astimezone()
-            .tzinfo
-        )
-        
-        sheet=(
-            sheet
-            
-            # Assign current time zone to the TZ-naive entries
-            .assign(
-                time=lambda table:
-                    table.apply(
-                        lambda row:
-                            row.time.tz_localize(currtz)
-                            if row.time.tzinfo is None
-                            else row.time,
-                        axis=1
-                    )
-            )
-            
-            # Convert all to current time zone
-            .assign(
-                time=lambda table:
-                    table.time.apply(lambda cell: cell.tz_convert(currtz))
-            )
-        )        
-        
-        # Detect all dates that have no time (time part is 00:00:00)
-        timeFilter=(sheet.time.dt.time==datetime.time(0))
-
-        # Shift dates that have no time to the middle of the day (12:00:00)
-        # using naiveTimeShift parameter
-        sheet.loc[timeFilter, 'time'] = (
-            sheet[timeFilter]['time'] + timeShift
-        )
-
-
-        # Adjust duplicate datetime entries of funds adding random number
-        # of seconds
-        sheet.sort_values('time', inplace=True)
-
-        ## Get a dataframe with only the time entries of the
-        ## fund in a way we can make comparisons
-        adjust=(
-            sheet[['time']]
-            .join(
-                sheet[['time']].shift(1),
-                rsuffix='_next'
-            )
-        )
-
-        ## Find only the duplicate entries, those that will need adjustment
-        repeatedTime=(adjust['time']==adjust['time_next'])
-
-        ## Cirurgically adjust time adding a few random seconds only on
-        ## duplicate items
-        sheet.loc[repeatedTime, 'time']=(
-            sheet[repeatedTime][['time']]
-            .apply(lambda row: row.time + next(self.twoSecondsGen),axis=1)
-        )
-
-        return sheet.set_index(['fund','time']).sort_index()
 
 
 
@@ -1255,7 +1150,7 @@ class Fund(object):
     ############################################################################    
     
     def pseudoRandomUniqueMilliseconds(self):
-        # Cycle over self.twoMinutes which has 1998 entries (0 to 1997) with
+        # Cycle over self.twoSeconds which has 1998 entries (0 to 1997) with
         # random milliseconds in the range [-999..-1, 1..999]
         
         twoSecondsLength=len(self.twoSeconds)
