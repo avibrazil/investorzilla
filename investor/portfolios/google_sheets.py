@@ -79,6 +79,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
         self._balance = None
         self._ledger = None
+        self.credentialsFile = credentialsFile
 
         super().__init__(
             kind       = 'gsheet',
@@ -96,7 +97,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
     ## Concrete implementation of abstract virtual methods from Portfolio class
     ##
     ############################################################################
-    
+
 
     @property
     def has_balance(self):
@@ -125,7 +126,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             else:
                 # Get credentials from Google JSON file
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    credentialsFile,
+                    self.credentialsFile,
                     self.SCOPES
                 )
 
@@ -134,7 +135,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             # Cache credentials in a pickle file for later use
             with open('token.pickle', 'wb') as token:
                 pickle.dump(self.creds, token)
-        
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             ledgerThread=executor.submit(
                 self.getMonetarySheet,
@@ -172,7 +173,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
     ## Internal methods
     ##
     ############################################################################
-    
+
     def processSheetData(self, prop):
         """
         Given any balance or ledger sheet (defined by prop), clean data,
@@ -180,19 +181,19 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         """
         sheet=getattr(self,f'_{prop}')
         columnsProfile=self.sheetStructure[prop]['columns']
-        
+
         # Set the naiveTimeShift for ledger and balance
         naiveTimeShift=12*3600
         if prop=='balance':
             naiveTimeShift+=3*60
-        
+
         sheet=(
             sheet
             .replace('#N/A',pd.NA)
 
             # Remove rows that don't have fund names
             .dropna(subset=['fund'])
-            
+
             # Optimize and be gentle with storage
             .astype(
                 dict(
@@ -222,7 +223,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
                 ## Convert to number
                 sheet[c['currency']]=pd.to_numeric(sheet[c['currency']]) #.astype(float)
-            
+
         setattr(self,f'_{prop}',sheet)
 
 
@@ -279,18 +280,18 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                   name:         Balance USD
         """
         sheet=self.getGoogleSheetRange(sheetID,sheetRange)
-        
+
         # Normalize all columns names
-        renamer={m['name']: m['currency'] for m in columnsProfile['monetary']}        
+        renamer={m['name']: m['currency'] for m in columnsProfile['monetary']}
         renamer.update(
             {
                 columnsProfile[k]: k
                 for k in columnsProfile.keys() if k!='monetary'
             }
         )
-        
+
         return sheet.rename(columns=renamer)
-                            
+
 
 
     def __repr__(self):
