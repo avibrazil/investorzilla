@@ -90,7 +90,7 @@ class Investor(object):
 #                             self.logger.info(f"processing {part['type']}")
 #                             self.logger.info(f"{part['params'].copy()}")
                             # If it contains a class that needs activation or loading
-    
+
                             # Prepare parameters
                             theparams=part['params'].copy()
                             theparams.update(
@@ -100,7 +100,7 @@ class Investor(object):
                                 )
                             )
 
-    
+
                             task=executor.submit(
                                 # The class
                                 part['type'],
@@ -123,14 +123,14 @@ class Investor(object):
         # Add more benchmarks as per config file
         if augmentDomains:
             self.augmentDomains()
-        
+
         # Rearrange Portfolio
         if len(self.portfolio)>1:
             agg=PortfolioAggregator()
             agg.append([p['obj'] for p in self.portfolio])
             self.portfolio=agg
         else:
-            self.porfolio=self.porfolio[0]['obj']
+            self.portfolio=self.portfolio[0]['obj']
 
         if updateCurrencyExchange:
             # Setup a multiple currency exchange machine
