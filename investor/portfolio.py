@@ -40,11 +40,11 @@ class Portfolio(object):
             ]
         )
 
-        # Randomize, but make it deterministic
+        # Randomize in a deterministic way
         .sample(frac=1,random_state=42)
         .reset_index(drop=True)
     )
-    
+
     # twoSecondsGen=None # to be redefined later
 
 
@@ -56,16 +56,16 @@ class Portfolio(object):
 
         # Suffix for DataCache table
         self.kind=kind
-        
+
         # ID of dataset
         self.id=id
 
         # Last updated at
         # self.asof = None
-        
+
         self.cache=cache
         self.nextRefresh=refresh
-        
+
         # self.twoSecondsGen=Portfolio.pseudoRandomUniqueMilliseconds()
 
         # Force data load
@@ -80,7 +80,7 @@ class Portfolio(object):
         attribute, return a Fund object which allows handling it as share,
         share value and currency.
         """
-        
+
         if subset is None or (isinstance(subset,list) and len(subset)==0):
             # Return all funds
             return Fund(
@@ -184,13 +184,13 @@ class Portfolio(object):
                 ] if t is not None
             ]
         )
-    
-    
-    
+
+
+
     def getProperty(self,prop):
         if getattr(self,f'has_{prop}') is False:
             return None
-        
+
         if self.nextRefresh:
             self.callRefreshData()
             self.nextRefresh=False
@@ -199,12 +199,12 @@ class Portfolio(object):
                 self.callRefreshData()
         else:
             return getattr(self,f'_{prop}')
-        
+
         # At this point we have raw data from cache or internet
 
         # Data cleanup and feature engineering
         self.processData()
-        
+
         return getattr(self,f'_{prop}')
 
 
@@ -212,13 +212,13 @@ class Portfolio(object):
     def tryCacheData(self):
         ledger_age = None
         balance_age = None
-        
+
         if self.cache is not None:
             (self._ledger,ledger_age)   = self.cache.get(
                 kind=f'{self.kind}__ledger',
                 id=self.id
             )
-            
+
             (self._balance,balance_age) = self.cache.get(
                 kind=f'{self.kind}__balance',
                 id=self.id
@@ -226,7 +226,7 @@ class Portfolio(object):
 
         if ledger_age or balance_age:
             return True
-            
+
         return False
 
 
@@ -242,7 +242,7 @@ class Portfolio(object):
                 self.cache.set(kind=f'{self.kind}__balance', id=self.id, data=self._balance)
 
 
-            
+
     def callRefreshData(self):
         self.refreshData()
         self.cacheUpdate()
@@ -256,7 +256,7 @@ class Portfolio(object):
     ## Need to be defined in derived classes.
     ##
     ############################################################################
-    
+
     def refreshData(self):
         """
         Called when Portfolio feels the need to update its data.
@@ -296,14 +296,14 @@ class Portfolio(object):
     ## Utility methods, to be used in general situations by derived classes
     ##
     ############################################################################
-    
+
 
 #     def pseudoRandomUniqueMilliseconds():
 #         # Cycle over self.twoSeconds which has 1998 entries (0 to 1997) with
 #         # random milliseconds in the range [-999..-1, 1..999]
-        
+
 #         twoSecondsLength=len(Portfolio.twoSeconds)
-        
+
 #         i=0
 #         while i<twoSecondsLength:
 #             # print('generating')
@@ -319,11 +319,11 @@ class Portfolio(object):
         Get a pandas.Series in ‘time’ and normalize it:
 
         1. Add naiveTimeShift (in seconds) to time-naive entries
-        2. Add current timezone TZ-naive entries
-        3. Convert all to current timezone
-        
+        2. Add current timezone to TZ-naive entries
+        3. Convert all to local timezone
+
         Return a normalized pandas.Series ordered and indexed identical to input.
-        
+
         Derived classes must use this method to homogenize time handling across
         the fremework.
         """
@@ -337,15 +337,15 @@ class Portfolio(object):
                     # Portfolio.twoSeconds multiple times
                     pd.concat(
                         # How many times we need to concatenate Portfolio.twoSeconds?
-                        int(
+                        max(2,int(
                             numpy.ceil(
                                 len(index) /
                                 len(Portfolio.twoSeconds)
                             )
-                        ) *
+                        )) *
                         [Portfolio.twoSeconds]
                     )
-                    
+
                     # Get a random sample of a pricise size
                     .sample(len(index), random_state=42),
                     unit='ms'
@@ -356,9 +356,9 @@ class Portfolio(object):
             vec.index=index
 
             return vec
-        
+
         instrumented=time.copy()
-        
+
         # Convert naiveTimeShift into something more useful
         timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
 
@@ -368,7 +368,7 @@ class Portfolio(object):
             .astimezone()
             .tzinfo
         )
-        
+
         # Shift dates that have no time (time part is 00:00:00) to the middle of
         # the day (12:00:00) using naiveTimeShift parameter
         instrumented.update(
@@ -378,7 +378,7 @@ class Portfolio(object):
 
         instrumented=(
             instrumented
-            
+
             # Convert all to current time zone, or simply add current time zone
             # to TZ-naive entries.
             .apply(
@@ -388,7 +388,7 @@ class Portfolio(object):
                     else cell.tz_convert(currtz)
             )
         )
-        
+
         # Cirurgically adjust time adding a few random milliseconds only on
         # duplicate items
         duplicated=instrumented[instrumented.duplicated()]
@@ -406,7 +406,7 @@ class Portfolio(object):
 class PortfolioAggregator(Portfolio):
     def __init__(self, cache=None, refresh=False):
         self.members=[]
-        
+
         super().__init__(
             kind       = 'aggregator',
             id         = None,
@@ -430,7 +430,7 @@ class PortfolioAggregator(Portfolio):
     ## Need to be defined in derived classes.
     ##
     ############################################################################
-    
+
     def refreshData(self):
         self.submitToMembers('refreshData')
 
@@ -448,7 +448,7 @@ class PortfolioAggregator(Portfolio):
             has = has or p.has_balance
             if has:
                 break
-            
+
         return has
 
 
@@ -460,7 +460,7 @@ class PortfolioAggregator(Portfolio):
             has = has or p.has_ledger
             if has:
                 break
-            
+
         return has
 
 
@@ -504,10 +504,10 @@ class PortfolioAggregator(Portfolio):
             for p in self.members:
                 m = getattr(p,method)
                 task[executor.submit(m)] = p
-                
+
             for task in concurrent.futures.as_completed(tasks):
                 self.debug(f'Done {tasks[task]}')
-                
+
                 # The return of submited method (processData) or the raise of error
                 task.result()
 

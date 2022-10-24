@@ -182,7 +182,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         sheet=getattr(self,f'_{prop}')
         columnsProfile=self.sheetStructure[prop]['columns']
 
-        # Set the naiveTimeShift for ledger and balance
+        # Set the naiveTimeShift to 12:00 for ledger and 12:03 for balance
         naiveTimeShift=12*3600
         if prop=='balance':
             naiveTimeShift+=3*60
@@ -194,6 +194,12 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             # Remove rows that don't have fund names
             .dropna(subset=['fund'])
 
+            # Remove rows that have no data on monetary columns
+            .dropna(
+                subset=[c['currency'] for c in columnsProfile['monetary']],
+                how='all'
+            )
+
             # Optimize and be gentle with storage
             .astype(
                 dict(
@@ -201,13 +207,16 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                 )
             )
 
+            # Convert Date/Time to proper type
             .assign(
-                # Convert Date/Time to proper type
                 time=Portfolio.normalizeTime(
                     pd.to_datetime(sheet.time),
                     naiveTimeShift
                 )
             )
+
+            # Normalize NaNs
+            .fillna(pd.NA)
         )
 
         # Handle monetary columns, remove currency symbols and make them numbers
@@ -253,9 +262,27 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
         data = rows.get('values')
 
-        df = pd.DataFrame(data=data[1:],columns=data[0])
+        # The data is a list of lists, having column names in the first row.
+        # Sometimes it has more column names than data, so each data row might be smaller
+        # than the number of columns. So to be safe we'll have to create the DataFrame
+        # in a more complex way
 
-        return df
+        return (
+            # Create anonymous DataFrame, without column names
+            pd.DataFrame(data[1:])
+
+            # Put column names on the ones that have data
+            .pipe(
+                lambda table: table.rename(dict(zip(table.columns,data[0])), axis=1)
+            )
+
+            # Create empty columns for remaining columns
+            .pipe(
+                lambda table: table.assign(
+                    **{c:None for c in list(set(data[0])-set(table.columns))}
+                )
+            )
+        )
 
 
 

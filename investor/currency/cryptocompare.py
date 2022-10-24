@@ -17,12 +17,12 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
     api='https://min-api.cryptocompare.com/data/v2/histoday?fsym={cfrom}&tsym={cto}&limit=2000&toTs={maxTime}&api_key={key}'
 
 
-    def __init__(self, currencyFrom, apiKey=None, cache=None, refresh=False):
+    def __init__(self, currencyFrom, currencyTo='USD', apiKey=None, cache=None, refresh=False):
         self.apiKey=apiKey
 
         super().__init__(
             currencyFrom  = currencyFrom,
-            currencyTo    = 'USD',
+            currencyTo    = currencyTo,
 
             kind          = 'CryptoCompareCurrencyConverter',
             id            = currencyFrom,

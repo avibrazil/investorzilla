@@ -167,8 +167,8 @@ class Fund(object):
     ##
     ## Initialization and data standadization methods
     ##
-    ############################################################################    
-    
+    ############################################################################
+
     def __init__(self, ledger, balance, currencyExchange=None, name=None):
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
@@ -178,14 +178,6 @@ class Fund(object):
         self.currency=currencyExchange.target
 
 
-        # Set fund name
-        if name:
-            self.name=name
-        else:
-            fundset=list(ledger['fund'].unique())
-            fundset.sort()
-            self.name=' ⋃ '.join(fundset) + ' @ ' + self.exchange.target
-        
         # Group all columns under a ‘ledger’ multi-index
         self.ledger = pd.concat(
             [ledger.set_index(['fund','time']).sort_index()],
@@ -204,7 +196,7 @@ class Fund(object):
         self.ledger  = self.convertCurrency(self.ledger)
         self.balance = self.convertCurrency(self.balance)
 
-        
+
         # Compute number of shares and share value over time
         try:
             self.computeShares()
@@ -217,6 +209,59 @@ class Fund(object):
                 f'Failed to compute shares with error "{e}". ' +
                 'Returning an incomplete object for debug purposes'
             )
+
+        self.setName()
+        # self.name='aaa'
+
+
+    def setName(self, name=None, top=3) -> str:
+        """
+        Set fund name and return it.
+
+        If 0 < top < 1, set name based on instruments that contribute to the
+        top% of the fund.
+
+        If top is integer N, set name based on top N instruments.
+        """
+
+        # Set name based on instruments ordered by balance
+        currentBalance=self.balance.groupby(level=0).last()
+        currentBalance.columns=currentBalance.columns.droplevel()
+        currentBalance.sort_values(
+            self.exchange.target,
+            ascending=False,
+            inplace=True
+        )
+
+        if name:
+            self.name=name
+            return self.name
+        else:
+            if top:
+                if isinstance(top,float) and top < 1:
+                    fundset=list(
+                        currentBalance
+                        .assign(
+                            cum=currentBalance[self.exchange.target].cumsum()
+                        )
+                        .query("cum<{}".format(currentBalance[self.exchange.target].sum()*top))
+                        .index
+                    )
+                elif (isinstance(top,float) or isinstance(top,int)) and top > 1:
+                    fundset=list(
+                        currentBalance
+                        .head(top)
+                        .index
+                    )
+            else:
+                fundset=list(currentBalance.index)
+
+            if len(fundset)<len(currentBalance.index):
+                fundset.append('…')
+
+            self.name=' ⋃ '.join(fundset) + ' @ ' + self.exchange.target
+
+        return self.name
 
 
 
@@ -240,7 +285,7 @@ class Fund(object):
 
 
 
-        # Creating a working dataframe with our input df simply joined with
+        # Create a working dataframe with our input df simply joined with
         # currency exchange data, using super powerful merge_asof()
         monetary=(
             # Join values with time-equivalent exchange rates
@@ -274,7 +319,8 @@ class Fund(object):
                     columns=pd.MultiIndex.from_tuples(
                         [('converted',self.exchange.target)]
                     ),
-                    data=monetary.join(
+                    data=(
+                        monetary.join(
                             # Result of concat is currency-converted columns from
                             # original values
                             pd.concat(
@@ -292,14 +338,17 @@ class Fund(object):
                                 keys=['converted from']
                             ),
                             how='inner'
-                        )[
+                        )
+                        [
                             # Select all converted columns
                             [ ('converted from',col) for col in toConvert ] +
 
                             # Add the might-not-exist column that already was in target
                             # currency and won't need conversion
                             sumCurrent
-                        ].sum(axis=1)
+                        ]
+                        .sum(axis=1)
+                    )
                 ),
                 how='inner'
             )
@@ -344,7 +393,7 @@ class Fund(object):
                 combinedBalance=self.balance.dropna().unstack(level=0).pad()
             except Exception as e:
                 self.logger.debug(e)
-                self.balance.to_csv('balance_dups.csv')
+#                 self.balance.to_csv('balance_dups.csv')
 #                 iii=self.balance.index.to_frame().reset_index(drop=True) #.set_index('time')
 #                 iii.to_csv('index.csv')
                 raise e
@@ -434,8 +483,8 @@ class Fund(object):
     ##
     ## Reporting methods
     ##
-    ############################################################################    
-    
+    ############################################################################
+
     def report(self, period='M', benchmark=None, output='styled',
                 start=None,
                 end=None,
@@ -446,15 +495,15 @@ class Fund(object):
                     KPI.SHARE_VALUE
                 ]
         ):
-        
+
         # Find period structure
         for p in self.periodPairs:
             if p['period']==period:
                 break
-                
+
         # How many periods fit in a macroPeriod ?
         periodsInSummary=Fund.div_offsets(p['macroPeriod'],p['period'])
-        
+
         if benchmark is None:
             # Remove benchmark features because there is no benchmark
             kpi=[i for i in kpi if i not in self.benchmarkFeatures]
@@ -491,40 +540,51 @@ class Fund(object):
         # Break the periodic report in chunks equivalent to the summary report
         for i in range(len(macroPeriod.index)):
 
-            currentRange=None
+            macroPeriodPrev=macroPeriod.index.shift(-1)[i]
+            macroPeriodCurr=macroPeriod.index[i]
 
             if i==0:
-                line=period[:macroPeriod.index[i]]
+                # Process first line, usually prepending NaNs
+                line=period[:macroPeriodCurr]
                 nPeriods=line.shape[0]
-                
+
                 completeMe = periodsInSummary - nPeriods
-                
+
                 if completeMe > 0:
                     # First line in report use to need leading empty periods if they
                     # start in the middle of macro period
-                    line=pd.concat(
-                        [
-                            # Preppend empty lines
-                            pd.DataFrame(
-                                index=pd.date_range(
-                                    line.index.shift(-completeMe)[0],
-                                    periods=completeMe,
-                                    freq=line.index.freq
-                                )
-                            ),
-                            line
-                        ]
+                    line=(
+                        pd.concat(
+                            [
+                                # Preppend empty lines
+                                pd.DataFrame(
+                                    index=pd.date_range(
+                                        line.index.shift(-completeMe)[0],
+                                        periods=completeMe,
+                                        freq=line.index.freq
+                                    )
+                                ),
+                                line
+                            ]
+                        )
+                        .pipe(
+                            lambda table: table[
+                                (table.index > macroPeriodPrev) &
+                                (table.index <= macroPeriodCurr)
+                            ]
+                        )
                     )
 
                     nPeriods=line.shape[0]
             else:
+                # Process lines that are not the first
                 currentRange=(
-                    (period.index > macroPeriod.index[i-1]) &
-                    (period.index <= macroPeriod.index[i])
+                    (period.index > macroPeriodPrev) &
+                    (period.index <= macroPeriodCurr)
                 )
                 line=period[currentRange]
                 nPeriods=line.shape[0]
-                
+
             somedict={
                 p['periodLabel']: (
                     line.index.strftime(p['periodFormatter'])
@@ -533,7 +593,7 @@ class Fund(object):
                 ),
                 '': 'periods'
             }
-                        
+
             # Add a row label, as '2020' or '4·Thu' or '2022-w25'
             line=(
                 ## Add the time index of the summary report as an additional
@@ -557,7 +617,7 @@ class Fund(object):
                 )
                 .set_index(['',p['periodLabel']])
             )
-            
+
             # Add to main report transposing it into a true row (we were columns
             # until now)
             report=(
@@ -565,7 +625,7 @@ class Fund(object):
                 if report is not None
                 else line.T
             )
-            
+
             self.debugReport=report
 
             # Make the 'income' value of summary report the average multiplied
@@ -710,7 +770,7 @@ class Fund(object):
 
 
         errorMsg='{par} parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{value}"'
-        
+
         if start is not None:
             # Check if we have a good start time and make appropriate type conversions.
             if isinstance(start,str):
@@ -792,14 +852,14 @@ class Fund(object):
             # Day 0 for Pandas is Monday, while it is Sunday for Python.
             # Make Pandas handle day 0 as Sunday.
             dateOffset=pd.tseries.offsets.Week(weekday=5) if period=='W' else period
-            
+
             report=(
                 report
                     .resample(dateOffset)
-                
+
                     # Compute summarizations for each KPI
                     .agg(aggregationStrategy)
-                    
+
                     # Fill the gaps after aggregation
                     .ffill()
             )
@@ -937,8 +997,8 @@ class Fund(object):
     ##
     ## Data visualization
     ##
-    ############################################################################    
-    
+    ############################################################################
+
     def performancePlot(self, benchmark, start=None, end=None, type='pyplot'):
         if benchmark.currency!=self.currency:
             self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
@@ -1147,14 +1207,14 @@ class Fund(object):
     ##
     ## Internal and operational methods
     ##
-    ############################################################################    
-    
+    ############################################################################
+
     def pseudoRandomUniqueMilliseconds(self):
         # Cycle over self.twoSeconds which has 1998 entries (0 to 1997) with
         # random milliseconds in the range [-999..-1, 1..999]
-        
+
         twoSecondsLength=len(self.twoSeconds)
-        
+
         i=0
         while i<twoSecondsLength:
             # print('generating')
@@ -1192,7 +1252,7 @@ class Fund(object):
 
         prev = (date + a) - a
         ans  = ((prev + a) - prev).delta
-        
+
         prev = (date + b) - b
         bns  = ((prev + b) - prev).delta
 

@@ -83,6 +83,8 @@ class StreamlitInvestorApp:
             subset           = fundset,
             currencyExchange = st.session_state.investor.exchange
         )
+        
+        st.session_state['fund'].setName(top=4)
 
 
 
