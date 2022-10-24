@@ -56,7 +56,7 @@ portfolio:
     - type: !!python/name:investor.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
       params:
         # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
-        credentialsFile: credentials.json
+        credentialsFile: app-credentials-for-google-sheets.json
         sheetStructure:
             # This Google Sheet is an example that should work out of the box
             sheet: 1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk

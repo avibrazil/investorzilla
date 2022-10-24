@@ -72,16 +72,22 @@ class BCBCurrencyConverter(CurrencyConverter):
         )
 
         # Add some seconds of entropy to the index to eliminate repeated values
-        self.data.index=pd.DatetimeIndex(
-            self.data.index
-            # convert index to number of nanoseconds since 1970-01-01T00:00:00
-            .astype(np.int64)
-            # add random nanoseconds to each timestamp
-            + np.random.randint(
-                low  = -10*(10**9),
-                high =  10*(10**9),
-                size =  len(self.data.index)
-            )
-        ) # convert it back to a DatetimeIndex
+        self.data.index=(
+            pd.DatetimeIndex(
+                self.data.index
+
+                # convert index to number of nanoseconds since 1970-01-01T00:00:00
+                .astype(np.int64)
+                # add random nanoseconds to each timestamp
+                + np.random.randint(
+                    low  = -10*(10**9),
+                    high =  10*(10**9),
+                    size =  len(self.data.index)
+                )
+            ) # convert it back to a DatetimeIndex
+
+            # Set timezone to Brasilia
+            .tz_localize('Brazil/East')
+        )
 
         self.data.sort_index(inplace=True)
