@@ -12,14 +12,14 @@ configurabe internet sources, and created a rich explorable dashboard.
 
 All or some or each of your investments are internally normalized into a single
 “fund” with **number of shares** and **share value**. From there, multiple
-visualizations are possible, such as:
+visualizations are possible.
 
 ## Install and Run
 Runs on macOS, Windows, Linux or anywhere Python, Pandas and Streamlit can be
 installed.
 
 ### Install
-After getting Python installed, install also some requirements as:
+After getting Python 3 installed, install also some requirements as:
 
 ```shell
 pip3 install -r requirements.txt --user
@@ -29,9 +29,16 @@ pip3 install -r requirements.txt --user
 Create `investor_ui_config.yaml` file copying [`investor_ui_config.example.yaml`](blob/main/investor_ui_config.example.yaml)
 and edit to your needs.
 
-Get CryptoCompare (in case of having crypto) and Google Sheets API keys and
-update on `investor_ui_config.yaml`. More instructions on
-`investor_ui_config.example.yaml`. 
+Get CryptoCompare (in case of having crypto) API key and update it on
+`investor_ui_config.yaml`. More instructions on
+`investor_ui_config.example.yaml`.
+
+To get access to your Google Spreadsheets, app will send you to a Google
+authorization screen. Your Google Sheets data will be saved and cached in the
+computer this Streamlit app is running.
+
+Not required, but you can use your own Google OAuth app authorization secrets
+in `app-credentials-for-google-sheets.json`
 
 ### Run
 After installing your API keys, current configuration on the example file will
