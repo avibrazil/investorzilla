@@ -25,6 +25,7 @@ class StreamlitInvestorApp:
     )
 
     def __init__(self, refresh=False):
+        st.set_page_config(layout="wide")
         with st.sidebar:
             # Get the kind of refresh user wants, if any
             self.refreshMap=self.interact_refresh()
@@ -34,8 +35,8 @@ class StreamlitInvestorApp:
         #     X          True.  => load
         #     X.         False. => reuse
         #     None.      False. => load
-            
-        
+
+
         if 'investor' not in st.session_state:
             st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
         elif True in self.refreshMap.values():
@@ -83,7 +84,7 @@ class StreamlitInvestorApp:
             subset           = fundset,
             currencyExchange = st.session_state.investor.exchange
         )
-        
+
         st.session_state['fund'].setName(top=4)
 
 
