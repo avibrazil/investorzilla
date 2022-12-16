@@ -24,7 +24,32 @@ class StreamlitInvestorApp:
         )
     )
 
+    def prepare_logging(self,level=logging.INFO):
+        # Switch between INFO/DEBUG while running in production/developping:
+
+        # Configure logging for Investor
+
+        FORMATTER = logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s")
+        HANDLER = logging.StreamHandler()
+        HANDLER.setFormatter(FORMATTER)
+
+        loggers=[
+            logging.getLogger('__main__'),
+            logging.getLogger('investor'),
+            logging.getLogger('sqlite')
+        ]
+
+        for logger in loggers:
+            logger.addHandler(HANDLER)
+            logger.setLevel(level)
+
+        return loggers[0]
+
+
+
     def __init__(self, refresh=False):
+        self.prepare_logging()
+
         st.set_page_config(layout="wide")
         with st.sidebar:
             # Get the kind of refresh user wants, if any
