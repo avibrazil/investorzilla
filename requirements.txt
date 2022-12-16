@@ -1,3 +1,4 @@
+# dnf install python3-tzlocal python3-rich python3-toml python3-blinker python3-semver python3-tornado python3-pyarrow python3-matplotlib python3-sqlalchemy python3-certifi python3-typing-extensions python3-validators python3-click python3-Pympler python3-GitPython python3-toolz python3-jsonschema python3-entrypoints python3-watchdog python3-zipp python3-jinja2 python3-markupsafe python3-google-auth-httplib2 python3-google-api-client python3-pyyaml python3-google-auth-oauthlib
 # pip3 install -r requirements.txt --user
 
 pandas
@@ -9,3 +10,4 @@ streamlit
 sqlalchemy
 matplotlib
 certifi
+pyaml
