@@ -120,17 +120,18 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                 self.creds = pickle.load(token)
 
         if not self.creds or not self.creds.valid:
-            # No pickle yet
-            if self.creds and self.creds.expired and self.creds.refresh_token:
-                self.creds.refresh(Request())
-            else:
-                # Get credentials from Google JSON file
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentialsFile,
-                    self.SCOPES
-                )
+            # Google token is expired, invalid or non-existent.
+            # Make user authenticate and authorize access in the browser.
+            # Get credentials from Google JSON file
+            
+            
+            self.logger.info('Google authentication…')
+            flow = InstalledAppFlow.from_client_secrets_file(
+                self.credentialsFile,
+                self.SCOPES
+            )
 
-                self.creds = flow.run_local_server(port=0)
+            self.creds = flow.run_local_server(port=0)
 
             # Cache credentials in a pickle file for later use
             with open('token.pickle', 'wb') as token:
