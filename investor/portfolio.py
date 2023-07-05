@@ -15,30 +15,23 @@ class Portfolio(object):
     """
     A simple interface for a generic Portfolio.
 
-    A Portfolio is the keeper of raw balance and ledger of multiple investment
-    instruments, funds etc. Members of a Portfolio can be aggregated to generate one Fund
-    which in turns has a time series for number of shares and a time series for share
-    value.
+    A Portfolio is the keeper of raw balance and ledger of multiple
+    investment instruments, funds etc. Members of a Portfolio can be
+    aggregated to generate one Fund which in turns has a time series for
+    number of shares and a time series for share value.
 
-    Derived classes must set self.ledger and self.balance in order for the Fund creation
-    logic to work.
+    Derived classes must set self.ledger and self.balance in order for the
+    Fund creation logic to work.
     """
 
     # A true pseudo-random number generator in the space of 2 seconds used
-    # to add random miliseconds to entries that have same time. This is why we
-    # exclude Zero.
+    # to add random miliseconds to entries that have same time. This is
+    # why we exclude Zero.
     twoSeconds=(
-        pd.concat(
-            [
-                # -999 .. -1
-                pd.Series(range(-999,0)),
+        pd.Series(range(-999,1000))
 
-                # 0 is excluded here
-
-                # 1 .. 999
-                pd.Series(range(1,1000))
-            ]
-        )
+        # Exclude 0
+        .pipe(lambda s: s[s!=0])
 
         # Randomize in a deterministic way
         .sample(frac=1,random_state=42)
@@ -77,8 +70,8 @@ class Portfolio(object):
     def getFund(self, subset=None, name=None, currencyExchange=None):
         """
         Given one or more investment items names, passed in the subset
-        attribute, return a Fund object which allows handling it as share,
-        share value and currency.
+        attribute, return a Fund object which allows handling it as shares
+        with share value and currency.
         """
 
         if subset is None or (isinstance(subset,list) and len(subset)==0):
@@ -321,11 +314,14 @@ class Portfolio(object):
         1. Add naiveTimeShift (in seconds) to time-naive entries
         2. Add current timezone to TZ-naive entries
         3. Convert all to local timezone
+        4. De-duplicate timestamps using Portfolio.twoSeconds for small
+           adjustments
 
-        Return a normalized pandas.Series ordered and indexed identical to input.
+        Return a normalized pandas.Series ordered and indexed identical to
+        input.
 
-        Derived classes must use this method to homogenize time handling across
-        the fremework.
+        Derived classes must use this method to homogenize time handling
+        across the fremework.
         """
         def randomTimedeltas(index):
             """
@@ -336,7 +332,8 @@ class Portfolio(object):
                     # Create a long random vector by concatenating
                     # Portfolio.twoSeconds multiple times
                     pd.concat(
-                        # How many times we need to concatenate Portfolio.twoSeconds?
+                        # How many times we need to duplicate
+                        # Portfolio.twoSeconds?
                         max(2,int(
                             numpy.ceil(
                                 len(index) /
@@ -346,8 +343,10 @@ class Portfolio(object):
                         [Portfolio.twoSeconds]
                     )
 
-                    # Get a random sample of a pricise size
-                    .sample(len(index), random_state=42),
+                    # Get a vector with precise size
+                    .head(len(index)),
+
+                    # This is in milliseconds
                     unit='ms'
                 )
             )
@@ -392,6 +391,7 @@ class Portfolio(object):
         # Cirurgically adjust time adding a few random milliseconds only on
         # duplicate items
         duplicated=instrumented[instrumented.duplicated()]
+
         instrumented.update(
             duplicated + randomTimedeltas(duplicated.index)
         )

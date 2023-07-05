@@ -9,6 +9,11 @@ import streamlit as st
 import pandas as pd
 # import st_aggrid
 
+# Dependencies available via OS packages:
+# pip3 install pandas pyyaml sqlalchemy pandas_datareader
+
+# Other dependencies:
+# pip3 install streamlit google-api-python-client
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
@@ -48,7 +53,7 @@ class StreamlitInvestorApp:
 
 
     def __init__(self, refresh=False):
-        self.prepare_logging()
+        self.prepare_logging(level=logging.DEBUG)
 
         st.set_page_config(layout="wide")
         with st.sidebar:
@@ -249,6 +254,19 @@ class StreamlitInvestorApp:
         st.header('Performance')
         st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state.interact_benchmarks['obj']))
 
+        performance_benchmarks=[
+            investor.KPI.RATE_RETURN,
+            investor.KPI.BENCHMARK_RATE_RETURN,
+            investor.KPI.BENCHMARK_EXCESS_RETURN,
+            investor.KPI.PERIOD_GAIN
+        ]
+
+        st.session_state['kpi_performance']=st.multiselect(
+            '',
+            options=performance_benchmarks,
+            default=performance_benchmarks
+        )
+
         st.dataframe(
 #         st_aggrid.AgGrid(
             st.session_state['fund'].report(
@@ -256,18 +274,27 @@ class StreamlitInvestorApp:
                 benchmark=st.session_state.interact_benchmarks['obj'],
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
-                kpi=[
-                    investor.KPI.RATE_RETURN,
-                    investor.KPI.BENCHMARK_RATE_RETURN,
-                    investor.KPI.BENCHMARK_EXCESS_RETURN,
-                    investor.KPI.PERIOD_GAIN
-                ],
+                kpi=st.session_state['kpi_performance'],
                 output='flat'
             )
         )
 
         st.header('Wealth Evolution')
 
+        wealth_benchmarks=[
+            investor.KPI.BALANCE,
+            investor.KPI.BALANCE_OVER_SAVINGS,
+            investor.KPI.GAINS,
+            investor.KPI.SAVINGS,
+            investor.KPI.MOVEMENTS
+        ]
+
+        st.session_state['kpi_wealth']=st.multiselect(
+            '',
+            options=wealth_benchmarks,
+            default=wealth_benchmarks
+        )
+
         st.dataframe(
 #         st_aggrid.AgGrid(
             st.session_state['fund'].report(
@@ -275,13 +302,7 @@ class StreamlitInvestorApp:
                 benchmark=st.session_state.interact_benchmarks['obj'],
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
-                kpi=[
-                    investor.KPI.BALANCE,
-                    investor.KPI.BALANCE_OVER_SAVINGS,
-                    investor.KPI.GAINS,
-                    investor.KPI.SAVINGS,
-                    investor.KPI.MOVEMENTS
-                ],
+                kpi=st.session_state['kpi_wealth'],
                 output='flat'
             )
         )

@@ -1,6 +1,7 @@
 import os
 import datetime
-import pickle
+import pathlib
+import yaml
 import logging
 import concurrent.futures
 import pandas as pd
@@ -11,6 +12,7 @@ import numpy
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 
 
 from .. import Portfolio
@@ -31,6 +33,10 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         - type: !!python/name:investor.google_sheets.GoogleSheetsBalanceAndLedger ''
           params:
             credentialsFile: credentials.json
+
+            # A tag to differentiate from other data from same GSheet
+            kind: form_entry
+
             sheetStructure:
                 # This Google Sheet is an example that should work out of the box
                 # See it at https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk
@@ -74,15 +80,16 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
 
 
-    def __init__(self, sheetStructure=None, credentialsFile='credentials.json', cache=None, refresh=False):
+    def __init__(self, kind='generic', sheetStructure=None, credentialsFile='credentials.json', cache=None, refresh=False):
         self.sheetStructure = sheetStructure
+        self.kind = kind
 
         self._balance = None
         self._ledger = None
-        self.credentialsFile = credentialsFile
+        self.gAppCredentialsFile = pathlib.Path(credentialsFile).expanduser()
 
         super().__init__(
-            kind       = 'gsheet',
+            kind       = f'gsheet•{kind}',
             id         = self.sheetStructure['sheet'],
             cache      = cache,
             refresh    = refresh
@@ -112,52 +119,67 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
 
     def refreshData(self):
+        gAccountCredFileName='google-account-credentials.yaml'
         self.creds = None
 
-        if os.path.exists('token.pickle'):
-            # Get credentials from pickle file
-            with open('token.pickle', 'rb') as token:
-                self.creds = pickle.load(token)
+        if os.path.exists(gAccountCredFileName):
+            # Get credentials from YAML file
+            with open(gAccountCredFileName, 'r') as token:
+                self.creds = yaml.load(token, Loader=yaml.Loader)
 
-        if not self.creds or not self.creds.valid:
+        if not self.creds:
+            self.creds=dict()
+
+        if (
+            (self.sheetStructure['sheet'] not in self.creds) or (
+                (self.sheetStructure['sheet'] in self.creds) and
+                (self.creds[self.sheetStructure['sheet']].valid==False)
+            )
+        ):
             # Google token is expired, invalid or non-existent.
             # Make user authenticate and authorize access in the browser.
             # Get credentials from Google JSON file
-            
-            
+
             self.logger.info('Google authentication…')
             flow = InstalledAppFlow.from_client_secrets_file(
-                self.credentialsFile,
+                self.gAppCredentialsFile,
                 self.SCOPES
             )
 
-            self.creds = flow.run_local_server(port=0)
+            self.creds[self.sheetStructure['sheet']] = flow.run_local_server(port=0)
 
-            # Cache credentials in a pickle file for later use
-            with open('token.pickle', 'wb') as token:
-                pickle.dump(self.creds, token)
+            # Cache user credentials in a YAML file for later use
+            with open(gAccountCredFileName, 'w') as token:
+                yaml.dump(self.creds, token)
+
+        self.logger.debug(self.creds)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-            ledgerThread=executor.submit(
-                self.getMonetarySheet,
-                **dict(
-                    sheetID            = self.sheetStructure['sheet'],
-                    sheetRange         = self.sheetStructure['ledger']['sheetRange'],
-                    columnsProfile     = self.sheetStructure['ledger']['columns']
+            if 'ledger' in self.sheetStructure:
+                ledgerThread=executor.submit(
+                    self.getMonetarySheet,
+                    **dict(
+                        sheetID            = self.sheetStructure['sheet'],
+                        sheetRange         = self.sheetStructure['ledger']['sheetRange'],
+                        columnsProfile     = self.sheetStructure['ledger']['columns']
+                    )
                 )
-            )
 
-            balanceThread=executor.submit(
-                self.getMonetarySheet,
-                **dict(
-                    sheetID            = self.sheetStructure['sheet'],
-                    sheetRange         = self.sheetStructure['balance']['sheetRange'],
-                    columnsProfile     = self.sheetStructure['balance']['columns']
+            if 'balance' in self.sheetStructure:
+                balanceThread=executor.submit(
+                    self.getMonetarySheet,
+                    **dict(
+                        sheetID            = self.sheetStructure['sheet'],
+                        sheetRange         = self.sheetStructure['balance']['sheetRange'],
+                        columnsProfile     = self.sheetStructure['balance']['columns']
+                    )
                 )
-            )
 
-            self._ledger=ledgerThread.result()
-            self._balance=balanceThread.result()
+            if 'ledger' in self.sheetStructure:
+                self._ledger=ledgerThread.result()
+
+            if 'balance' in self.sheetStructure:
+                self._balance=balanceThread.result()
 
 
 
@@ -245,7 +267,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
         SPREADSHEET_ID is something like '1iBlzY...wuY_b...so'
         DATA_TO_PULL is like 'Balances!A:D'
         """
-        service = build('sheets', 'v4', credentials=self.creds)
+        service = build('sheets', 'v4', credentials=self.creds[self.sheetStructure['sheet']])
         sheet = service.spreadsheets()
         result = sheet.values().get(
             spreadsheetId=SPREADSHEET_ID,

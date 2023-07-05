@@ -1,3 +1,4 @@
+import pathlib
 import pandas as pd
 
 from .. import Portfolio
@@ -59,7 +60,7 @@ class URIBalanceOrLedger(Portfolio):
     """
 
     def __init__(self, URI, kind, sheetStructure, cache=None, refresh=False):
-        self.URI = URI
+        self.URI = pathlib.Path(URI).expanduser()
         self.kind = kind
         self.sheetStructure = sheetStructure
 
@@ -68,7 +69,7 @@ class URIBalanceOrLedger(Portfolio):
 
         super().__init__(
             kind       = f'uri•{kind}',
-            id         = self.URI,
+            id         = str(self.URI),   # extract just full name from Path object
             cache      = cache,
             refresh    = refresh
         )
@@ -82,7 +83,7 @@ class URIBalanceOrLedger(Portfolio):
     ## Concrete implementation of abstract virtual methods from Portfolio class
     ##
     ############################################################################
-    
+
 
     @property
     def has_balance(self):
@@ -94,14 +95,14 @@ class URIBalanceOrLedger(Portfolio):
     def has_ledger(self):
         return 'ledger' in self.sheetStructure
 
-    
-    
+
+
     def refreshData(self):
         df=pd.read_csv(
             filepath_or_buffer = self.URI,
             sep = self.sheetStructure['separator'] if 'separator' in self.sheetStructure else ','
         )
-        
+
         if self.has_balance:
             prop='balance'
         elif self.has_ledger:
@@ -112,16 +113,16 @@ class URIBalanceOrLedger(Portfolio):
         columnsProfile=self.sheetStructure[prop]['columns']
 
         # Normalize all columns names
-        renamer={m['name']: m['currency'] for m in columnsProfile['monetary']}        
+        renamer={m['name']: m['currency'] for m in columnsProfile['monetary']}
         renamer.update(
             {
                 columnsProfile[k]: k
                 for k in columnsProfile.keys() if k!='monetary'
             }
         )
-        
+
         setattr(self,f'_{prop}',df.rename(columns=renamer))
-        
+
         return getattr(self,f'_{prop}')
 
 
@@ -139,7 +140,7 @@ class URIBalanceOrLedger(Portfolio):
     ## Internal methods
     ##
     ############################################################################
-    
+
     def processSheetData(self, prop):
         sheet=getattr(self,f'_{prop}')
         columnsProfile=self.sheetStructure[prop]['columns']
