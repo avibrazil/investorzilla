@@ -49,8 +49,8 @@ class Fund(object):
 
 
 
-    periodPairs=[
-        dict(
+    periodPairs={
+        'day & week': dict(
             period                     = 'D',
             periodLabel                = 'day',
             periodFormatter            = '%w·%a',
@@ -61,7 +61,7 @@ class Fund(object):
         ),
 
 
-        dict(
+        'week & 4 weeks': dict(
             period                     = 'W',
             periodLabel                = 'week',
 
@@ -71,7 +71,7 @@ class Fund(object):
         ),
 
 
-        dict(
+        'month & year': dict(
             period                     = 'M',
             periodLabel                = 'month',
             periodFormatter            = '%m·%b',
@@ -82,7 +82,7 @@ class Fund(object):
         ),
 
 
-        dict(
+       'quarter & year': dict(
             period                     = 'Q',
             periodLabel                = 'quarter',
             periodFormatter            = '%m',
@@ -93,7 +93,7 @@ class Fund(object):
         ),
 
 
-        dict(
+        'half month & month': dict(
             period                     = 'SM',
             periodLabel                = 'month half',
             periodFormatter            = '%d',
@@ -101,8 +101,30 @@ class Fund(object):
             macroPeriod                = 'M',
             macroPeriodLabel           = 'month',
             macroPeriodFormatter       = '%m'
+        ),
+
+
+        'year & 5 years': dict(
+            period                     = 'Y',
+            periodLabel                = 'year',
+            periodFormatter            = '%Y',
+
+            macroPeriod                = '5Y',
+            macroPeriodLabel           = '5 years',
+            macroPeriodFormatter       = '%Y'
+        ),
+
+
+        'year & decade': dict(
+            period                     = 'Y',
+            periodLabel                = 'year',
+            periodFormatter            = '%Y',
+
+            macroPeriod                = '10Y',
+            macroPeriodLabel           = 'decade',
+            macroPeriodFormatter       = '%Y'
         )
-    ]
+    }
 
 
 
@@ -485,7 +507,7 @@ class Fund(object):
     ##
     ############################################################################
 
-    def report(self, period='M', benchmark=None, output='styled',
+    def report(self, period='month & year', benchmark=None, output='styled',
                 start=None,
                 end=None,
                 flatPeriodFirst=True,
@@ -497,9 +519,11 @@ class Fund(object):
         ):
 
         # Find period structure
-        for p in self.periodPairs:
-            if p['period']==period:
-                break
+        try:
+            p = self.periodPairs[period]
+        except KeyError:
+          raise KeyError("Period pair must be one of: {}".format(str(Fund.getPeriodPairs())))
+
 
         # How many periods fit in a macroPeriod ?
         periodsInSummary=Fund.div_offsets(p['macroPeriod'],p['period'])
@@ -1135,12 +1159,8 @@ class Fund(object):
 
 
 
-    def incomePlot(self,period='M', start=None, end=None, type='pyplot'):
-        for p in self.periodPairs:
-            if p['period']==period:
-                break
-
-
+    def incomePlot(self,periodPair='month & year', start=None, end=None, type='pyplot'):
+        p=self.periodPairs[periodPair]
 
         # Compute how many 'period's fit in one 'macroPeriod'.
         # https://stackoverflow.com/questions/68284757
@@ -1157,7 +1177,7 @@ class Fund(object):
 
         # Now compute moving averages
 
-        data=self.periodicReport(period=period, start=start, end=end)[[KPI.PERIOD_GAIN]]
+        data=self.periodicReport(period=p['period'], start=start, end=end)[[KPI.PERIOD_GAIN]]
 
 
         data['{} {}s moving average'.format(periodCountInMacroPeriod,p['periodLabel'])] = (
@@ -1226,14 +1246,12 @@ class Fund(object):
 
 
     def getPeriodPairs():
-        return [p['period'] for p in Fund.periodPairs]
+        return list(Fund.periodPairs.keys())
 
 
 
     def getPeriodPairLabel(period):
-        for p in Fund.periodPairs:
-            if p['period']==period:
-                return '{p1} & {p2}'.format(p1=p['periodLabel'],p2=p['macroPeriodLabel'])
+        return period
 
 
 

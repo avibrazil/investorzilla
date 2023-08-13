@@ -67,9 +67,7 @@ class StreamlitInvestorApp:
         #     None.      False. => load
 
 
-        if 'investor' not in st.session_state:
-            st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
-        elif True in self.refreshMap.values():
+        if ('investor' not in st.session_state) or (True in self.refreshMap.values()):
             st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
         # else:
         #     # Simply reuse what you have
@@ -132,9 +130,10 @@ class StreamlitInvestorApp:
 
         # Render main metrics
         st.header('Main Metrics')
-        for p in st.session_state['fund'].periodPairs:
-            if p['period']==st.session_state.interact_periods:
-                break
+        p=st.session_state['fund'].periodPairs[st.session_state.interact_periods]
+        # for p in st.session_state['fund'].periodPairs:
+        #     if p['period']==st.session_state.interact_periods:
+        #         break
 
         metricsPeriod=st.session_state['fund'].periodicReport(
             period=p['period'],
@@ -196,7 +195,7 @@ class StreamlitInvestorApp:
 
             st.pyplot(
                 st.session_state['fund'].rateOfReturnPlot(
-                    period=st.session_state.interact_periods,
+                    period=p['period'],
                     start=st.session_state.interact_start_end[0],
                     end=st.session_state.interact_start_end[1],
                     type='pyplot'
@@ -208,7 +207,7 @@ class StreamlitInvestorApp:
             st.altair_chart(
                 use_container_width=True,
                 altair_chart=st.session_state['fund'].incomePlot(
-                    period=st.session_state.interact_periods,
+                    periodPair=st.session_state.interact_periods,
                     start=st.session_state.interact_start_end[0],
                     end=st.session_state.interact_start_end[1],
                     type='altair'
@@ -546,7 +545,7 @@ class StreamlitInvestorApp:
             label       = 'How to divide time',
             options     = investor.Fund.getPeriodPairs(),
             format_func = investor.Fund.getPeriodPairLabel,
-            index       = investor.Fund.getPeriodPairs().index('M'), # the starting default
+            index       = investor.Fund.getPeriodPairs().index('month & year'), # the starting default
             help        = 'Refine observation periods and set relation with summary of periods'
         )
 
