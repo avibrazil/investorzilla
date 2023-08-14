@@ -199,7 +199,6 @@ class Fund(object):
         self.exchange=currencyExchange
         self.currency=currencyExchange.target
 
-
         # Group all columns under a ‘ledger’ multi-index
         self.ledger = pd.concat(
             [ledger.set_index(['fund','time']).sort_index()],
@@ -423,10 +422,13 @@ class Fund(object):
 #                 self.logger.debug(iii[iii.fund!=iii.fund_aa])
 
             ## Combined balance is the sum() of balances of all funds at each point in time
-            combinedBalance['sum']=combinedBalance.sum(axis=1)
-
-            ## Get only non-zero balances in a time-sorted vector
-            combinedBalance=combinedBalance['sum'].replace(0,pd.NA).dropna().sort_index()
+            combinedBalance=(
+                combinedBalance
+                .sum(axis=1)
+                .where(lambda s: s!=0)
+                .dropna()
+                .sort_index()
+            )
 
             ## Eliminate all consecutive repeated values
             combinedBalance=combinedBalance.loc[combinedBalance.shift()!=combinedBalance]
