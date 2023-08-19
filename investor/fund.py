@@ -96,7 +96,7 @@ class Fund(object):
         'half month & month': dict(
             period                     = 'SM',
             periodLabel                = 'month half',
-            periodFormatter            = '%d',
+            # periodFormatter            = '%d',
 
             macroPeriod                = 'M',
             macroPeriodLabel           = 'month',
@@ -107,7 +107,7 @@ class Fund(object):
         'year & 5 years': dict(
             period                     = 'Y',
             periodLabel                = 'year',
-            periodFormatter            = '%Y',
+            # periodFormatter            = '%Y',
 
             macroPeriod                = '5Y',
             macroPeriodLabel           = '5 years',
@@ -118,7 +118,7 @@ class Fund(object):
         'year & decade': dict(
             period                     = 'Y',
             periodLabel                = 'year',
-            periodFormatter            = '%Y',
+            # periodFormatter            = '%Y',
 
             macroPeriod                = '10Y',
             macroPeriodLabel           = 'decade',
@@ -519,12 +519,19 @@ class Fund(object):
                     KPI.SHARE_VALUE
                 ]
         ):
+        """
+        Joins 2 periodicReports() to get a complete report with periods
+        and summary of periods. For example, period='month & year'
+        computes the benchmarks for each month plus the summary of 12
+        months (an year).
+        """
+
 
         # Find period structure
         try:
             p = self.periodPairs[period]
         except KeyError:
-          raise KeyError("Period pair must be one of: {}".format(str(Fund.getPeriodPairs())))
+            raise KeyError("Period pair must be one of: {}".format(str(Fund.getPeriodPairs())))
 
 
         # How many periods fit in a macroPeriod ?
