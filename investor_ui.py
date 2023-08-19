@@ -118,6 +118,10 @@ class StreamlitInvestorApp:
 
 
     def update_content(self):
+        """
+        Render the report
+        """
+
         st.session_state['investor'].currency=st.session_state['interact_currencies']
 
         self.update_content_fund()
@@ -266,16 +270,16 @@ class StreamlitInvestorApp:
             default=performance_benchmarks
         )
 
-        st.dataframe(
-#         st_aggrid.AgGrid(
+        st.markdown(
             st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
                 benchmark=st.session_state.interact_benchmarks['obj'],
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
                 kpi=st.session_state['kpi_performance'],
-                output='flat'
-            )
+                # output='flat'
+            ).to_html(),
+            unsafe_allow_html=True
         )
 
         st.header('Wealth Evolution')
@@ -294,16 +298,16 @@ class StreamlitInvestorApp:
             default=wealth_benchmarks
         )
 
-        st.dataframe(
-#         st_aggrid.AgGrid(
+        st.markdown(
             st.session_state['fund'].report(
                 period=st.session_state.interact_periods,
                 benchmark=st.session_state.interact_benchmarks['obj'],
                 start=st.session_state.interact_start_end[0],
                 end=st.session_state.interact_start_end[1],
                 kpi=st.session_state['kpi_wealth'],
-                output='flat'
-            )
+                # output='flat'
+            ).to_html(),
+            unsafe_allow_html=True
         )
 
         # Render footer

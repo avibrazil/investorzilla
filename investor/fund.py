@@ -677,11 +677,11 @@ class Fund(object):
         # Make summary report a column, sort and name labels for perfect join
         macroPeriod=(
             macroPeriod
-                .rename_axis(columns='KPI')
-                .T
-                .stack()
-                .reorder_levels(['time','KPI'])
-                .sort_index()
+            .rename_axis(columns='KPI')
+            .T
+            .stack()
+            .reorder_levels(['time','KPI'])
+            .sort_index()
         )
 
         # Join the summary report to main report
@@ -824,20 +824,17 @@ class Fund(object):
             if not (isinstance(end,datetime.date) or isinstance(end,datetime.time) or isinstance(end,pd.Timestamp)):
                 raise TypeError(errorMsg.format(par='end',value=end))
 
-
-#         self.logger.info("Report range: {} -> {}".format(startOfReport,end))
-
         # Start fresh
         report=self.shares.copy() #[startOfReport:end]
 
         # Add ledger to get movements for period
         report=report.join(
             self.ledger
-                .droplevel(0)
-                .drop(('ledger','comment'),axis=1)
-                .droplevel(1, axis=1)
-                .rename(columns=dict(ledger=KPI.MOVEMENTS))
-                .sort_index(), #[startOfReport:end]
+            .droplevel(0)
+            .drop(('ledger','comment'),axis=1)
+            .droplevel(1, axis=1)
+            .rename(columns=dict(ledger=KPI.MOVEMENTS))
+            .sort_index(), #[startOfReport:end]
             how='left'
         )
 
@@ -857,30 +854,30 @@ class Fund(object):
 
         # Getting ready to aggregate on a periodic basis
         aggregationStrategy={
-            KPI.SHARES:                   'last',
-            KPI.SHARE_VALUE:              'last',
-            KPI.MOVEMENTS:                'sum',
-            KPI.BALANCE:                  'last',
-            KPI.SAVINGS:                  'last',
-            KPI.BALANCE_OVER_SAVINGS:     'last',
-            KPI.GAINS:                    'last',
+            kpi: 'last'
+            for kpi in [
+                KPI.SHARES,
+                KPI.SHARE_VALUE,
+                KPI.BALANCE,
+                KPI.SAVINGS,
+                KPI.BALANCE_OVER_SAVINGS,
+                KPI.GAINS,
+            ]
         }
 
+        aggregationStrategy[KPI.MOVEMENTS]='sum'
 
-        # On a downsample scenario (e.g. period=M), we'll have more fund data than final report.
+        # On a downsample scenario (e.g. period=Y), we'll have more fund data than final report.
         # On an upsample scenario (e.g. period=D), we'll have more report lines than fund data.
         # If period=None, number of report lines will match the amount of fund data we have.
         # These 3 situations affect how benchmark has to be handled.
-
-
-
 
         # Cut the report just before period-aggregation operation
         report=report[startOfReport:end]
 
         if period is not None:
-            # Make it a regular time series (D, M, Y etc), each column aggregated by
-            # different strategy
+            # Make it a regular time series (D, M, Y etc), each column
+            # aggregated by different strategy
 
             # Day 0 for Pandas is Monday, while it is Sunday for Python.
             # Make Pandas handle day 0 as Sunday.
@@ -888,13 +885,13 @@ class Fund(object):
 
             report=(
                 report
-                    .resample(dateOffset)
+                .resample(dateOffset)
 
-                    # Compute summarizations for each KPI
-                    .agg(aggregationStrategy)
+                # Compute summarizations for each KPI
+                .agg(aggregationStrategy)
 
-                    # Fill the gaps after aggregation
-                    .ffill()
+                # Fill the gaps after aggregation
+                .ffill()
             )
 
         # Add 3 benchmark-related features
@@ -903,17 +900,16 @@ class Fund(object):
             # Pair with Benchmark
             report=pd.merge_asof(
                 report,
-                benchmark.getData()[['value']].rename(columns={'value': KPI.BENCHMARK}),
+                (
+                    benchmark
+                    .getData()[['value']]
+                    .rename(columns={'value': KPI.BENCHMARK})
+                ),
                 left_index=True,
                 right_index=True
             )
 
             benchmarkFeatures=self.benchmarkFeatures
-
-            # Define an aggregation strategy for the Benchmark too
-#             aggregationStrategy.update({KPI.BENCHMARK: 'last'})
-
-
 
         # Compute rate of return (pure gain excluding movements)
         report[KPI.RATE_RETURN]=report[KPI.SHARE_VALUE].pct_change().fillna(0)
@@ -924,7 +920,6 @@ class Fund(object):
         )
 
         # Compute gain per period comparing consecutive Balance and excluding Movements
-#         if report.shape[0]>1:
         report=report.join(
             report[KPI.BALANCE].shift(),
             rsuffix='_prev',
@@ -942,8 +937,8 @@ class Fund(object):
                 self.shares[KPI.SHARES].asof(startOfReport-pd.Timedelta(seconds=1))
             )
 
-        # Compute income as the difference of Balance between consecutive periods,
-        # minus Movements of period
+        # Compute income as the difference of Balance between consecutive
+        # periods, minus Movements of period
         report[KPI.PERIOD_GAIN]=report.apply(
             lambda x: (
                 # Balance of current period
@@ -957,10 +952,6 @@ class Fund(object):
             ),
             axis=1
         )
-
-#             if period is not None and period!='D':
-#                 # Adjust income of first period only
-#                 report.loc[report.index[0],KPI.PERIOD_GAIN]+=report.loc[report.index[0],KPI.MOVEMENTS]
 
         # Compute features that depend on Benchmark
         if benchmark is not None:
@@ -977,38 +968,6 @@ class Fund(object):
 
             # Normalize benchmark making it start with value 1
             report[KPI.BENCHMARK] /= report.loc[report.index[0]][KPI.BENCHMARK]
-
-
-
-#         if period is not None and period!='D':
-#             # In order to have period-end rate of return for 1st period, the first
-#             # movement is needed, except for high resolution reports, such as Daily or ragged.
-#             report=(
-#                 report
-#                     .append(self.shares[startOfReport:].head(1))
-#                     .sort_index()
-#             )
-
-
-        # Now we have it all computed in a regular period (M, Y etc):
-        # shares, share_value, movements
-
-
-
-#         if period is not None and period!='D':
-#             # Remove first row, that was included artificially just to compute
-#             # first pct_change()
-#             report=report.iloc[1:]
-
-
-
-
-#         # Adjust income of first period only
-#         report.loc[report.index[0],KPI.PERIOD_GAIN]=(
-#             report.loc[report.index[0],KPI.BALANCE]-
-#             report.loc[report.index[0],KPI.SAVINGS]
-#         )
-
 
         return report[
             benchmarkFeatures + [
