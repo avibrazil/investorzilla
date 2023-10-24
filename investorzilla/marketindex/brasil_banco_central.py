@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas
 
 from .. import MarketIndex
 
@@ -45,7 +45,7 @@ class BCBMarketIndex(MarketIndex):
 
     def refreshData(self):
         try:
-            self.data=pd.read_json(self.series[self.id]['url'])
+            self.data=pandas.read_json(self.series[self.id]['url'])
         except BaseException as err:
             self.logger.warning(f"URL was: {self.series[self.id]['url']}")
             raise
@@ -58,7 +58,7 @@ class BCBMarketIndex(MarketIndex):
             
             # Create columns
             .assign(
-                time=pd.to_datetime(self.data.data,dayfirst=True,utc=True),
+                time=pandas.to_datetime(self.data.data,dayfirst=True,utc=True),
                 rate=self.data.valor/100
             )
             

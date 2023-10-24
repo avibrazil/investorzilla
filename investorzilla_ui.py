@@ -18,14 +18,14 @@ import pandas as pd
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
-import investor
+import investorzilla
 
 
-class StreamlitInvestorApp:
+class StreamlitInvestorzillaApp:
     defaultRefreshMap=dict(
         zip(
-            investor.Investor.domains,
-            len(investor.Investor.domains)*[False]
+            investorzilla.Investor.domains,
+            len(investorzilla.Investor.domains)*[False]
         )
     )
 
@@ -408,10 +408,10 @@ class StreamlitInvestorApp:
                 # Scan all currency converters we have to find a match
                 for cc in st.session_state.currency_converters:
                     if curFrom == cc.currencyFrom and curTo == cc.currencyTo:
-                        cc_as_mi=investor.MarketIndex().fromCurrencyConverter(cc)
+                        cc_as_mi=investorzilla.MarketIndex().fromCurrencyConverter(cc)
                         break
                     elif curTo == cc.currencyFrom and curFrom == cc.currencyTo:
-                        cc_as_mi=investor.MarketIndex().fromCurrencyConverter(cc.invert())
+                        cc_as_mi=investorzilla.MarketIndex().fromCurrencyConverter(cc.invert())
                         break
 
                 if cc_as_mi:
@@ -435,7 +435,7 @@ class StreamlitInvestorApp:
         self.load_portfolio()
 
         if 'cache' not in st.session_state:
-            st.session_state['cache']=investor.DataCache(self.context['cache_database'])
+            st.session_state['cache']=investorzilla.DataCache(self.context['cache_database'])
 
         # Collect some flags about what to load from cache, reafresh from Internet etc
         st.session_state['refresh_portfolio'] = st.session_state.interact_refresh_both or st.session_state.interact_refresh_portfolio
@@ -466,7 +466,7 @@ class StreamlitInvestorApp:
                     st.session_state[tasks[task][0]]=[task.result()]
 
         if st.session_state.refresh_market or 'exchange' not in st.session_state:
-            st.session_state['exchange']=investor.CurrencyExchange('USD')
+            st.session_state['exchange']=investorzilla.CurrencyExchange('USD')
 
             # Put all CurrencyConverters in a single useful CurrencyExchange machine
             for curr in st.session_state['currency_converters']:
@@ -547,9 +547,9 @@ class StreamlitInvestorApp:
     def interact_periods(self):
         st.session_state['interact_periods']=st.radio(
             label       = 'How to divide time',
-            options     = investor.Fund.getPeriodPairs(),
-            format_func = investor.Fund.getPeriodPairLabel,
-            index       = investor.Fund.getPeriodPairs().index('month & year'), # the starting default
+            options     = investorzilla.Fund.getPeriodPairs(),
+            format_func = investorzilla.Fund.getPeriodPairLabel,
+            index       = investorzilla.Fund.getPeriodPairs().index('month & year'), # the starting default
             help        = 'Refine observation periods and set relation with summary of periods'
         )
 
@@ -591,6 +591,6 @@ class StreamlitInvestorApp:
 
 
 
-StreamlitInvestorApp(refresh=False)
+StreamlitInvestorzillaApp(refresh=False)
 
 

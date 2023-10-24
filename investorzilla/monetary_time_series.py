@@ -1,5 +1,5 @@
 import copy
-import pandas as pd
+import pandas
 import logging
 from . import DataCache
 
@@ -257,13 +257,13 @@ class CurrencyExchange(object):
             # We already had data.
             # Add currency (or 1/currency) to our data
             if currency.currencyTo==self.target:
-                self.data=pd.merge_asof(
+                self.data=pandas.merge_asof(
                     self.data,
                     currency.getData().rename(columns={'value':currency.currencyFrom}),
                     left_index=True, right_index=True,
                 )
             elif currency.currencyFrom==self.target:
-                self.data=pd.merge_asof(
+                self.data=pandas.merge_asof(
                     self.data,
                     (1/currency.getData()).rename(columns={'value':currency.currencyTo}),
                     left_index=True, right_index=True,

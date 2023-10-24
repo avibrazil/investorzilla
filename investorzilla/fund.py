@@ -1,7 +1,7 @@
 import datetime
 import logging
-import numpy as np
-import pandas as pd
+import numpy
+import pandas
 
 
 
@@ -200,14 +200,14 @@ class Fund(object):
         self.currency=currencyExchange.target
 
         # Group all columns under a ‘ledger’ multi-index
-        self.ledger = pd.concat(
+        self.ledger = pandas.concat(
             [ledger.set_index(['fund','time']).sort_index()],
             axis=1,
             keys=['ledger']
         )
 
         # Group all columns under a ‘balance’ multi-index
-        self.balance = pd.concat(
+        self.balance = pandas.concat(
             [balance.set_index(['fund','time']).sort_index()],
             axis=1,
             keys=[KPI.BALANCE]
@@ -310,12 +310,12 @@ class Fund(object):
         # currency exchange data, using super powerful merge_asof()
         monetary=(
             # Join values with time-equivalent exchange rates
-            pd.merge_asof(
+            pandas.merge_asof(
                 # Remove fund level from index and sort by time
                 df.reset_index('fund').sort_index(),
 
                 # Add 'exchange' column level to exchange columns
-                pd.concat(
+                pandas.concat(
                     [self.exchange.data],
                     axis=1,
                     keys=['exchange']
@@ -336,15 +336,15 @@ class Fund(object):
         # Sum all converted and non-converted columns in one target column
         return (
             monetary.join(
-                pd.DataFrame(
-                    columns=pd.MultiIndex.from_tuples(
+                pandas.DataFrame(
+                    columns=pandas.MultiIndex.from_tuples(
                         [('converted',self.exchange.target)]
                     ),
                     data=(
                         monetary.join(
                             # Result of concat is currency-converted columns from
                             # original values
-                            pd.concat(
+                            pandas.concat(
                                 [
                                     # Multiply values on each currency with its
                                     # converter in the exchange object
@@ -434,8 +434,8 @@ class Fund(object):
             combinedBalance=combinedBalance.loc[combinedBalance.shift()!=combinedBalance]
 
             ## Make it a compatible DataFrame
-            combinedBalance=pd.DataFrame(combinedBalance)
-            combinedBalance.columns=pd.MultiIndex.from_tuples([(KPI.BALANCE,self.exchange.target)])
+            combinedBalance=pandas.DataFrame(combinedBalance)
+            combinedBalance.columns=pandas.MultiIndex.from_tuples([(KPI.BALANCE,self.exchange.target)])
 
         else:
             combinedBalance=self.balance.droplevel(0)
@@ -473,7 +473,7 @@ class Fund(object):
 #             print(f'{i}: {t}')
 
             # First adjust number of shares if there was any movements
-            if not pd.isna(t['ledger']) and t['ledger']!=0:
+            if not pandas.isna(t['ledger']) and t['ledger']!=0:
                 if share_value!=0:
                     shares += t['ledger']/share_value
                 elif shares==0:
@@ -482,7 +482,7 @@ class Fund(object):
 
 
             # Second, adjust the share value based on balance
-            if not pd.isna(t[KPI.BALANCE]) and t[KPI.BALANCE]!=0:
+            if not pandas.isna(t[KPI.BALANCE]) and t[KPI.BALANCE]!=0:
                 if shares==0:
                     # The rare situation where we have balance before any movement
                     shares=t[KPI.BALANCE]/initial_share_value
@@ -494,7 +494,7 @@ class Fund(object):
             )
 
         self.shares=(
-            pd.DataFrame.from_records(
+            pandas.DataFrame.from_records(
                 shares_evolution,
                 columns=('time',KPI.SHARES,KPI.SHARE_VALUE)
             )
@@ -587,11 +587,11 @@ class Fund(object):
                     # First line in report use to need leading empty periods if they
                     # start in the middle of macro period
                     line=(
-                        pd.concat(
+                        pandas.concat(
                             [
                                 # Preppend empty lines
-                                pd.DataFrame(
-                                    index=pd.date_range(
+                                pandas.DataFrame(
+                                    index=pandas.date_range(
                                         line.index.shift(-completeMe)[0],
                                         periods=completeMe,
                                         freq=line.index.freq
@@ -631,7 +631,7 @@ class Fund(object):
             line=(
                 ## Add the time index of the summary report as an additional
                 ## index level to columns
-                pd.concat([line], axis=1, keys=[macroPeriod.index[i]])
+                pandas.concat([line], axis=1, keys=[macroPeriod.index[i]])
 
                 ## Rename the title for labels so we can join latter
                 .rename_axis(['time','KPI'], axis='columns')
@@ -654,7 +654,7 @@ class Fund(object):
             # Add to main report transposing it into a true row (we were columns
             # until now)
             report=(
-                pd.concat([report,line.T], sort=True)
+                pandas.concat([report,line.T], sort=True)
                 if report is not None
                 else line.T
             )
@@ -688,7 +688,7 @@ class Fund(object):
         report[('summary of periods',p['macroPeriodLabel'])]=macroPeriod
 
         # Reformat line index from a full DateTimeIndex to something more readable
-        report.index=pd.MultiIndex.from_tuples(
+        report.index=pandas.MultiIndex.from_tuples(
             [
                 (x[0].strftime(p['macroPeriodFormatter']), x[1])
                 for x in report.index
@@ -744,12 +744,12 @@ class Fund(object):
                         f=self.formatters[i]['format']
 
 
-                selector=pd.IndexSlice[
+                selector=pandas.IndexSlice[
                     # Apply format in KPI row
-                    pd.IndexSlice[:,i],
+                    pandas.IndexSlice[:,i],
 
                     # Apply style in «periods» or «summary of periods»
-                    pd.IndexSlice[g,:]
+                    pandas.IndexSlice[g,:]
                 ]
 
 
@@ -772,7 +772,7 @@ class Fund(object):
             out.index=['·'.join((p,k)).strip() for (p,k) in out.index.values]
         else:
             out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
-        level=out.loc[:,pd.IndexSlice['summary of periods',:]].columns.values[0][1]
+        level=out.loc[:,pandas.IndexSlice['summary of periods',:]].columns.values[0][1]
         out.rename(columns={level:'summary of periods'},inplace=True)
         out.columns=out.columns.droplevel(0)
 
@@ -808,7 +808,7 @@ class Fund(object):
             # Check if we have a good start time and make appropriate type conversions.
             if isinstance(start,str):
                 start=datetime.datetime.fromisoformat(start)
-            if not (isinstance(start,datetime.date) or isinstance(start,datetime.time) or isinstance(start,pd.Timestamp)):
+            if not (isinstance(start,datetime.date) or isinstance(start,datetime.time) or isinstance(start,pandas.Timestamp)):
                 raise TypeError(errorMsg.format(par='start',value=start))
 
             # Now see if start time is more recent than the beginning of our data, and
@@ -821,7 +821,7 @@ class Fund(object):
             # Check if we have a good start time and make appropriate type conversions.
             if isinstance(end,str):
                 end=datetime.datetime.fromisoformat(end)
-            if not (isinstance(end,datetime.date) or isinstance(end,datetime.time) or isinstance(end,pd.Timestamp)):
+            if not (isinstance(end,datetime.date) or isinstance(end,datetime.time) or isinstance(end,pandas.Timestamp)):
                 raise TypeError(errorMsg.format(par='end',value=end))
 
         # Start fresh
@@ -881,7 +881,7 @@ class Fund(object):
 
             # Day 0 for Pandas is Monday, while it is Sunday for Python.
             # Make Pandas handle day 0 as Sunday.
-            dateOffset=pd.tseries.offsets.Week(weekday=5) if period=='W' else period
+            dateOffset=pandas.tseries.offsets.Week(weekday=5) if period=='W' else period
 
             report=(
                 report
@@ -898,7 +898,7 @@ class Fund(object):
         benchmarkFeatures=[]
         if benchmark is not None:
             # Pair with Benchmark
-            report=pd.merge_asof(
+            report=pandas.merge_asof(
                 report,
                 (
                     benchmark
@@ -933,8 +933,8 @@ class Fund(object):
         else:
             # Compute Balance based on immediate previous data
             report.loc[report.index[0],KPI.BALANCE+'_prev']=(
-                self.shares[KPI.SHARE_VALUE].asof(startOfReport-pd.Timedelta(seconds=1)) *
-                self.shares[KPI.SHARES].asof(startOfReport-pd.Timedelta(seconds=1))
+                self.shares[KPI.SHARE_VALUE].asof(startOfReport-pandas.Timedelta(seconds=1)) *
+                self.shares[KPI.SHARES].asof(startOfReport-pandas.Timedelta(seconds=1))
             )
 
         # Compute income as the difference of Balance between consecutive
@@ -1099,7 +1099,7 @@ class Fund(object):
                 end=end
             )[[KPI.SHARE_VALUE]]
             .pct_change()
-            .replace([np.inf, -np.inf], np.nan)
+            .replace([numpy.inf, -numpy.inf], numpy.nan)
             .dropna()
             .rename(
                 columns={
@@ -1132,10 +1132,10 @@ class Fund(object):
 
         # Compute how many 'period's fit in one 'macroPeriod'.
         # https://stackoverflow.com/questions/68284757
-        o1 = pd.tseries.frequencies.to_offset(p['period'])
-        o2 = pd.tseries.frequencies.to_offset(p['macroPeriod'])
+        o1 = pandas.tseries.frequencies.to_offset(p['period'])
+        o2 = pandas.tseries.frequencies.to_offset(p['macroPeriod'])
 
-        t0 = pd.Timestamp(0)
+        t0 = pandas.Timestamp(0)
 
         o2ns = ((t0 + o2) - t0).delta
         o1ns = ((t0 + o1) - t0).delta
@@ -1206,7 +1206,7 @@ class Fund(object):
         i=0
         while i<twoSecondsLength:
             # print('generating')
-            yield pd.to_timedelta(self.twoSeconds[i],unit='ms')
+            yield pandas.to_timedelta(self.twoSeconds[i],unit='ms')
             i+=1
             if (i==twoSecondsLength):
                 i=0
@@ -1223,13 +1223,13 @@ class Fund(object):
 
 
 
-    def div_offsets(a, b, date=pd.Timestamp(0)):
+    def div_offsets(a, b, date=pandas.Timestamp(0)):
         '''
         Compute pandas dateoffset ratios using nanosecond conversion
         https://stackoverflow.com/a/68285031/367824
         '''
-        a=pd.tseries.frequencies.to_offset(a)
-        b=pd.tseries.frequencies.to_offset(b)
+        a=pandas.tseries.frequencies.to_offset(a)
+        b=pandas.tseries.frequencies.to_offset(b)
 
         try:
             return a.nanos / b.nanos

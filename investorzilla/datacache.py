@@ -1,6 +1,6 @@
 import logging
 import sqlalchemy
-import pandas as pd
+import pandas
 
 
 # TODO: Convert all queries to SQLAlchemy methods
@@ -131,11 +131,11 @@ class DataCache(object):
         try:
             self.getLogger().debug(f'Trying cache as {query}')
 
-            df=pd.read_sql(query,con=self.db)
+            df=pandas.read_sql(query,con=self.db)
 
             if df.shape[0]>0:
                 self.logger.info(f"Successful cache hit for kind={kind} and id={id}")
-                df['last']=pd.to_datetime(df['last'])
+                df['last']=pandas.to_datetime(df['last'])
                 ret=df['last'][0]
                 if ret.tzinfo is None or ret.tzinfo.utcoffset(ret) is None:
                     ret=ret=ret.tz_localize('UTC')
@@ -218,10 +218,10 @@ class DataCache(object):
         try:
             self.getLogger().debug(f'Trying cache as {query}')
 
-            df=pd.read_sql(query,con=self.db)
+            df=pandas.read_sql(query,con=self.db)
 
             if df.shape[0]>0:
-                age=pd.Timestamp(df[self.timeCol].max())
+                age=pandas.Timestamp(df[self.timeCol].max())
                 self.getLogger().info(f"Cache age for kind={kind} and id={id}: {age}")
                 return (df.drop(columns=[self.timeCol,self.idCol]),age)
             else:
@@ -286,7 +286,7 @@ class DataCache(object):
         '''
 
         if self.recycle is not None:
-            deprecated=pd.read_sql_query(
+            deprecated=pandas.read_sql_query(
                 versionSelector.format(
                     typeTable    = self.typeTable.format(kind=kind),
                     idCol        = self.idCol,
@@ -326,7 +326,7 @@ class DataCache(object):
         columns=list(d.columns)
 
         d[self.idCol]=id
-        now=pd.Timestamp.utcnow()
+        now=pandas.Timestamp.utcnow()
         d[self.timeCol]=now
 
 

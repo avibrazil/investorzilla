@@ -4,7 +4,7 @@ import pickle
 import logging
 import concurrent.futures
 import numpy
-import pandas as pd
+import pandas
 
 
 from . import Fund
@@ -28,7 +28,7 @@ class Portfolio(object):
     # to add random miliseconds to entries that have same time. This is
     # why we exclude Zero.
     twoSeconds=(
-        pd.Series(range(-999,1000))
+        pandas.Series(range(-999,1000))
 
         # Exclude 0
         .pipe(lambda s: s[s!=0])
@@ -300,14 +300,14 @@ class Portfolio(object):
 #         i=0
 #         while i<twoSecondsLength:
 #             # print('generating')
-#             yield pd.to_timedelta(Portfolio.twoSeconds[i],unit='ms')
+#             yield pandas.to_timedelta(Portfolio.twoSeconds[i],unit='ms')
 #             i+=1
 #             if (i==twoSecondsLength):
 #                 i=0
 
 
 
-    def normalizeTime(time, naiveTimeShift=12*3600) -> pd.DataFrame:
+    def normalizeTime(time, naiveTimeShift=12*3600) -> pandas.DataFrame:
         """
         Get a pandas.Series in ‘time’ and normalize it:
 
@@ -328,10 +328,10 @@ class Portfolio(object):
             Return a vector of random pandas.Timedelta indexed by `index`.
             """
             vec=(
-                pd.to_timedelta(
+                pandas.to_timedelta(
                     # Create a long random vector by concatenating
                     # Portfolio.twoSeconds multiple times
-                    pd.concat(
+                    pandas.concat(
                         # How many times we need to duplicate
                         # Portfolio.twoSeconds?
                         max(2,int(
@@ -359,7 +359,7 @@ class Portfolio(object):
         instrumented=time.copy()
 
         # Convert naiveTimeShift into something more useful
-        timeShift=pd.to_timedelta(naiveTimeShift, unit='s')
+        timeShift=pandas.to_timedelta(naiveTimeShift, unit='s')
 
         # Get current timezone
         currtz=(
@@ -468,7 +468,7 @@ class PortfolioAggregator(Portfolio):
     @property
     def _balance(self):
         return (
-            pd.concat(
+            pandas.concat(
                 [p._balance for p in self.members if p.has_balance]
             )
             .reset_index(drop=True)
@@ -479,7 +479,7 @@ class PortfolioAggregator(Portfolio):
     @property
     def _ledger(self):
         return (
-            pd.concat(
+            pandas.concat(
                 [p._ledger for p in self.members if p.has_ledger]
             )
             .reset_index(drop=True)

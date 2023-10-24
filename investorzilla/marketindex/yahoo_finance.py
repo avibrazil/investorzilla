@@ -1,6 +1,5 @@
 import datetime
-import pandas as pd
-# import pandas_datareader.data as pdr
+import pandas
 
 from .. import MarketIndex
 
@@ -30,7 +29,7 @@ class YahooMarketIndex(MarketIndex):
 
 
     def refreshData(self):
-        self.data=pd.read_csv(
+        self.data=pandas.read_csv(
             self.url.format(
                 ticker=self.id,
                 start=round(datetime.datetime(1900,1,1).timestamp()),
@@ -42,7 +41,7 @@ class YahooMarketIndex(MarketIndex):
 
     def processData(self):
         # Convert time to a new column
-        self.data['time']=pd.to_datetime(self.data.Date,utc=True)
+        self.data['time']=pandas.to_datetime(self.data.Date,utc=True)
 
         # Set it as the index
         self.data.set_index('time', inplace=True)
