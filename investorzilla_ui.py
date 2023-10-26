@@ -40,7 +40,7 @@ class StreamlitInvestorzillaApp:
 
         loggers=[
             logging.getLogger('__main__'),
-            logging.getLogger('investor'),
+            logging.getLogger('investorzilla'),
             logging.getLogger('sqlite')
         ]
 
@@ -68,7 +68,7 @@ class StreamlitInvestorzillaApp:
 
 
         if ('investor' not in st.session_state) or (True in self.refreshMap.values()):
-            st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
+            st.session_state['investor']=investorzilla.Investor('investorzilla_ui_config.yaml',self.refreshMap)
         # else:
         #     # Simply reuse what you have
         #     st.session_state['investor']
@@ -159,26 +159,26 @@ class StreamlitInvestorzillaApp:
         label='{kpi}: current {p[periodLabel]} and {p[macroPeriodLabel]}'
 
         col1.metric(
-            label=label.format(p=p,kpi=investor.KPI.RATE_RETURN),
-            value='{:6.2f}%'.format(100*metricsPeriod.iloc[-1][investor.KPI.RATE_RETURN]),
-            delta='{:6.2f}%'.format(100*metricsMacroPeriod.iloc[-1][investor.KPI.RATE_RETURN]),
+            label=label.format(p=p,kpi=investorzilla.KPI.RATE_RETURN),
+            value='{:6.2f}%'.format(100*metricsPeriod.iloc[-1][investorzilla.KPI.RATE_RETURN]),
+            delta='{:6.2f}%'.format(100*metricsMacroPeriod.iloc[-1][investorzilla.KPI.RATE_RETURN]),
         )
 
         col2.metric(
-            label=label.format(p=p,kpi=investor.KPI.PERIOD_GAIN),
-            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
+            label=label.format(p=p,kpi=investorzilla.KPI.PERIOD_GAIN),
+            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
             delta='{sign}${value:0,.2f}'.format(
-                value=abs(metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
-                sign=('-' if metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]<0 else '')
+                value=abs(metricsMacroPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
+                sign=('-' if metricsMacroPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]<0 else '')
             )
         )
 
         col3.metric(
-            label='current {} & {}'.format(investor.KPI.BALANCE,investor.KPI.SAVINGS),
-            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.BALANCE]),
+            label='current {} & {}'.format(investorzilla.KPI.BALANCE,investorzilla.KPI.SAVINGS),
+            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investorzilla.KPI.BALANCE]),
             delta='{sign}${value:0,.2f}'.format(
-                value=abs(metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]),
-                sign=('-' if metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]<0 else '')
+                value=abs(metricsMacroPeriod.iloc[-1][investorzilla.KPI.SAVINGS]),
+                sign=('-' if metricsMacroPeriod.iloc[-1][investorzilla.KPI.SAVINGS]<0 else '')
             )
         )
 
@@ -258,10 +258,10 @@ class StreamlitInvestorzillaApp:
         st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state.interact_benchmarks['obj']))
 
         performance_benchmarks=[
-            investor.KPI.RATE_RETURN,
-            investor.KPI.BENCHMARK_RATE_RETURN,
-            investor.KPI.BENCHMARK_EXCESS_RETURN,
-            investor.KPI.PERIOD_GAIN
+            investorzilla.KPI.RATE_RETURN,
+            investorzilla.KPI.BENCHMARK_RATE_RETURN,
+            investorzilla.KPI.BENCHMARK_EXCESS_RETURN,
+            investorzilla.KPI.PERIOD_GAIN
         ]
 
         st.session_state['kpi_performance']=st.multiselect(
@@ -285,11 +285,11 @@ class StreamlitInvestorzillaApp:
         st.header('Wealth Evolution')
 
         wealth_benchmarks=[
-            investor.KPI.BALANCE,
-            investor.KPI.BALANCE_OVER_SAVINGS,
-            investor.KPI.GAINS,
-            investor.KPI.SAVINGS,
-            investor.KPI.MOVEMENTS
+            investorzilla.KPI.BALANCE,
+            investorzilla.KPI.BALANCE_OVER_SAVINGS,
+            investorzilla.KPI.GAINS,
+            investorzilla.KPI.SAVINGS,
+            investorzilla.KPI.MOVEMENTS
         ]
 
         st.session_state['kpi_wealth']=st.multiselect(
@@ -318,7 +318,7 @@ class StreamlitInvestorzillaApp:
             st.session_state.interact_start_end[1]
         ))
 
-        st.markdown('Report by [investor](https://github.com/avibrazil/investor).')
+        st.markdown('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
 
 
 
