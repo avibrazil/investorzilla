@@ -3,7 +3,7 @@ import concurrent.futures
 import pandas
 import yaml
 
-from . import DataCache, MarketIndex, CurrencyExchange, PortfolioAggregator
+from .             import DataCache, MarketIndex, CurrencyExchange, PortfolioAggregator
 from .currency     import brasil_banco_central     as currency_bcb
 from .currency     import cryptocompare            as currency_cryptocompare
 from .marketindex  import brasil_banco_central     as mktidx_bcb
@@ -190,6 +190,7 @@ class Investor(object):
     def cache(self):
         if self._cache is None:
             self._cache=DataCache(self.config['cache_database'])
+            self.logger.debug(f"Using cache: {self._cache}")
 
         return self._cache
 

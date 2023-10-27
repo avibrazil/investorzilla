@@ -345,9 +345,15 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
 
     def __repr__(self):
-        return '{klass}({sheetid},balance={balance},ledger={ledger})'.format(
-            sheetid         = self.sheetStructure['sheet'],
-            balance         = self.sheetStructure['balance']['sheetRange'],
-            ledger          = self.sheetStructure['ledger']['sheetRange'],
-            klass           = type(self).__name__
+        balanceOrLedger='{}={}'
+
+        bl = [
+            balanceOrLedger.format(s,self.sheetStructure[s]['sheetRange'])
+            for s in ['balance','ledger'] if s in self.sheetStructure
+        ]
+
+        return '{klass}({sheetid},{bl})'.format(
+            sheetid  = self.sheetStructure['sheet'],
+            bl       = ','.join(bl),
+            klass    = type(self).__name__
         )

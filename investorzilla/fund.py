@@ -1237,10 +1237,10 @@ class Fund(object):
             pass
 
         prev = (date + a) - a
-        ans  = ((prev + a) - prev).delta
+        ans  = ((prev + a) - prev).total_seconds()*1e9
 
         prev = (date + b) - b
-        bns  = ((prev + b) - prev).delta
+        bns  = ((prev + b) - prev).total_seconds()*1e9
 
         if ans > bns:
             ratio = round(ans / bns)

@@ -134,7 +134,7 @@ class DataCache(object):
             df=pandas.read_sql(query,con=self.db)
 
             if df.shape[0]>0:
-                self.logger.info(f"Successful cache hit for kind={kind} and id={id}")
+                self.logger.info(f"Successful cache hit for kind={kind} and id={id} with {df.shape[0]} records.")
                 df['last']=pandas.to_datetime(df['last'])
                 ret=df['last'][0]
                 if ret.tzinfo is None or ret.tzinfo.utcoffset(ret) is None:
@@ -160,7 +160,7 @@ class DataCache(object):
 
         time makes it search on column __DataCache_time for entries with id
         recent up to time.
-        
+
         Returns a tuple with table and time of cache data.
         """
 
@@ -222,16 +222,16 @@ class DataCache(object):
 
             if df.shape[0]>0:
                 age=pandas.Timestamp(df[self.timeCol].max())
-                self.getLogger().info(f"Cache age for kind={kind} and id={id}: {age}")
+                self.getLogger().info(f"Cache for kind={kind} and id={id} has {df.shape[0]} entries and was cached at {age}")
                 return (df.drop(columns=[self.timeCol,self.idCol]),age)
             else:
                 self.getLogger().info(f"Cache empty for kind={kind} and id={id}")
                 return (None,None)
-            
+
         except Exception as e:
             self.getLogger().info(f"No cache for kind={kind} and id={id}")
             self.getLogger().info(e)
-            
+
             return (None,None)
 
 
@@ -319,6 +319,8 @@ class DataCache(object):
         id is written to column __DataCache_id
 
         Current time is written to column __DataCache_time
+
+        data is a DataFrame whose columns are the other columns of table DataCache__{kind}
         """
 
         d=data.copy()
