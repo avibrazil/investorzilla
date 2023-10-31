@@ -1,7 +1,7 @@
 import datetime
 import urllib
 import requests
-import pandas as pd
+import pandas
 
 from .. import CurrencyConverter
 
@@ -55,12 +55,12 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
                 )
             ).json()
 
-            table=pd.DataFrame(data['Data']['Data'])
+            table=pandas.DataFrame(data['Data']['Data'])
 
             if self.data is None:
                 self.data=table
             else:
-                self.data=pd.concat([self.data,table])
+                self.data=pandas.concat([self.data,table])
 
             if table[table['time']==data['Data']['TimeFrom']]['close'][0]==0:
                 break
@@ -73,7 +73,7 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
 
     def processData(self):
         self.data.rename(columns={'time': 'ts', 'close': 'value'}, inplace=True)
-        self.data['time']=pd.to_datetime(self.data['ts'],unit='s',utc=True)
+        self.data['time']=pandas.to_datetime(self.data['ts'],unit='s',utc=True)
         self.data.drop(columns=["high","low","open","volumefrom","volumeto","conversionType","conversionSymbol",'ts'], inplace=True)
         self.data.set_index('time', inplace=True)
         self.data.sort_index(inplace=True)

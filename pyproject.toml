@@ -1,0 +1,60 @@
+[project]
+name = "investorzilla"
+version = '2.0.0'
+description = "Manage your investments like a data scientist"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+authors = [
+    { name = "Avi Alkalay", email = "avi@unix.sh" },
+]
+
+# keywords = [
+#     "mlengineering",
+#     "xingu",
+# ]
+
+dependencies = [
+    "pandas
+    "google-api-python-client",
+    "google-auth-httplib2",
+    "google-auth-oauthlib",
+    "pandas_datareader",
+    "streamlit",
+    "sqlalchemy",
+    "matplotlib",
+    "certifi",
+    "pyaml"
+]
+
+# dynamic = [
+#     "version",
+# ]
+
+# classifiers=[
+#     "Intended Audience :: Developers",
+#     "Programming Language :: Python :: 3",
+#     "Operating System :: OS Independent",
+#     "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
+#     "Development Status :: 5 - Production/Stable",
+#     "Intended Audience :: Science/Research",
+#     "Topic :: Scientific/Engineering :: Information Analysis",
+# ]
+
+
+[project.scripts]
+xingu = "xingu.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/avibrazil/xingu"
+Source = "https://github.com/avibrazil/xingu"
+Issues = "https://github.com/avibrazil/xingu/issues/new/choose"
+Pypi = "https://pypi.org/project/xingu"
+
+[project.optional-dependencies]
+docs = [
+    "sklearn",
+]
+
+[tool.setuptools.package-dir]
+xingu = "xingu"

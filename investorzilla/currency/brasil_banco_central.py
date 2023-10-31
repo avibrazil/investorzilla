@@ -2,8 +2,8 @@ import datetime
 import logging
 import urllib
 import requests
-import numpy as np
-import pandas as pd
+import numpy
+import pandas
 
 from .. import CurrencyConverter
 
@@ -53,7 +53,7 @@ class BCBCurrencyConverter(CurrencyConverter):
 
 #         logging.debug(response.content[:700])
 
-        self.data=pd.DataFrame(response.json()['value'])
+        self.data=pandas.DataFrame(response.json()['value'])
 
         self.data.rename(columns={'dataHoraCotacao': 'time'}, inplace=True)
 
@@ -63,7 +63,7 @@ class BCBCurrencyConverter(CurrencyConverter):
 
 
     def processData(self):
-        self.data['time']=pd.to_datetime(self.data['time'],utc=True)
+        self.data['time']=pandas.to_datetime(self.data['time'],utc=True)
         self.data['value']=(self.data['cotacaoCompra']+self.data['cotacaoVenda'])/2
         self.data=(
             self.data.drop('cotacaoCompra cotacaoVenda'.split(),axis=1)
@@ -73,13 +73,13 @@ class BCBCurrencyConverter(CurrencyConverter):
 
         # Add some seconds of entropy to the index to eliminate repeated values
         self.data.index=(
-            pd.DatetimeIndex(
+            pandas.DatetimeIndex(
                 self.data.index
 
                 # convert index to number of nanoseconds since 1970-01-01T00:00:00
-                .astype(np.int64)
+                .astype(numpy.int64)
                 # add random nanoseconds to each timestamp
-                + np.random.randint(
+                + numpy.random.randint(
                     low  = -10*(10**9),
                     high =  10*(10**9),
                     size =  len(self.data.index)

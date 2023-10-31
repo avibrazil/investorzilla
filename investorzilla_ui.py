@@ -18,14 +18,14 @@ import pandas as pd
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
 
-import investor
+import investorzilla
 
 
-class StreamlitInvestorApp:
+class StreamlitInvestorzillaApp:
     defaultRefreshMap=dict(
         zip(
-            investor.Investor.domains,
-            len(investor.Investor.domains)*[False]
+            investorzilla.Investor.domains,
+            len(investorzilla.Investor.domains)*[False]
         )
     )
 
@@ -40,7 +40,7 @@ class StreamlitInvestorApp:
 
         loggers=[
             logging.getLogger('__main__'),
-            logging.getLogger('investor'),
+            logging.getLogger('investorzilla'),
             logging.getLogger('sqlite')
         ]
 
@@ -68,7 +68,7 @@ class StreamlitInvestorApp:
 
 
         if ('investor' not in st.session_state) or (True in self.refreshMap.values()):
-            st.session_state['investor']=investor.Investor('investor_ui_config.yaml',self.refreshMap)
+            st.session_state['investor']=investorzilla.Investor('investorzilla_ui_config.yaml',self.refreshMap)
         # else:
         #     # Simply reuse what you have
         #     st.session_state['investor']
@@ -159,26 +159,26 @@ class StreamlitInvestorApp:
         label='{kpi}: current {p[periodLabel]} and {p[macroPeriodLabel]}'
 
         col1.metric(
-            label=label.format(p=p,kpi=investor.KPI.RATE_RETURN),
-            value='{:6.2f}%'.format(100*metricsPeriod.iloc[-1][investor.KPI.RATE_RETURN]),
-            delta='{:6.2f}%'.format(100*metricsMacroPeriod.iloc[-1][investor.KPI.RATE_RETURN]),
+            label=label.format(p=p,kpi=investorzilla.KPI.RATE_RETURN),
+            value='{:6.2f}%'.format(100*metricsPeriod.iloc[-1][investorzilla.KPI.RATE_RETURN]),
+            delta='{:6.2f}%'.format(100*metricsMacroPeriod.iloc[-1][investorzilla.KPI.RATE_RETURN]),
         )
 
         col2.metric(
-            label=label.format(p=p,kpi=investor.KPI.PERIOD_GAIN),
-            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
+            label=label.format(p=p,kpi=investorzilla.KPI.PERIOD_GAIN),
+            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
             delta='{sign}${value:0,.2f}'.format(
-                value=abs(metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]),
-                sign=('-' if metricsMacroPeriod.iloc[-1][investor.KPI.PERIOD_GAIN]<0 else '')
+                value=abs(metricsMacroPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
+                sign=('-' if metricsMacroPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]<0 else '')
             )
         )
 
         col3.metric(
-            label='current {} & {}'.format(investor.KPI.BALANCE,investor.KPI.SAVINGS),
-            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investor.KPI.BALANCE]),
+            label='current {} & {}'.format(investorzilla.KPI.BALANCE,investorzilla.KPI.SAVINGS),
+            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investorzilla.KPI.BALANCE]),
             delta='{sign}${value:0,.2f}'.format(
-                value=abs(metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]),
-                sign=('-' if metricsMacroPeriod.iloc[-1][investor.KPI.SAVINGS]<0 else '')
+                value=abs(metricsMacroPeriod.iloc[-1][investorzilla.KPI.SAVINGS]),
+                sign=('-' if metricsMacroPeriod.iloc[-1][investorzilla.KPI.SAVINGS]<0 else '')
             )
         )
 
@@ -254,14 +254,20 @@ class StreamlitInvestorApp:
 #             st.line_chart(rolling_income[rolling_columns])
 
 
+        table_styles=[
+            dict(selector="td", props="font-size: 0.8em; text-align: right"),
+            dict(selector="th", props="font-size: 0.8em; "),
+            dict(selector='tr:hover', props='background-color: yellow')
+        ]
+
         st.header('Performance')
         st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state.interact_benchmarks['obj']))
 
         performance_benchmarks=[
-            investor.KPI.RATE_RETURN,
-            investor.KPI.BENCHMARK_RATE_RETURN,
-            investor.KPI.BENCHMARK_EXCESS_RETURN,
-            investor.KPI.PERIOD_GAIN
+            investorzilla.KPI.RATE_RETURN,
+            investorzilla.KPI.BENCHMARK_RATE_RETURN,
+            investorzilla.KPI.BENCHMARK_EXCESS_RETURN,
+            investorzilla.KPI.PERIOD_GAIN
         ]
 
         st.session_state['kpi_performance']=st.multiselect(
@@ -271,25 +277,29 @@ class StreamlitInvestorApp:
         )
 
         st.markdown(
+        # st.dataframe(
             st.session_state['fund'].report(
-                period=st.session_state.interact_periods,
-                benchmark=st.session_state.interact_benchmarks['obj'],
-                start=st.session_state.interact_start_end[0],
-                end=st.session_state.interact_start_end[1],
-                kpi=st.session_state['kpi_performance'],
-                # output='flat'
-            ).to_html(),
+                period     = st.session_state.interact_periods,
+                benchmark  = st.session_state.interact_benchmarks['obj'],
+                start      = st.session_state.interact_start_end[0],
+                end        = st.session_state.interact_start_end[1],
+                kpi        = st.session_state['kpi_performance'],
+                # output     = 'flat'
+            )
+            .set_table_styles(table_styles)
+
+            .to_html(),
             unsafe_allow_html=True
         )
 
         st.header('Wealth Evolution')
 
         wealth_benchmarks=[
-            investor.KPI.BALANCE,
-            investor.KPI.BALANCE_OVER_SAVINGS,
-            investor.KPI.GAINS,
-            investor.KPI.SAVINGS,
-            investor.KPI.MOVEMENTS
+            investorzilla.KPI.BALANCE,
+            investorzilla.KPI.BALANCE_OVER_SAVINGS,
+            investorzilla.KPI.GAINS,
+            investorzilla.KPI.SAVINGS,
+            investorzilla.KPI.MOVEMENTS
         ]
 
         st.session_state['kpi_wealth']=st.multiselect(
@@ -306,7 +316,10 @@ class StreamlitInvestorApp:
                 end=st.session_state.interact_start_end[1],
                 kpi=st.session_state['kpi_wealth'],
                 # output='flat'
-            ).to_html(),
+            )
+            .set_table_styles(table_styles)
+
+            .to_html(),
             unsafe_allow_html=True
         )
 
@@ -318,7 +331,7 @@ class StreamlitInvestorApp:
             st.session_state.interact_start_end[1]
         ))
 
-        st.markdown('Report by [investor](https://github.com/avibrazil/investor).')
+        st.markdown('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
 
 
 
@@ -408,10 +421,10 @@ class StreamlitInvestorApp:
                 # Scan all currency converters we have to find a match
                 for cc in st.session_state.currency_converters:
                     if curFrom == cc.currencyFrom and curTo == cc.currencyTo:
-                        cc_as_mi=investor.MarketIndex().fromCurrencyConverter(cc)
+                        cc_as_mi=investorzilla.MarketIndex().fromCurrencyConverter(cc)
                         break
                     elif curTo == cc.currencyFrom and curFrom == cc.currencyTo:
-                        cc_as_mi=investor.MarketIndex().fromCurrencyConverter(cc.invert())
+                        cc_as_mi=investorzilla.MarketIndex().fromCurrencyConverter(cc.invert())
                         break
 
                 if cc_as_mi:
@@ -435,7 +448,7 @@ class StreamlitInvestorApp:
         self.load_portfolio()
 
         if 'cache' not in st.session_state:
-            st.session_state['cache']=investor.DataCache(self.context['cache_database'])
+            st.session_state['cache']=investorzilla.DataCache(self.context['cache_database'])
 
         # Collect some flags about what to load from cache, reafresh from Internet etc
         st.session_state['refresh_portfolio'] = st.session_state.interact_refresh_both or st.session_state.interact_refresh_portfolio
@@ -466,7 +479,7 @@ class StreamlitInvestorApp:
                     st.session_state[tasks[task][0]]=[task.result()]
 
         if st.session_state.refresh_market or 'exchange' not in st.session_state:
-            st.session_state['exchange']=investor.CurrencyExchange('USD')
+            st.session_state['exchange']=investorzilla.CurrencyExchange('USD')
 
             # Put all CurrencyConverters in a single useful CurrencyExchange machine
             for curr in st.session_state['currency_converters']:
@@ -547,9 +560,9 @@ class StreamlitInvestorApp:
     def interact_periods(self):
         st.session_state['interact_periods']=st.radio(
             label       = 'How to divide time',
-            options     = investor.Fund.getPeriodPairs(),
-            format_func = investor.Fund.getPeriodPairLabel,
-            index       = investor.Fund.getPeriodPairs().index('month & year'), # the starting default
+            options     = investorzilla.Fund.getPeriodPairs(),
+            format_func = investorzilla.Fund.getPeriodPairLabel,
+            index       = investorzilla.Fund.getPeriodPairs().index('month & year'), # the starting default
             help        = 'Refine observation periods and set relation with summary of periods'
         )
 
@@ -591,6 +604,6 @@ class StreamlitInvestorApp:
 
 
 
-StreamlitInvestorApp(refresh=False)
+StreamlitInvestorzillaApp(refresh=False)
 
 

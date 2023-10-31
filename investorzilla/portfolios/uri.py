@@ -1,62 +1,44 @@
 import pathlib
-import pandas as pd
+import pandas
 
 from .. import Portfolio
 
 
 class URIBalanceOrLedger(Portfolio):
     """
-    Use this Portfolio class if you keep your balance and ledger in a Google Sheet.
-    An example spreadsheet is here: https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk/edit#gid=476533794
+    Use this Portfolio class if you keep your balance and ledger in CSV files,
+    local or remote -- on any URL supported by pandas.read_csv().
 
-    The UI passes a sheet structure dict to this class constructor so it which tabs and
-    columns contains the information it needs. The UI get this information from
-    investor_ui_config.yaml file, under portfolio.params.sheetStructure, which in turns
-    define where in the spreadsheet are balance and ledger information. Here is an example
+    The UI passes a sheet structure dict to this class constructor so it knows
+    which tabs and columns contains the information it needs. The UI get this
+    information from investor_ui_config.yaml file, under
+    portfolio.params.sheetStructure, which in turns define where in the
+    spreadsheet are balance and ledger information. Here is an example
     for a investor_ui_config.yaml:
 
     portfolio:
-        - type: !!python/name:investor.google_sheets.GoogleSheetsBalanceAndLedger ''
+        - type: !!python/name:investor.portfolios.uri.URIBalanceOrLedger ''
           params:
-            credentialsFile: credentials.json
+            # The URI can be a local file or even a remote http(s):// URL. Anything supported
+            # by Pandas.read_csv()
+            URI: balances.txt
+            kind: traderbot_balance
             sheetStructure:
-                # This Google Sheet is an example that should work out of the box
-                # See it at https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk
-                sheet: 1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk
-
+                separator: "|"
                 # In here you describe how the BALANCE and LEDGER data is
                 # organized in sheets and columns
                 balance:
-                    # The sheet/tab range with your balances
-                    sheetRange: Balances!A:D
                     columns:
-                        # Time is in column called 'Data'
-                        time: Date and time
+                        # Time is in column called 'time'
+                        time: time
 
                         # Name of funds on each row is under this column
-                        fund: Compound fund
+                        fund: fund
 
                         # Column called 'Saldo USD' contains values in 'USD' and so on.
                         monetary:
-                            - currency:     BRL
-                              name:         Balance BRL
                             - currency:     USD
-                              name:         Balance USD
-
-                ledger:
-                    # The sheet/tab with all your in and out movements (ledger)
-                    sheetRange: Ledger!A:E
-                    columns:
-                        time: Date and time
-                        fund: Compound fund
-
-                        # Name of columns with random comments
-                        comment: Comment
-                        monetary:
-                            - currency:     BRL
-                              name:         Mov BRL
-                            - currency:     USD
-                              name:         Mov USD
+                              name:         Saldo USD
     """
 
     def __init__(self, URI, kind, sheetStructure, cache=None, refresh=False):
@@ -98,7 +80,7 @@ class URIBalanceOrLedger(Portfolio):
 
 
     def refreshData(self):
-        df=pd.read_csv(
+        df=pandas.read_csv(
             filepath_or_buffer = self.URI,
             sep = self.sheetStructure['separator'] if 'separator' in self.sheetStructure else ','
         )
@@ -149,25 +131,25 @@ class URIBalanceOrLedger(Portfolio):
         naiveTimeShift=12*3600
         if prop=='balance':
             naiveTimeShift+=3*60
-        
+
         sheet=(
             sheet
-            .replace('#N/A',pd.NA)
+            .replace('#N/A',pandas.NA)
 
             # Remove rows that don't have fund names
             .dropna(subset=['fund'])
-            
+
             # Optimize and be gentle with storage
             .astype(
                 dict(
                     fund = 'category'
                 )
             )
-            
+
             .assign(
                 # Convert Date/Time to proper type
                 time=Portfolio.normalizeTime(
-                    pd.to_datetime(sheet.time),
+                    pandas.to_datetime(sheet.time),
                     naiveTimeShift
                 )
             )

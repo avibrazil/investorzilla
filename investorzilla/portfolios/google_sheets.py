@@ -4,7 +4,7 @@ import pathlib
 import yaml
 import logging
 import concurrent.futures
-import pandas as pd
+import pandas
 import numpy
 
 # python3 -m pip install -U google-api-python-client google-auth-httplib2 google-auth-oauthlib pandas_datareader --user
@@ -212,7 +212,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
         sheet=(
             sheet
-            .replace('#N/A',pd.NA)
+            .replace('#N/A',pandas.NA)
 
             # Remove rows that don't have fund names
             .dropna(subset=['fund'])
@@ -233,13 +233,13 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             # Convert Date/Time to proper type
             .assign(
                 time=Portfolio.normalizeTime(
-                    pd.to_datetime(sheet.time),
+                    pandas.to_datetime(sheet.time),
                     naiveTimeShift
                 )
             )
 
             # Normalize NaNs
-            .fillna(pd.NA)
+            .fillna(pandas.NA)
         )
 
         # Handle monetary columns, remove currency symbols and make them numbers
@@ -254,7 +254,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                 sheet[c['currency']]=sheet[c['currency']].str.replace(r'^\s*$','', regex=True)
 
                 ## Convert to number
-                sheet[c['currency']]=pd.to_numeric(sheet[c['currency']]) #.astype(float)
+                sheet[c['currency']]=pandas.to_numeric(sheet[c['currency']]) #.astype(float)
 
         setattr(self,f'_{prop}',sheet)
 
@@ -292,7 +292,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
         return (
             # Create anonymous DataFrame, without column names
-            pd.DataFrame(data[1:])
+            pandas.DataFrame(data[1:])
 
             # Put column names on the ones that have data
             .pipe(
@@ -345,9 +345,15 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
 
     def __repr__(self):
-        return '{klass}({sheetid},balance={balance},ledger={ledger})'.format(
-            sheetid         = self.sheetStructure['sheet'],
-            balance         = self.sheetStructure['balance']['sheetRange'],
-            ledger          = self.sheetStructure['ledger']['sheetRange'],
-            klass           = type(self).__name__
+        balanceOrLedger='{}={}'
+
+        bl = [
+            balanceOrLedger.format(s,self.sheetStructure[s]['sheetRange'])
+            for s in ['balance','ledger'] if s in self.sheetStructure
+        ]
+
+        return '{klass}({sheetid},{bl})'.format(
+            sheetid  = self.sheetStructure['sheet'],
+            bl       = ','.join(bl),
+            klass    = type(self).__name__
         )

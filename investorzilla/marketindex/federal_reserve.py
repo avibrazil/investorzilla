@@ -1,5 +1,5 @@
-import pandas as pd
-import pandas_datareader.data as pdr
+import pandas
+import pandas_datareader
 
 from .. import MarketIndex
 
@@ -17,7 +17,7 @@ class FREDMarketIndex(MarketIndex):
 
 
     def refreshData(self):
-        self.data = pdr.DataReader([self.id], 'fred','1900-01-01')
+        self.data = pandas_datareader.data.DataReader([self.id], 'fred','1900-01-01')
 
         # Put a standard column name
         self.data.rename(columns={self.id: 'value'}, inplace=True)
@@ -32,7 +32,7 @@ class FREDMarketIndex(MarketIndex):
 
     def processData(self):
         # Convert time to a new column
-        self.data['time']=pd.to_datetime(self.data.DATE)
+        self.data['time']=pandas.to_datetime(self.data.DATE)
 
         # Set it as the index
         self.data.set_index('time', inplace=True)
