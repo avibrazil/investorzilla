@@ -717,8 +717,10 @@ class Fund(object):
 
         if output=='styled':
             ## Lets work with a styled DataFrame
-            out=report.style
-
+            out=(
+                report.style
+                .apply(lambda cell: numpy.where(cell<0,"color: red",None), axis=1)
+            )
 
         # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
         # not plain (just the data), we'll have to apply formatting, either as style or

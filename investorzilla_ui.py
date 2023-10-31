@@ -254,6 +254,12 @@ class StreamlitInvestorzillaApp:
 #             st.line_chart(rolling_income[rolling_columns])
 
 
+        table_styles=[
+            dict(selector="td", props="font-size: 0.8em; text-align: right"),
+            dict(selector="th", props="font-size: 0.8em; "),
+            dict(selector='tr:hover', props='background-color: yellow')
+        ]
+
         st.header('Performance')
         st.markdown("Benchmark is **{benchmark}**.".format(benchmark=st.session_state.interact_benchmarks['obj']))
 
@@ -271,14 +277,18 @@ class StreamlitInvestorzillaApp:
         )
 
         st.markdown(
+        # st.dataframe(
             st.session_state['fund'].report(
-                period=st.session_state.interact_periods,
-                benchmark=st.session_state.interact_benchmarks['obj'],
-                start=st.session_state.interact_start_end[0],
-                end=st.session_state.interact_start_end[1],
-                kpi=st.session_state['kpi_performance'],
-                # output='flat'
-            ).to_html(),
+                period     = st.session_state.interact_periods,
+                benchmark  = st.session_state.interact_benchmarks['obj'],
+                start      = st.session_state.interact_start_end[0],
+                end        = st.session_state.interact_start_end[1],
+                kpi        = st.session_state['kpi_performance'],
+                # output     = 'flat'
+            )
+            .set_table_styles(table_styles)
+
+            .to_html(),
             unsafe_allow_html=True
         )
 
@@ -306,7 +316,10 @@ class StreamlitInvestorzillaApp:
                 end=st.session_state.interact_start_end[1],
                 kpi=st.session_state['kpi_wealth'],
                 # output='flat'
-            ).to_html(),
+            )
+            .set_table_styles(table_styles)
+
+            .to_html(),
             unsafe_allow_html=True
         )
 
