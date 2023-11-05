@@ -232,8 +232,12 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
             # Convert Date/Time to proper type
             .assign(
-                time=Portfolio.normalizeTime(
-                    pandas.to_datetime(sheet.time),
+                time=lambda table: Portfolio.normalizeTime(
+                    pandas.to_datetime(
+                        table.time,
+                        format='mixed',
+                        yearfirst=True
+                    ),
                     naiveTimeShift
                 )
             )

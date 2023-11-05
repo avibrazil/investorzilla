@@ -50,6 +50,31 @@ class Fund(object):
 
 
     periodPairs={
+        # Formatters are documented here:
+        # https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+
+        'hour of the day': dict(
+            period                     = 'H',
+            periodLabel                = 'hour of day',
+            periodFormatter            = '%H',
+
+            macroPeriod                = 'D',
+            macroPeriodLabel           = 'day',
+            macroPeriodFormatter       = '%Y-%m-%d'
+        ),
+
+
+        'part of the day': dict(
+            period                     = '12H',
+            periodLabel                = 'part of day',
+            periodFormatter            = '%p',
+
+            macroPeriod                = 'D',
+            macroPeriodLabel           = 'day',
+            macroPeriodFormatter       = '%Y-%m-%d'
+        ),
+
+
         'day & week': dict(
             period                     = 'D',
             periodLabel                = 'day',
@@ -411,7 +436,7 @@ class Fund(object):
             ## Put balance of each fund in a different column,
             ## repeat value for empty times and fillna(0) for first empty values
             try:
-                combinedBalance=self.balance.dropna().unstack(level=0).pad()
+                combinedBalance=self.balance.dropna().unstack(level=0).ffill()
             except Exception as e:
                 self.logger.debug(e)
 #                 self.balance.to_csv('balance_dups.csv')
@@ -513,6 +538,7 @@ class Fund(object):
                 start=None,
                 end=None,
                 flatPeriodFirst=True,
+                ascending=False,
                 kpi=benchmarkFeatures + [
                     KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,
                     KPI.SAVINGS,       KPI.MOVEMENTS,     KPI.SHARES,
@@ -531,7 +557,11 @@ class Fund(object):
         try:
             p = self.periodPairs[period]
         except KeyError:
-            raise KeyError("Period pair must be one of: {}".format(str(Fund.getPeriodPairs())))
+            raise KeyError(
+                "Period pair must be one of: {}".format(
+                    str(Fund.getPeriodPairs())
+                )
+            )
 
 
         # How many periods fit in a macroPeriod ?
@@ -546,6 +576,7 @@ class Fund(object):
 
 
         # Get detailed part of report with period data
+        periodOffset = pandas.tseries.frequencies.to_offset(p['period'])
         period = self.periodicReport(
             period     = p['period'],
             benchmark  = benchmark,
@@ -554,6 +585,7 @@ class Fund(object):
         )[kpi]
 
         # Get summary part report with summary of a period set
+        macroPeriodOffset = pandas.tseries.frequencies.to_offset(p['macroPeriod'])
         macroPeriod = self.periodicReport(
             period     = p['macroPeriod'],
             benchmark  = benchmark,
@@ -572,8 +604,7 @@ class Fund(object):
 
         # Break the periodic report in chunks equivalent to the summary report
         for i in range(len(macroPeriod.index)):
-
-            macroPeriodPrev=macroPeriod.index.shift(-1)[i]
+            macroPeriodPrev=macroPeriod.index[i] - macroPeriodOffset
             macroPeriodCurr=macroPeriod.index[i]
 
             if i==0:
@@ -584,17 +615,17 @@ class Fund(object):
                 completeMe = periodsInSummary - nPeriods
 
                 if completeMe > 0:
-                    # First line in report use to need leading empty periods if they
-                    # start in the middle of macro period
+                    # First line in report use to need leading empty
+                    # periods if they start in the middle of macro period
                     line=(
                         pandas.concat(
                             [
                                 # Preppend empty lines
                                 pandas.DataFrame(
                                     index=pandas.date_range(
-                                        line.index.shift(-completeMe)[0],
+                                        line.index[0] - completeMe*periodOffset,
                                         periods=completeMe,
-                                        freq=line.index.freq
+                                        freq=p['period']
                                     )
                                 ),
                                 line
@@ -651,15 +682,15 @@ class Fund(object):
                 .set_index(['',p['periodLabel']])
             )
 
-            # Add to main report transposing it into a true row (we were columns
-            # until now)
+            # Add to main report transposing it into a true row (we were
+            # columns until now)
             report=(
-                pandas.concat([report,line.T], sort=True)
+                pandas.concat([report, line.T]) #, sort=True)
                 if report is not None
                 else line.T
             )
 
-            self.debugReport=report
+            # self.debugReport=report
 
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
@@ -694,6 +725,13 @@ class Fund(object):
                 for x in report.index
             ],
             name=['time','KPI']
+        )
+
+        # Sort rows as requested by parameters
+        report=report.sort_index(
+            level=0,
+            sort_remaining=False,
+            ascending=ascending
         )
 
 
@@ -804,78 +842,101 @@ class Fund(object):
         startOfReport=self.start
 
 
-        errorMsg='{par} parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with datetime.datetime.fromisoformat(), but got "{value}"'
+        errorMsg='{par} parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with pandas.Timestamp.fromisoformat(), but got "{value}"'
 
-        if start is not None:
-            # Check if we have a good start time and make appropriate type conversions.
-            if isinstance(start,str):
-                start=datetime.datetime.fromisoformat(start)
-            if not (isinstance(start,datetime.date) or isinstance(start,datetime.time) or isinstance(start,pandas.Timestamp)):
-                raise TypeError(errorMsg.format(par='start',value=start))
+        if (start is not None) or (end is not None):
+            params=dict(
+                start=start,
+                end=end
+            )
 
-            # Now see if start time is more recent than the beginning of our data, and
-            # use it
-            if start > startOfReport:
-                startOfReport=start
+            # Get current timezone
+            currtz=(
+                datetime.datetime.now(datetime.timezone.utc)
+                .astimezone()
+                .tzinfo
+            )
 
+            for p in params:
+                if params[p] is not None:
+                    # Check if text was passed then convert it to datetime
+                    if isinstance(params[p],str):
+                        params[p]=pandas.Timestamp.fromisoformat(params[p])
 
-        if end is not None:
-            # Check if we have a good start time and make appropriate type conversions.
-            if isinstance(end,str):
-                end=datetime.datetime.fromisoformat(end)
-            if not (isinstance(end,datetime.date) or isinstance(end,datetime.time) or isinstance(end,pandas.Timestamp)):
-                raise TypeError(errorMsg.format(par='end',value=end))
+                    # Check if usable object
+                    if not (
+                            isinstance(params[p],datetime.date) or
+                            isinstance(params[p],datetime.time) or
+                            isinstance(params[p],pandas.Timestamp)
+                        ):
+                        raise TypeError(errorMsg.format(par=p,value=params[p]))
 
-        # Start fresh
-        report=self.shares.copy() #[startOfReport:end]
+                    # Make it timezone-aware
+                    if params[p].tzinfo is None:
+                        params[p]=params[p].tz_localize(currtz)
 
-        # Add ledger to get movements for period
-        report=report.join(
-            self.ledger
-            .droplevel(0)
-            .drop(('ledger','comment'),axis=1)
-            .droplevel(1, axis=1)
-            .rename(columns=dict(ledger=KPI.MOVEMENTS))
-            .sort_index(), #[startOfReport:end]
-            how='left'
+            start=params['start']
+            end=params['end']
+
+            # Now see if start time is more recent than the beginning of
+            # our data, and use it
+            if params['start'] and params['start'] > startOfReport:
+                startOfReport=params['start']
+
+        report=(
+            # Start fresh
+            self.shares
+
+            # Add ledger to get movements for period
+            .join(
+                self.ledger
+                .droplevel(0)
+                .drop(('ledger','comment'),axis=1)
+                .droplevel(1, axis=1)
+                .rename(columns=dict(ledger=KPI.MOVEMENTS))
+                .sort_index(), #[startOfReport:end]
+                how='left'
+            )
+
+            .assign(
+                **{
+                    KPI.MOVEMENTS: lambda table: table[KPI.MOVEMENTS].fillna(0),
+
+                    # Add balance as a function of shares
+                    KPI.BALANCE: lambda table: (
+                        table[KPI.SHARES] *
+                        table[KPI.SHARE_VALUE].ffill()
+                    ),
+
+                    # Add cumulated savings (cumulated movements)
+                    KPI.SAVINGS: lambda table: (
+                        table[KPI.MOVEMENTS]
+                        .cumsum()
+                        .ffill()
+                    ),
+
+                    # Add balance over savings
+                    KPI.BALANCE_OVER_SAVINGS: lambda table: (
+                        table[KPI.BALANCE] /
+                        table[KPI.SAVINGS]
+                    ),
+
+                    # Add cumulative income
+                    KPI.GAINS: lambda table: table[KPI.BALANCE]-table[KPI.SAVINGS]
+                }
+            )
+
+            # Cut the report just before period-aggregation operation
+            [startOfReport:end]
         )
 
-        report[KPI.MOVEMENTS] = report[KPI.MOVEMENTS].fillna(0)
-
-        # Add balance as a function of shares
-        report[KPI.BALANCE]=report[KPI.SHARES]*report[KPI.SHARE_VALUE].ffill()
-
-        # Add cumulated savings (cumulated movements)
-        report[KPI.SAVINGS]=report[KPI.MOVEMENTS].cumsum().ffill()
-
-        # Add balance over savings
-        report[KPI.BALANCE_OVER_SAVINGS]=report[KPI.BALANCE]/report[KPI.SAVINGS]
-
-        # Add cumulative income
-        report[KPI.GAINS]=report[KPI.BALANCE]-report[KPI.SAVINGS]
-
-        # Getting ready to aggregate on a periodic basis
-        aggregationStrategy={
-            kpi: 'last'
-            for kpi in [
-                KPI.SHARES,
-                KPI.SHARE_VALUE,
-                KPI.BALANCE,
-                KPI.SAVINGS,
-                KPI.BALANCE_OVER_SAVINGS,
-                KPI.GAINS,
-            ]
-        }
-
-        aggregationStrategy[KPI.MOVEMENTS]='sum'
-
-        # On a downsample scenario (e.g. period=Y), we'll have more fund data than final report.
-        # On an upsample scenario (e.g. period=D), we'll have more report lines than fund data.
-        # If period=None, number of report lines will match the amount of fund data we have.
+        # On a downsample scenario (e.g. period=Y), we'll have more fund
+        # data than final report.
+        # On an upsample scenario (e.g. period=D), we'll have more report
+        # lines than fund data.
+        # If period=None, number of report lines will match the amount of
+        # fund data we have.
         # These 3 situations affect how benchmark has to be handled.
-
-        # Cut the report just before period-aggregation operation
-        report=report[startOfReport:end]
 
         if period is not None:
             # Make it a regular time series (D, M, Y etc), each column
@@ -883,14 +944,57 @@ class Fund(object):
 
             # Day 0 for Pandas is Monday, while it is Sunday for Python.
             # Make Pandas handle day 0 as Sunday.
-            dateOffset=pandas.tseries.offsets.Week(weekday=5) if period=='W' else period
+            dateOffset=(
+                pandas.tseries.offsets.Week(weekday=5)
+                if period=='W'
+                else period
+            )
+
+            periodShift=(
+                pandas.tseries.frequencies.to_offset(period).nanos-1
+                if Fund.div_offsets(period,'D') < 1
+                else pandas.tseries.frequencies.to_offset('D').nanos-1
+            )
 
             report=(
                 report
                 .resample(dateOffset)
 
                 # Compute summarizations for each KPI
-                .agg(aggregationStrategy)
+                .agg(
+                    dict(
+                        **{
+                            # KPIs that prevail last value on aggregations
+                            kpi: 'last'
+                            for kpi in [
+                                KPI.SHARES,
+                                KPI.SHARE_VALUE,
+                                KPI.BALANCE,
+                                KPI.SAVINGS,
+                                KPI.BALANCE_OVER_SAVINGS,
+                                KPI.GAINS,
+                            ]
+                        },
+                        **{
+                            # KPIs which aggregations should be summed
+                            kpi: 'sum'
+                            for kpi in [
+                                KPI.MOVEMENTS
+                            ]
+                        }
+                    )
+                )
+
+                # We want timestamps on end of each period, not in the
+                # begining as Pandas defaults
+                .reset_index()
+                .assign(
+                    time=lambda table: (
+                        table.time +
+                        pandas.Timedelta(nanoseconds=periodShift)
+                    )
+                )
+                .set_index('time')
 
                 # Fill the gaps after aggregation
                 .ffill()
@@ -918,7 +1022,10 @@ class Fund(object):
 
         # The pct_change() above yields ∞ or NaN at the first line, so fix it manually
         report.loc[report.index[0],KPI.RATE_RETURN]=(
-            (report.loc[report.index[0],KPI.SHARE_VALUE]/self.shares[KPI.SHARE_VALUE].asof(startOfReport))-1
+            (
+                report.loc[report.index[0],KPI.SHARE_VALUE] /
+                self.shares[KPI.SHARE_VALUE].asof(startOfReport)
+            ) - 1
         )
 
         # Compute gain per period comparing consecutive Balance and excluding Movements
@@ -962,11 +1069,17 @@ class Fund(object):
 
             # The pct_change() above yields ∞ at the first line, so fix it manually
             report.loc[report.index[0],KPI.BENCHMARK_RATE_RETURN]=(
-                (report.loc[report.index[0],KPI.BENCHMARK]/benchmark.getData()['value'].asof(startOfReport))-1
+                (
+                    report.loc[report.index[0],KPI.BENCHMARK] /
+                    benchmark.getData()['value'].asof(startOfReport)
+                ) - 1
             )
 
             # Compute fund excess growth over benchmark
-            report[KPI.BENCHMARK_EXCESS_RETURN]=report[KPI.RATE_RETURN]-report[KPI.BENCHMARK_RATE_RETURN]
+            report[KPI.BENCHMARK_EXCESS_RETURN]=(
+                report[KPI.RATE_RETURN] -
+                report[KPI.BENCHMARK_RATE_RETURN]
+            )
 
             # Normalize benchmark making it start with value 1
             report[KPI.BENCHMARK] /= report.loc[report.index[0]][KPI.BENCHMARK]
@@ -1139,8 +1252,9 @@ class Fund(object):
 
         t0 = pandas.Timestamp(0)
 
-        o2ns = ((t0 + o2) - t0).delta
-        o1ns = ((t0 + o1) - t0).delta
+        # convert to a period in nanoseconds
+        o2ns = ((t0 + o2) - t0).total_seconds()*1e9
+        o1ns = ((t0 + o1) - t0).total_seconds()*1e9
 
         periodCountInMacroPeriod=round(o2ns/o1ns)
 

@@ -313,7 +313,7 @@ class Portfolio(object):
 
         1. Add naiveTimeShift (in seconds) to time-naive entries
         2. Add current timezone to TZ-naive entries
-        3. Convert all to local timezone
+        3. Convert all to UTC timezone
         4. De-duplicate timestamps using Portfolio.twoSeconds for small
            adjustments
 
@@ -368,8 +368,8 @@ class Portfolio(object):
             .tzinfo
         )
 
-        # Shift dates that have no time (time part is 00:00:00) to the middle of
-        # the day (12:00:00) using naiveTimeShift parameter
+        # Shift dates that have no time (time part is 00:00:00) to the
+        # middle of the day (12:00:00) using naiveTimeShift parameter
         instrumented.update(
             instrumented[instrumented.dt.time==datetime.time(0)]
             .apply(lambda cell: cell+timeShift)
@@ -378,18 +378,23 @@ class Portfolio(object):
         instrumented=(
             instrumented
 
-            # Convert all to current time zone, or simply add current time zone
-            # to TZ-naive entries.
+            # Convert all to current time zone, or simply add current time
+            # zone to TZ-naive entries.
             .apply(
                 lambda cell:
-                    cell.tz_localize(currtz)
+                    cell.tz_localize(currtz) # Set TZ on undefined cells
                     if cell.tzinfo is None
-                    else cell.tz_convert(currtz)
+                    else cell.tz_convert(currtz) # Convert existing TZ
             )
+
+            # Keep it internally as UTC for more precise and compatible
+            # joins.
+            .dt
+            .tz_convert('UTC')
         )
 
-        # Cirurgically adjust time adding a few random milliseconds only on
-        # duplicate items
+        # Cirurgically adjust time adding a few random milliseconds only
+        # on duplicate items
         duplicated=instrumented[instrumented.duplicated()]
 
         instrumented.update(

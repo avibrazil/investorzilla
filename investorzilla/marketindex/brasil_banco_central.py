@@ -55,37 +55,60 @@ class BCBMarketIndex(MarketIndex):
     def processData(self):
         self.data=(
             self.data
-            
+
             # Create columns
             .assign(
-                time=pandas.to_datetime(self.data.data,dayfirst=True,utc=True),
-                rate=self.data.valor/100
+                time=lambda table: (
+                    (
+                        # Convert to datetime
+                        pandas.to_datetime(table.data,dayfirst=True) +
+
+                        # This is date-only information but we know this is the
+                        # end of the day
+                        pandas.Timedelta(hours=22, minutes=59)
+                    )
+                    # Set timezone to Brasilia
+                    .dt
+                    .tz_localize('Brazil/East')
+
+                    # Keep it as UTC as module´s internal standard and to
+                    # improve precision of joins.
+                    .dt
+                    .tz_convert('UTC')
+                ),
+
+                # Convert rate to our standards
+                rate=lambda table: table.valor/100,
+
+                # Init a column for value
+                value=None
             )
-            
+
             # Remove unused
             .drop(columns=['data', 'valor'])
-            
+
             # Time as index
             .set_index('time')
             .sort_index()
-            
-            # Init a column for value
-            .assign(
-                value=0
-            )
+
+            # Export only these columns (and time in the index)
+            [['rate','value']]
         )
 
-        # TODO: optimize this with a join
-        
-        # At this point we have a dataframe indexed by time with 2 columns:
-        # - rate
-        # - value (all with 0)
-        
-        start=1
-        for i in range(self.data.shape[0]):
-            if i==0:
-                self.data.iat[i,1]=start*(1+self.data.iat[i,0])
-            else:
-                self.data.iat[i,1]=self.data.iat[i-1,1]*(1+self.data.iat[i,0])
+        # Now compute value like this:
+        #
+        #          {  n=0: 1 + rateₙ
+        # valueₙ = {
+        #          {  n≠0: valueₙ₋₁ ✕ (1 + rateₙ)
+        #
 
-        self.data=self.data[['value','rate']]
+        # At this point we have a dataframe indexed by time with 2 columns:
+        # - rate (index 0)
+        # - value (index 1, with no data yet)
+
+        for n in range(self.data.shape[0]):
+            self.data.iat[n,1] = (
+                1+self.data.iat[n,0]
+                if n==0
+                else self.data.iat[n-1,1]*(1+self.data.iat[n,0])
+            )

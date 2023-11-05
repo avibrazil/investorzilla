@@ -41,30 +41,44 @@ class YahooMarketIndex(MarketIndex):
 
     def processData(self):
         # Convert time to a new column
-        self.data['time']=pandas.to_datetime(self.data.Date,utc=True)
+        self.data=(
+            self.data
 
-        # Set it as the index
-        self.data.set_index('time', inplace=True)
-        self.data.sort_index(inplace=True)
+            .assign(
+                time=lambda table: (
+                    pandas.to_datetime(table.Date, utc=True) +
 
-        # Drop old column
-        self.data.drop('Date', axis=1)
+                    # This is date-only information but we know this is the
+                    # end of the day
+                    pandas.Timedelta(hours=23, minutes=55)
+                ),
 
-        # Make the 'value' column
-        self.data.rename(columns={'Close': 'value'}, inplace=True)
-        toRemove=list(self.data.columns)
-        toRemove.remove('value')
-        self.data.drop(columns=toRemove, inplace=True)
+                # Make the rate column
+                rate=lambda table: (table.Close/table.Close.shift())-1
+            )
 
-        self.data.fillna(method='ffill', axis=0, inplace=True)
+            .pipe(
+                # Delete all columns except time, rate and Close
+                lambda table: table.drop(
+                    columns=list(
+                        set(table.columns) -
+                        set('time Close rate'.split())
+                    )
+                )
+            )
 
-        # Compute rate from daily values
-        self.data['rate']=self.data['value']/self.data.shift()['value']-1
+            .rename(columns={'Close': 'value'})
+
+            .fillna(method='ffill', axis=0)
+        )
 
 
 
     def __str__(self):
         if self.friendlyName is not None:
-            return '[{currency}] {name}'.format(name=self.friendlyName, currency=self.currency)
+            return '[{currency}] {name}'.format(
+                name=self.friendlyName,
+                currency=self.currency
+            )
         else:
             return super().__str__()
