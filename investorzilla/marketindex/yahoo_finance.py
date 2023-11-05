@@ -57,6 +57,8 @@ class YahooMarketIndex(MarketIndex):
                 rate=lambda table: (table.Close/table.Close.shift())-1
             )
 
+            .set_index('time')
+
             .pipe(
                 # Delete all columns except time, rate and Close
                 lambda table: table.drop(
