@@ -30,30 +30,30 @@
 
 
 portfolio:
-    - type: !!python/name:investor.portfolios.uri.URIBalanceOrLedger ''
-      params:
-        # The URI can be a local file or even a remote http(s):// URL. Anything supported
-        # by Pandas.read_csv()
-        URI: balances.txt
-        kind: traderbot_balance
-        sheetStructure:
-            separator: "|"
-            # In here you describe how the BALANCE and LEDGER data is
-            # organized in sheets and columns
-            balance:
-                columns:
-                    # Time is in column called 'time'
-                    time: time
+    # - type: !!python/name:investorzilla.portfolios.uri.URIBalanceOrLedger ''
+    #   params:
+    #     # The URI can be a local file or even a remote http(s):// URL. Anything supported
+    #     # by Pandas.read_csv()
+    #     URI: balances.txt
+    #     kind: traderbot_balance
+    #     sheetStructure:
+    #         separator: "|"
+    #         # In here you describe how the BALANCE and LEDGER data is
+    #         # organized in sheets and columns
+    #         balance:
+    #             columns:
+    #                 # Time is in column called 'time'
+    #                 time: time
                     
-                    # Name of funds on each row is under this column
-                    fund: fund
+    #                 # Name of funds on each row is under this column
+    #                 fund: fund
                     
-                    # Column called 'Saldo USD' contains values in 'USD' and so on.
-                    monetary:
-                        - currency:     USD
-                          name:         USD
+    #                 # Column called 'Saldo USD' contains values in 'USD' and so on.
+    #                 monetary:
+    #                     - currency:     USD
+    #                       name:         USD
     
-    - type: !!python/name:investor.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
+    - type: !!python/name:investorzilla.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
       params:
         # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
         credentialsFile: app-credentials-for-google-sheets.json
@@ -115,7 +115,7 @@ currency_converters:
     
 
     # USD➔BRL
-    - type: &BCBCurrencyConverter !!python/name:investor.currency.brasil_banco_central.BCBCurrencyConverter ''
+    - type: &BCBCurrencyConverter !!python/name:investorzilla.currency.brasil_banco_central.BCBCurrencyConverter ''
       params:
             currencyFrom: USD
 
@@ -168,7 +168,7 @@ benchmarks:
 #    - kind: from_currency_converter
 #      from_to: BTCUSD
       
-    - type: &BCBMarketIndex !!python/name:investor.marketindex.brasil_banco_central.BCBMarketIndex ''
+    - type: &BCBMarketIndex !!python/name:investorzilla.marketindex.brasil_banco_central.BCBMarketIndex ''
       params:
             name: IPCA
         
@@ -188,7 +188,7 @@ benchmarks:
       params:
             name: INPC
         
-    - type: &YahooMarketIndex !!python/name:investor.marketindex.yahoo_finance.YahooMarketIndex ''
+    - type: &YahooMarketIndex !!python/name:investorzilla.marketindex.yahoo_finance.YahooMarketIndex ''
       params:
             currency: BRL
             friendlyName: Índice BoVESPa (^BVSP)
@@ -237,7 +237,7 @@ benchmarks:
 
 
 # The «?check_same_thread=False» is important for SQLite and SQLAlchemy multithreading support
-cache_database: sqlite:///investor.cache?check_same_thread=False
+cache_database: sqlite:///investorzilla.cache?check_same_thread=False
 
 
 currency: USD
