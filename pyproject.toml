@@ -9,52 +9,51 @@ authors = [
     { name = "Avi Alkalay", email = "avi@unix.sh" },
 ]
 
-# keywords = [
-#     "mlengineering",
-#     "xingu",
-# ]
+keywords = [
+    "investments",
+]
 
 dependencies = [
-    "pandas
+    "pandas>=2",
+    "pandas_datareader",
     "google-api-python-client",
     "google-auth-httplib2",
     "google-auth-oauthlib",
-    "pandas_datareader",
-    "streamlit",
     "sqlalchemy",
     "matplotlib",
     "certifi",
-    "pyaml"
+    "pyaml",
+    "streamlit",
 ]
 
 # dynamic = [
 #     "version",
 # ]
 
-# classifiers=[
-#     "Intended Audience :: Developers",
-#     "Programming Language :: Python :: 3",
-#     "Operating System :: OS Independent",
-#     "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
-#     "Development Status :: 5 - Production/Stable",
-#     "Intended Audience :: Science/Research",
-#     "Topic :: Scientific/Engineering :: Information Analysis",
-# ]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Office/Business :: Financial :: Investment",
+]
 
 
 [project.scripts]
 xingu = "xingu.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/avibrazil/xingu"
-Source = "https://github.com/avibrazil/xingu"
-Issues = "https://github.com/avibrazil/xingu/issues/new/choose"
-Pypi = "https://pypi.org/project/xingu"
+Homepage = "https://github.com/avibrazil/investorzilla"
+Source = "https://github.com/avibrazil/investorzilla"
+Issues = "https://github.com/avibrazil/investorzilla/issues/new/choose"
+Pypi = "https://pypi.org/project/investorzilla"
 
 [project.optional-dependencies]
 docs = [
-    "sklearn",
+    "streamlit",
 ]
 
 [tool.setuptools.package-dir]
-xingu = "xingu"
+investorzilla = "investorzilla"
