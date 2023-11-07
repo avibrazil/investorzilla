@@ -42,7 +42,7 @@ classifiers=[
 
 
 [project.scripts]
-xingu = "xingu.__main__:main"
+investorzilla = "investorzilla.investorzilla_ui:main"
 
 [project.urls]
 Homepage = "https://github.com/avibrazil/investorzilla"
