@@ -53,7 +53,7 @@ class StreamlitInvestorzillaApp:
 
 
     def __init__(self, refresh=False):
-        self.prepare_logging(level=logging.DEBUG)
+        self.prepare_logging(level=logging.INFO)
 
         st.set_page_config(layout="wide")
         with st.sidebar:
@@ -68,7 +68,7 @@ class StreamlitInvestorzillaApp:
 
 
         if ('investor' not in st.session_state) or (True in self.refreshMap.values()):
-            st.session_state['investor']=investorzilla.Investor('investorzilla_ui_config.yaml',self.refreshMap)
+            st.session_state['investor']=investorzilla.Investor('investorzilla.yaml',self.refreshMap)
         # else:
         #     # Simply reuse what you have
         #     st.session_state['investor']
@@ -600,10 +600,53 @@ class StreamlitInvestorzillaApp:
 
 
 
+def main():
+    import os
+    import subprocess
+    import sys
+    import time
+    import webbrowser
 
 
 
+    # Getting path to python executable (full path of deployed python on Windows)
+    executable = sys.executable
 
-StreamlitInvestorzillaApp(refresh=False)
+    # Running streamlit server in a subprocess and writing to log file
+    proc = subprocess.Popen(
+        [
+            executable,
+            "-m",
+            "streamlit",
+            "run",
+            __file__,
+            # The following option appears to be necessary to correctly start the streamlit server,
+            # but it should start without it. More investigations should be carried out.
+            "--server.headless=true",
+            "--global.developmentMode=false",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    proc.stdin.close()
+
+    # Force the opening (does not open automatically) of the browser tab after a brief delay to let
+    # the streamlit server start.
+    time.sleep(3)
+    webbrowser.open("http://localhost:8501")
+
+    while True:
+        s = proc.stdout.read()
+        if not s:
+            break
+        print(s, end="")
+
+    proc.wait()
 
 
+if __name__ == "__main__":
+    main()
+else:
+    StreamlitInvestorzillaApp(refresh=False)
