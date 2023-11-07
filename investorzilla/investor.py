@@ -53,8 +53,8 @@ class Investor(object):
         Load from cache or internet data for Portfolio, Currency Converters and
         Benchmarks.
 
-        refreshMap is a dict that controls wether to load from cache or update domain
-        from internet (and update cache). It looks like:
+        refreshMap is a dict that controls wether to load from cache or update
+        domain from internet (and update cache). It looks like:
 
         dict(
             portfolio           = False,

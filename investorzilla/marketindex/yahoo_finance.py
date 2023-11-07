@@ -71,7 +71,7 @@ class YahooMarketIndex(MarketIndex):
 
             .rename(columns={'Close': 'value'})
 
-            .fillna(method='ffill', axis=0)
+            .ffill()
         )
 
 

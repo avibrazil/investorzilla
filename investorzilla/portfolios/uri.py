@@ -1,4 +1,5 @@
 import pathlib
+import numpy
 import pandas
 
 from .. import Portfolio
@@ -19,8 +20,8 @@ class URIBalanceOrLedger(Portfolio):
     portfolio:
         - type: !!python/name:investor.portfolios.uri.URIBalanceOrLedger ''
           params:
-            # The URI can be a local file or even a remote http(s):// URL. Anything supported
-            # by Pandas.read_csv()
+            # The URI can be a local file or even a remote http(s):// URL.
+            # Anything supported by Pandas.read_csv()
             URI: balances.txt
             kind: traderbot_balance
             sheetStructure:
@@ -41,8 +42,19 @@ class URIBalanceOrLedger(Portfolio):
                               name:         Saldo USD
     """
 
-    def __init__(self, URI, kind, sheetStructure, cache=None, refresh=False):
-        self.URI = pathlib.Path(URI).expanduser()
+    def __init__(self, URI, kind, sheetStructure, base='.', cache=None, refresh=False):
+
+        if '://' in URI:
+            self.URI=URI
+        else:
+            self.URI=pathlib.Path(URI).expanduser()
+            if not self.URI.is_absolute():
+                self.URI=(
+                    (pathlib.Path(base).parent.resolve() / self.URI)
+                    .resolve()
+                    .as_uri()
+                )
+
         self.kind = kind
         self.sheetStructure = sheetStructure
 
@@ -103,7 +115,24 @@ class URIBalanceOrLedger(Portfolio):
             }
         )
 
-        setattr(self,f'_{prop}',df.rename(columns=renamer))
+        df=(
+            pandas.read_csv(
+                filepath_or_buffer = self.URI,
+                sep = self.sheetStructure['separator'] if 'separator' in self.sheetStructure else ','
+            )
+            .rename(columns=renamer)
+            .pipe(
+                lambda table: table.drop(
+                    # Drop all columns that doesn't matter
+                    columns=list(
+                        set(table.columns) -
+                        set(list(renamer.values()))
+                    )
+                )
+            )
+        )
+
+        setattr(self,f'_{prop}',df)
 
         return getattr(self,f'_{prop}')
 
@@ -148,20 +177,42 @@ class URIBalanceOrLedger(Portfolio):
 
             .assign(
                 # Convert Date/Time to proper type
-                time=Portfolio.normalizeTime(
-                    pandas.to_datetime(sheet.time),
+                time=lambda table: Portfolio.normalizeTime(
+                    pandas.to_datetime(
+                        table.time,
+                        format='mixed',
+                        yearfirst=True
+                    ),
                     naiveTimeShift
                 )
             )
+
+            # Normalize NaNs
+            .fillna(pandas.NA)
         )
+
+        # Handle monetary columns, remove currency symbols and make them numbers
+        remove=['R$ ','$','€',',']
+        for c in columnsProfile['monetary']:
+            if sheet[c['currency']].dtype==numpy.dtype('O'):
+                ## Remove currency symbols and junk
+                for r in remove:
+                    sheet[c['currency']]=sheet[c['currency']].str.replace(r, '', regex=False)
+
+                ## Make NaNs of empty ('') cells
+                sheet[c['currency']]=sheet[c['currency']].str.replace(r'^\s*$','', regex=True)
+
+                ## Convert to number
+                sheet[c['currency']]=pandas.to_numeric(sheet[c['currency']]) #.astype(float)
 
         setattr(self,f'_{prop}',sheet)
 
 
 
     def __repr__(self):
-        return '{klass}({URI})'.format(
-            URI             = self.URI,
-            klass           = type(self).__name__
+        return '{klass}({balance_or_ledger}={URI})'.format(
+            URI               = self.URI,
+            balance_or_ledger = 'balance' if self.has_balance else 'ledger',
+            klass             = type(self).__name__
         )
 
