@@ -334,6 +334,8 @@ class StreamlitInvestorzillaApp:
 
 
 
+    # All the interact_* methods manager widgets in the Streamlit UI
+
     def interact_funds(self):
         streamlit.multiselect(
             label='Select funds',
