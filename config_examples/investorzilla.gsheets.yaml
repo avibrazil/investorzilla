@@ -1,0 +1,295 @@
+---
+# The Investor app requires 3 things to let you navigate and visualize your
+# portfolio:
+#
+# 1. Your portfolio worksheet
+#    This is a GoogleSheet that contains 2 time series:
+#      a. Dated balance of all your funds
+#      b. All in and out movements from your fund (ledger)
+#    From the funds found in your worksheet, new fund compositions can be
+#    created. In other words you can view two (or more) of your investments as
+#    a new fund, so compound fund share value and number of shares will be
+#    computed. For example, you can view your "Crypto Holds" and "Crypto ETFs"
+#    as one single fund to study movements and performance.
+#
+# 2. Currency converters
+#    The currencies you work with (including crypto) and where to pull
+#    historical data about them.
+#
+# 3. Market benchmarks or indices
+#    Benchmarks as the Nasdaq index, S&P 500 or simply daily Bitcoin price for
+#    you to compare the performance of your investments.
+#
+
+
+portfolio:
+    - type: !!python/name:investorzilla.portfolios.uri.URIBalanceOrLedger ''
+      params:
+        URI: ~/Notebooks/freqtrade/balances.txt
+        kind: traderbot_balance
+        sheetStructure:
+            separator: "|"
+            # In here you describe how the BALANCE and LEDGER data is
+            # organized in sheets and columns
+            balance:
+                columns:
+                    # Time is in column called 'time'
+                    time: time
+
+                    # Name of funds on each row is under this column
+                    fund: fund
+
+                    # Column called 'Saldo USD' contains values in 'USD' and so on.
+                    monetary:
+                        - currency:     USD
+                          name:         USD
+
+    - type: !!python/name:investorzilla.portfolios.uri.URIBalanceOrLedger ''
+      params:
+        URI: ~/Notebooks/MercadoBitcoinBalance/balances.txt
+        kind: mercadobitcoin_balance
+        sheetStructure:
+            separator: "|"
+            # In here you describe how the BALANCE and LEDGER data is
+            # organized in sheets and columns
+            balance:
+                columns:
+                    # Time is in column called 'time'
+                    time: time
+
+                    # Name of funds on each row is under this column
+                    fund: fund
+
+                    # Column called 'Saldo USD' contains values in 'USD' and so on.
+                    monetary:
+                        - currency:     BRL
+                          name:         BRL
+
+
+    # Ledger:       https://docs.google.com/spreadsheets/d/e/2PACX-1vSKA1zpHJ7YjJ6kphj5B_TxQNa_pYUDZFTj038zq-usrvB4J4nqieyuVvraH6B134qiyv17SgxEvpaw/pub?gid=476533794&single=true&output=tsv
+    # Balance:      https://docs.google.com/spreadsheets/d/e/2PACX-1vSKA1zpHJ7YjJ6kphj5B_TxQNa_pYUDZFTj038zq-usrvB4J4nqieyuVvraH6B134qiyv17SgxEvpaw/pub?gid=985882980&single=true&output=tsv
+    # Balance form: https://docs.google.com/spreadsheets/d/e/2PACX-1vSKA1zpHJ7YjJ6kphj5B_TxQNa_pYUDZFTj038zq-usrvB4J4nqieyuVvraH6B134qiyv17SgxEvpaw/pub?gid=1092685983&single=true&output=tsv
+    - type: !!python/name:investorzilla.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
+      params:
+        # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
+        credentialsFile: &gappcreds ~/Notebooks/investorzilla/app-credentials-for-google-sheets.json
+
+        # A tag to differentiate from other data from same GSheet
+        kind: form_entry
+
+        sheetStructure:
+            sheet: &gsheet 1iBlzYMouXxbBSHEtBIvI4wuY_bE2VyoIprPchnyJRso
+
+            # In here you describe how the BALANCE and LEDGER data is
+            # organized in sheets and columns
+            balance:
+                # The sheet/tab range with your balances
+                sheetRange: Saldos form!A:D
+                columns:
+                    # Time is in column called 'Data'
+                    time: Timestamp
+
+                    # Name of funds on each row is under this column
+                    fund: Fundo
+
+                    # Column called 'Saldo USD' contains values in 'USD' and so on.
+                    monetary:
+                        - currency:     BRL
+                          name:         Saldo BRL
+                        - currency:     USD
+                          name:         Saldo USD
+
+
+    - type: !!python/name:investorzilla.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
+      params:
+        # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
+        credentialsFile: *gappcreds
+        sheetStructure:
+            sheet: *gsheet
+
+            # A tag to differentiate from other data from same GSheet
+            kind: main
+
+            # In here you describe how the BALANCE and LEDGER data is
+            # organized in sheets and columns
+            balance:
+                # The sheet/tab range with your balances
+                sheetRange: Saldos!A:D
+                columns:
+                    # Time is in column called 'Data'
+                    time: Data
+
+                    # Name of funds on each row is under this column
+                    fund: Fundo composto
+
+                    # Column called 'Saldo USD' contains values in 'USD' and so on.
+                    monetary:
+                        - currency:     BRL
+                          name:         Saldo BRL
+                        - currency:     USD
+                          name:         Saldo USD
+
+
+            ledger:
+                # The sheet/tab with all your in and out movements (ledger)
+                sheetRange: Entradas e saidas brutas!A:E
+                columns:
+                    time: Data
+                    fund: Fundo composto
+
+                    # Name of columns with random comments
+                    comment: Comentário
+                    monetary:
+                        - currency:     BRL
+                          name:         Movimento BRL
+                        - currency:     USD
+                          name:         Movimento USD
+
+
+
+currency_converters:
+    # Included CurrencyConverter python classes are:
+    # - investorzilla.currency.brasil_banco_central.BCBCurrencyConverter:
+    #       Pulls daily BRL/USD and BRL/EUR currency data from Banco Central
+    #       do Brasil, compared to BRL.
+    #
+    # - investorzilla.currency.cryptocompare.CryptoCompareCurrencyConverter
+    #       Pulls daily crypto data (BTC/ETH etc) from CryptoCompare,
+    #       compared to USD.
+
+    # Inside the app there is the investor.monetary_time_series.CurrencyExchange
+    # class that contains many CurrencyConverter’s data and is capable of many
+    # currency conversion operations between them.
+
+
+
+    # USD➔BRL
+    - type: &BCBCurrencyConverter !!python/name:investorzilla.currency.brasil_banco_central.BCBCurrencyConverter ''
+      params:
+            currencyFrom: USD
+
+    # EUR➔BRL
+    # - type: *BCBCurrencyConverter
+    #   params:
+    #         currencyFrom: EUR
+
+    # USD➔BTC
+    - type: &CryptoCompareCurrencyConverter !!python/name:investorzilla.currency.cryptocompare.CryptoCompareCurrencyConverter ''
+      params:
+            # Get your API key at https://www.cryptocompare.com/cryptopian/api-keys
+            apiKey: &cckey b1b9b53ae6cf78a5825aa599a764bd111325381bbcdb9a62f231da54712f7123
+            currencyFrom: BTC
+
+    # USD➔ETH
+    - type: *CryptoCompareCurrencyConverter
+      params:
+            # Notice how we reference with *cckey a piece of data previously
+            # tagged as &cckey
+            apiKey: *cckey
+            currencyFrom: ETH
+
+
+
+benchmarks:
+    # Describe the benchmarks you want to use.
+    #
+    # Included MarketIndex python classes are:
+    #
+    # - investorzilla.marketindex.brasil_banco_central.BCBMarketIndex
+    #       Pulls Brazilian indices from Banco Central do Brasil, as INPC, CDI etc
+    #
+    # - investorzilla.marketindex.yahoo_finance.YahooMarketIndex
+    #       Pulls global indices from Yahoo Finance
+    #       See https://finance.yahoo.com/world-indices
+    #
+    # - investorzilla.marketindex.federal_reserve.FREDMarketIndex
+    #       Pulls market indices from Federal Reserve
+
+
+    - kind: from_currency_converter
+      from_to: BRLUSD
+      
+    - kind: from_currency_converter
+      from_to: USDBRL
+      
+    - kind: from_currency_converter
+      from_to: BTCUSD
+      
+    - kind: from_currency_converter
+      from_to: USDBTC
+      
+    - type: &BCBMarketIndex !!python/name:investorzilla.marketindex.brasil_banco_central.BCBMarketIndex ''
+      params:
+            name: IPCA
+        
+    - type: *BCBMarketIndex
+      params:
+            name: CDI
+        
+    - type: *BCBMarketIndex
+      params:
+            name: SELIC
+        
+    - type: *BCBMarketIndex
+      params:
+            name: IGPM
+        
+    - type: *BCBMarketIndex
+      params:
+            name: INPC
+        
+    - type: &YahooMarketIndex !!python/name:investorzilla.marketindex.yahoo_finance.YahooMarketIndex ''
+      params:
+            currency: BRL
+            friendlyName: Índice BoVESPa (^BVSP)
+            name: ^BVSP
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: SPDR S&P 500 ETF Trust
+            name: SPY
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: iShares Core S&P 500 ETF (IVV)
+            name: IVV
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Vanguard S&P 500 ETF (VOO)
+            name: VOO
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: S&P 500 (^GSPC)
+            name: ^GSPC
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Dow Jones (^DJI)
+            name: ^DJI
+
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: NASDAQ (^IXIC)
+            name: ^IXIC
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Invesco Nasdaq 100 ETF (QQQM)
+            name: QQQM
+        
+    - type: *YahooMarketIndex
+      params:
+            friendlyName: Invesco QQQ
+            name: QQQ
+
+
+
+# The «?check_same_thread=False» is important for SQLite and SQLAlchemy multithreading support
+cache_database: sqlite:///investorzilla.cache?check_same_thread=False
+# cache_database: mysql+pymysql://investorzilla:owlsmx847@localhost/investorzilla
+
+
+# Default starting currency
+currency: USD
