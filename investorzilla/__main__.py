@@ -23,24 +23,24 @@ def main():
             "--server.headless=true",
             "--global.developmentMode=false",
         ],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
+        # stdin=subprocess.PIPE,
+        # stdout=subprocess.PIPE,
+        # stderr=subprocess.STDOUT,
+        # text=True,
     )
 
-    proc.stdin.close()
+    # proc.stdin.close()
 
     # Force the opening (does not open automatically) of the browser tab after a brief delay to let
     # the streamlit server start.
-    time.sleep(3)
+    time.sleep(2)
     webbrowser.open("http://localhost:8501")
 
-    while True:
-        s = proc.stdout.read()
-        if not s:
-            break
-        print(s, end="")
+    # while True:
+    #     s = proc.stdout.read()
+    #     if not s:
+    #         break
+    #     print(s, end="")
 
     proc.wait()
 

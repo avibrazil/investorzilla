@@ -1118,7 +1118,7 @@ class Fund(object):
         )[[KPI.SHARE_VALUE,KPI.BENCHMARK]]
 
         # Normalize share_value to make it start on value 1
-        data[KPI.SHARE_VALUE]/=data[KPI.SHARE_VALUE][0]
+        data[KPI.SHARE_VALUE]/=data[KPI.SHARE_VALUE].iloc[0]
 
 
         data.rename(
@@ -1225,8 +1225,8 @@ class Fund(object):
         )
 
         # Handle rate of return as a gaussian distribution
-        μ=data.mean()[0]
-        σ=data.std()[0]
+        μ=data.mean().iloc[0]
+        σ=data.std().iloc[0]
 
         if type=='pyplot':
             if data.shape[0]>1:

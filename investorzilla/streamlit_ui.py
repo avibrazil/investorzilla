@@ -44,7 +44,7 @@ class StreamlitInvestorzillaApp:
 
     def __init__(self, refresh=False):
         print('vou rodar 2')
-        self.prepare_logging(level=logging.DEBUG)
+        self.prepare_logging(level=logging.INFO)
 
         streamlit.set_page_config(layout="wide")
         with streamlit.sidebar:
@@ -338,15 +338,16 @@ class StreamlitInvestorzillaApp:
 
     def interact_funds(self):
         streamlit.multiselect(
-            label='Select funds',
-            options=(
+            label     = 'Select assets to make a fund',
+            options   = (
                 ['ALL']+
                 [
                     x[0]
                     for x in streamlit.session_state.investor.portfolio.funds()
                 ]
             ),
-            key='interact_funds'
+            help      = 'Shares and share value will be computed for the union of selected assets',
+            key       = 'interact_funds'
         )
 
 

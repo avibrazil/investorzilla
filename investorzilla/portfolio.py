@@ -140,7 +140,7 @@ class Portfolio(object):
 
 
             # Group by fund and make list of currencies
-            .groupby(by='fund').agg(list)
+            .groupby(by='fund', observed=True).agg(list)
 
 
 
@@ -169,6 +169,9 @@ class Portfolio(object):
 
     @property
     def asof(self):
+        """
+        Timestamp of most recent balance or ledger data of this portfolio asset
+        """
         return numpy.max(
             [t for t in
                 [
@@ -356,8 +359,6 @@ class Portfolio(object):
 
             return vec
 
-        instrumented=time.copy()
-
         # Convert naiveTimeShift into something more useful
         timeShift=pandas.to_timedelta(naiveTimeShift, unit='s')
 
@@ -367,6 +368,9 @@ class Portfolio(object):
             .astimezone()
             .tzinfo
         )
+
+        # Work on a copy of the input
+        instrumented=time.copy()
 
         # Shift dates that have no time (time part is 00:00:00) to the
         # middle of the day (12:00:00) using naiveTimeShift parameter
@@ -395,10 +399,14 @@ class Portfolio(object):
 
         # Cirurgically adjust time adding a few random milliseconds only
         # on duplicate items
-        duplicated=instrumented[instrumented.duplicated()]
+        dups=instrumented.duplicated()
+        duplicated=instrumented[dups]
 
-        instrumented.update(
-            duplicated + randomTimedeltas(duplicated.index)
+        instrumented=pandas.concat(
+            [
+                instrumented[~dups],
+                instrumented[dups]+randomTimedeltas(instrumented[dups].index)
+            ]
         )
 
         return instrumented

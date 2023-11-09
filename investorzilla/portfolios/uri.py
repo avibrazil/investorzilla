@@ -92,11 +92,13 @@ class URIBalanceOrLedger(Portfolio):
 
 
     def refreshData(self):
-        df=pandas.read_csv(
-            filepath_or_buffer = self.URI,
-            sep = self.sheetStructure['separator'] if 'separator' in self.sheetStructure else ','
-        )
+        """
+        Force data refresh from source URL and return a DataFrame which columns
+        where already renamed and filtered, ready to be cached. But data still
+        needs to be processed by self.processData().
 
+        The internal variables _balance or _ledger will be updated.
+        """
         if self.has_balance:
             prop='balance'
         elif self.has_ledger:
@@ -106,7 +108,7 @@ class URIBalanceOrLedger(Portfolio):
 
         columnsProfile=self.sheetStructure[prop]['columns']
 
-        # Normalize all columns names
+        # Normalize all column names
         renamer={m['name']: m['currency'] for m in columnsProfile['monetary']}
         renamer.update(
             {
@@ -118,7 +120,11 @@ class URIBalanceOrLedger(Portfolio):
         df=(
             pandas.read_csv(
                 filepath_or_buffer = self.URI,
-                sep = self.sheetStructure['separator'] if 'separator' in self.sheetStructure else ','
+                sep = (
+                    self.sheetStructure['separator']
+                    if 'separator' in self.sheetStructure
+                    else ','
+                )
             )
             .rename(columns=renamer)
             .pipe(
@@ -210,9 +216,10 @@ class URIBalanceOrLedger(Portfolio):
 
 
     def __repr__(self):
-        return '{klass}({balance_or_ledger}={URI})'.format(
+        return '{klass}<{kind}>({balance_or_ledger}={URI})'.format(
             URI               = self.URI,
             balance_or_ledger = 'balance' if self.has_balance else 'ledger',
-            klass             = type(self).__name__
+            klass             = type(self).__name__,
+            kind              = self.kind
         )
 
