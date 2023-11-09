@@ -42,7 +42,7 @@ classifiers=[
 
 
 [project.scripts]
-investorzilla = "investorzilla.investorzilla_ui:main"
+investorzilla = "investorzilla.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/avibrazil/investorzilla"
