@@ -271,7 +271,7 @@ class Fund(object):
         """
 
         # Set name based on instruments ordered by balance
-        currentBalance=self.balance.groupby(level=0).last()
+        currentBalance=self.balance.groupby(level=0, observed=True).last()
         currentBalance.columns=currentBalance.columns.droplevel()
         currentBalance.sort_values(
             self.exchange.target,

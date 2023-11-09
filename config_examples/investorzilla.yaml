@@ -26,7 +26,7 @@
 # This file describes all of it. Paste its content in tools like
 # https://codebeautify.org/yaml-editor-online to have a more structured view of
 # it.
-# 
+#
 
 
 portfolio:
@@ -55,8 +55,6 @@ portfolio:
     
     - type: !!python/name:investorzilla.portfolios.google_sheets.GoogleSheetsBalanceAndLedger ''
       params:
-        # Get Google Sheets API access credentials at https://console.cloud.google.com/apis/credentials/oauthclient/
-        credentialsFile: app-credentials-for-google-sheets.json
         sheetStructure:
             # This Google Sheet is an example that should work out of the box
             sheet: 1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk
@@ -69,24 +67,24 @@ portfolio:
                 columns:
                     # Time is in column called 'Data'
                     time: Date and time
-                    
+
                     # Name of funds on each row is under this column
                     fund: Compound fund
-                    
+
                     # Column called 'Saldo USD' contains values in 'USD' and so on.
                     monetary:
                         - currency:     BRL
                           name:         Balance BRL
                         - currency:     USD
                           name:         Balance USD
-            
+
             ledger:
                 # The sheet/tab with all your in and out movements (ledger)
                 sheetRange: Ledger!A:E
                 columns:
                     time: Date and time
                     fund: Compound fund
-                    
+
                     # Name of columns with random comments
                     comment: Comment
                     monetary:
@@ -107,12 +105,12 @@ currency_converters:
     # - investor.currency.cryptocompare.CryptoCompareCurrencyConverter
     #       Pulls daily crypto data (BTC/ETH etc) from CryptoCompare,
     #       compared to USD.
-    
+
     # Inside the app there is the investor.monetary_time_series.CurrencyExchange
     # class that contains many CurrencyConverter’s data and is capable of many
     # currency conversion operations between them.
 
-    
+
 
     # USD➔BRL
     - type: &BCBCurrencyConverter !!python/name:investorzilla.currency.brasil_banco_central.BCBCurrencyConverter ''

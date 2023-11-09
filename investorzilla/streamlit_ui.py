@@ -79,7 +79,8 @@ class StreamlitInvestorzillaApp:
 
     def update_content_fund(self):
         """
-        Generate a virtual fund (shares and share value) based on portfolio items selected in sidebar.
+        Generate a virtual fund (shares and share value) based on portfolio
+        items selected in sidebar.
         """
 
         fundset=None
@@ -104,7 +105,7 @@ class StreamlitInvestorzillaApp:
             currencyExchange = streamlit.session_state.investor.exchange
         )
 
-        streamlit.session_state['fund'].setName(top=4)
+        streamlit.session_state.fund.setName(top=4)
 
 
 
@@ -113,12 +114,12 @@ class StreamlitInvestorzillaApp:
         Render the report
         """
 
-        streamlit.session_state['investor'].currency=streamlit.session_state['interact_currencies']
+        streamlit.session_state.investor.currency=streamlit.session_state.interact_currencies
 
         self.update_content_fund()
 
         # Render title
-        streamlit.title(streamlit.session_state['fund'].name)
+        streamlit.title(streamlit.session_state.fund.name)
 
         # Render period slider
         self.interact_start_end()

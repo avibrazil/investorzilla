@@ -1,9 +1,10 @@
 import os
+import importlib
 import datetime
 import pathlib
-import yaml
 import logging
 import concurrent.futures
+import yaml
 import pandas
 import numpy
 
@@ -32,8 +33,6 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
     portfolio:
         - type: !!python/name:investor.google_sheets.GoogleSheetsBalanceAndLedger ''
           params:
-            credentialsFile: credentials.json
-
             # A tag to differentiate from other data from same GSheet
             kind: form_entry
 
@@ -76,9 +75,11 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                             - currency:     USD
                               name:         Mov USD
     """
+
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
-
+    def showme():
+        return pathlib.Path(importlib.util.find_spec('investorzilla').submodule_search_locations[0]) / pathlib.Path('portfolios/app-credentials-for-google-sheets.json')
 
     def __init__(self, kind='generic', sheetStructure=None, credentialsFile='credentials.json', cache=None, refresh=False):
         self.sheetStructure = sheetStructure
@@ -86,7 +87,10 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
 
         self._balance = None
         self._ledger = None
-        self.gAppCredentialsFile = pathlib.Path(credentialsFile).expanduser()
+        self.gAppCredentialsFile = (
+            pathlib.Path(importlib.util.find_spec('investorzilla').submodule_search_locations[0]) /
+            pathlib.Path('portfolios/app-credentials-for-google-sheets.json')
+        )
 
         super().__init__(
             kind       = f'gsheet•{kind}',

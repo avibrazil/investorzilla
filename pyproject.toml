@@ -1,6 +1,6 @@
 [project]
 name = "investorzilla"
-version = '2.0.0'
+version = '2.0.1'
 description = "Manage your investments like a data scientist"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -40,6 +40,8 @@ classifiers=[
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 
+[tool.setuptools.package-data]
+"investorzilla.portfolios" = ["app-credentials-for-google-sheets.json"]
 
 [project.scripts]
 investorzilla = "investorzilla.__main__:main"
