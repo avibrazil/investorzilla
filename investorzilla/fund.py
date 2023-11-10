@@ -17,7 +17,7 @@ class KPI(object):
     MOVEMENTS               =  'movements'
 
     # Cumulative movements
-    SAVINGS                 =  'savings'
+    SAVINGS                 =  'cumulative savings'
 
     # Rate of accumulated gains
     BALANCE_OVER_SAVINGS    =  'balance ➗ savings'
@@ -34,7 +34,7 @@ class KPI(object):
     RATE_RETURN             =  'rate of return'  # on each period
 
     # KPIs related to extenral sources as market indexes and benchmarks
-    BENCHMARK               =  'benchmark'
+    BENCHMARK               =  'benchmark index'
     BENCHMARK_RATE_RETURN   =  'benchmark rate of return'  # on each period
     BENCHMARK_EXCESS_RETURN =  'excess return'  # relation between RATE_RETURN and BENCHMARK_RATE_RETURN, on each period
 
