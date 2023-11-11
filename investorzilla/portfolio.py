@@ -526,3 +526,10 @@ class PortfolioAggregator(Portfolio):
 
 
 
+    def __repr__(self):
+        return '{klass}({members})'.format(
+            klass   = type(self).__name__,
+            members = ', '.join([m.__repr__() for m in self.members])
+        )
+
+
