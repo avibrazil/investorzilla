@@ -50,7 +50,7 @@ class Fund(object):
 
 
     periodPairs={
-        # Formatters are documented here:
+        # Date and time formatters are documented here:
         # https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
 
         'hour of the day': dict(
@@ -78,11 +78,11 @@ class Fund(object):
         'day & week': dict(
             period                     = 'D',
             periodLabel                = 'day',
-            periodFormatter            = '%w·%a',
+            periodFormatter            = '%u·%a',
 
             macroPeriod                = 'W',
             macroPeriodLabel           = 'week',
-            macroPeriodFormatter       = '%Y-w%U'
+            macroPeriodFormatter       = '%Y-w%V'
         ),
 
 
@@ -92,7 +92,7 @@ class Fund(object):
 
             macroPeriod                = '4W',
             macroPeriodLabel           = '4 week',
-            macroPeriodFormatter       = '%Y-w%U'
+            macroPeriodFormatter       = '%Y-w%V'
         ),
 
 
@@ -421,6 +421,15 @@ class Fund(object):
 
 
     def computeShares(self, initial_share_value=initial_share_value):
+        """
+        Compute internal self.shares DataFrame which is a time series with
+        number of shares and share value.
+
+        Number of shares change when there is ledger activity, meaning there was
+        money added or removed from fund.
+
+        Value of the share changes when balance changes.
+        """
         self.initial_share_value=initial_share_value
 
         shares=0
@@ -465,9 +474,6 @@ class Fund(object):
         else:
             combinedBalance=self.balance.droplevel(0)
 
-#         self.combinedBalance=combinedBalance
-
-
         # Handle Ledger by simply sorting by time the movements of all funds
 
         theShares=(
@@ -494,9 +500,6 @@ class Fund(object):
         )
 
         for i,t in theShares.iterrows():
-
-#             print(f'{i}: {t}')
-
             # First adjust number of shares if there was any movements
             if not pandas.isna(t['ledger']) and t['ledger']!=0:
                 if share_value!=0:
@@ -548,10 +551,25 @@ class Fund(object):
         """
         Joins 2 periodicReports() to get a complete report with periods
         and summary of periods. For example, period='month & year'
-        computes the benchmarks for each month plus the summary of 12
+        computes KPIs for each month aligned with the summary of 12
         months (an year).
-        """
 
+        Result is a structure and readable report organized as financial
+        institutions use to show mutual funds performance reports.
+
+        output can be:
+        - styled (default): returns a pandas.styler object with nice number
+            formatting, red negative numbers and multi-index structure.
+
+        - plain: returns a plain pandas.DataFrame ready for further data
+            analysis.
+
+        - flat_unformatted: as plain but all values are converted to text.
+
+        - flat: returns a pandas.DataFrame with hard number formatting (all is
+            converter to text after formatting) and flattened multi-indexes for
+            limited displays as Streamlit.
+        """
 
         # Find period structure
         try:
@@ -565,7 +583,7 @@ class Fund(object):
 
 
         # How many periods fit in a macroPeriod ?
-        periodsInSummary=Fund.div_offsets(p['macroPeriod'],p['period'])
+        periodsInSummary = Fund.div_offsets(p['macroPeriod'],p['period'])
 
         if benchmark is None:
             # Remove benchmark features because there is no benchmark
@@ -649,15 +667,6 @@ class Fund(object):
                 line=period[currentRange]
                 nPeriods=line.shape[0]
 
-            somedict={
-                p['periodLabel']: (
-                    line.index.strftime(p['periodFormatter'])
-                    if 'periodFormatter' in p
-                    else range(1,nPeriods+1,1)
-                ),
-                '': 'periods'
-            }
-
             # Add a row label, as '2020' or '4·Thu' or '2022-w25'
             line=(
                 ## Add the time index of the summary report as an additional
@@ -689,8 +698,6 @@ class Fund(object):
                 if report is not None
                 else line.T
             )
-
-            # self.debugReport=report
 
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
@@ -743,7 +750,7 @@ class Fund(object):
         ## - plain: the Dataframe without style
 
         if output=='plain':
-            ## Just return the Dataframe
+            ## Just return the Dataframe with raw numeric values
             return report
 
         if output=='flat' or output=='flat_unformatted':
@@ -754,7 +761,7 @@ class Fund(object):
                 return out
 
         if output=='styled':
-            ## Lets work with a styled DataFrame
+            ## Lets work with a styled DataFrame. Best and default output type.
             out=(
                 report.style
                 .apply(lambda cell: numpy.where(cell<0,"color: red",None), axis=1)
@@ -944,12 +951,15 @@ class Fund(object):
 
             # Day 0 for Pandas is Monday, while it is Sunday for Python.
             # Make Pandas handle day 0 as Sunday.
-            dateOffset=(
-                pandas.tseries.offsets.Week(weekday=5)
-                if period=='W'
-                else period
-            )
+            # dateOffset=(
+            #     pandas.tseries.offsets.Week(weekday=5)
+            #     if period=='W'
+            #     else period
+            # )
+            dateOffset = period
 
+            # End of period is the last nanosecond of that period, not the
+            # beginning of the last day
             periodShift=(
                 pandas.tseries.frequencies.to_offset(period).nanos-1
                 if Fund.div_offsets(period,'D') < 1
