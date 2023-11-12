@@ -641,7 +641,7 @@ class Fund(object):
                 line=period[:macroPeriodCurr.end_time]
                 nPeriods=line.shape[0]
         
-                completeMe = periodsInSummary - nPeriods
+                completeMe = int(periodsInSummary - nPeriods)
         
                 if completeMe > 0:
                     # First line in report use to need leading empty
