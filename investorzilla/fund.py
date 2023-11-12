@@ -14,6 +14,7 @@ class KPI(object):
 
     # Source of all information
     BALANCE                 =  'balance'
+    BALANCE_PREV            =  'balance_prev' # of previous period
     MOVEMENTS               =  'movements'
 
     # Cumulative movements
@@ -27,7 +28,7 @@ class KPI(object):
     GAINS                   =  'cumulative gains'
 
     # Normalization features
-    SHARE_VALUE             =  'share value'
+    SHARE_VALUE             =  'share price'
     SHARES                  =  'shares'
 
     # Performance feature, wich is percentage change of share value
@@ -50,39 +51,42 @@ class Fund(object):
 
 
     periodPairs={
-        # Date and time formatters are documented here:
-        # https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes
+        # Period formatters are documented here:
+        # https://pandas.pydata.org/docs/reference/api/pandas.Period.strftime.html#pandas.Period.strftime
+
+        # Pandas period strings are documented here:
+        # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
 
         'hour of the day': dict(
             period                     = 'H',
             periodLabel                = 'hour of day',
-            periodFormatter            = '%H',
+            periodFormatter            = '{end:%H}',
 
             macroPeriod                = 'D',
             macroPeriodLabel           = 'day',
-            macroPeriodFormatter       = '%Y-%m-%d'
+            macroPeriodFormatter       = '{end:%Y-%m-%d}'
         ),
 
 
         'part of the day': dict(
             period                     = '12H',
             periodLabel                = 'part of day',
-            periodFormatter            = '%p',
+            periodFormatter            = '{end:%p}',
 
             macroPeriod                = 'D',
             macroPeriodLabel           = 'day',
-            macroPeriodFormatter       = '%Y-%m-%d'
+            macroPeriodFormatter       = '{end:%Y-%m-%d}'
         ),
 
 
         'day & week': dict(
             period                     = 'D',
             periodLabel                = 'day',
-            periodFormatter            = '%u·%a',
+            periodFormatter            = '{end:%u·%a}',
 
             macroPeriod                = 'W',
             macroPeriodLabel           = 'week',
-            macroPeriodFormatter       = '%Y-w%V'
+            macroPeriodFormatter       = '{start:%Y-%m-%d}/{end:%Y-%m-%d}'
         ),
 
 
@@ -92,29 +96,29 @@ class Fund(object):
 
             macroPeriod                = '4W',
             macroPeriodLabel           = '4 week',
-            macroPeriodFormatter       = '%Y-w%V'
+            macroPeriodFormatter       = '{start:%Y-%m-%d}/{end:%Y-%m-%d}'
         ),
 
 
         'month & year': dict(
             period                     = 'M',
             periodLabel                = 'month',
-            periodFormatter            = '%m·%b',
+            periodFormatter            = '{end:%m·%b}',
 
             macroPeriod                = 'Y',
             macroPeriodLabel           = 'year',
-            macroPeriodFormatter       = '%Y'
+            macroPeriodFormatter       = '{end:%Y}'
         ),
 
 
        'quarter & year': dict(
             period                     = 'Q',
             periodLabel                = 'quarter',
-            periodFormatter            = '%m',
+            periodFormatter            = 'Q{period:%q}',
 
             macroPeriod                = 'Y',
             macroPeriodLabel           = 'year',
-            macroPeriodFormatter       = '%Y'
+            macroPeriodFormatter       = '{end:%Y}'
         ),
 
 
@@ -125,7 +129,7 @@ class Fund(object):
 
             macroPeriod                = 'M',
             macroPeriodLabel           = 'month',
-            macroPeriodFormatter       = '%m'
+            macroPeriodFormatter       = '{end:%m}'
         ),
 
 
@@ -136,7 +140,7 @@ class Fund(object):
 
             macroPeriod                = '5Y',
             macroPeriodLabel           = '5 years',
-            macroPeriodFormatter       = '%Y'
+            macroPeriodFormatter       = '{start:%Y}/{end:%Y}'
         ),
 
 
@@ -147,7 +151,7 @@ class Fund(object):
 
             macroPeriod                = '10Y',
             macroPeriodLabel           = 'decade',
-            macroPeriodFormatter       = '%Y'
+            macroPeriodFormatter       = '{start:%Y}/{end:%Y}'
         )
     }
 
@@ -540,6 +544,7 @@ class Fund(object):
     def report(self, period='month & year', benchmark=None, output='styled',
                 start=None,
                 end=None,
+                tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo,
                 flatPeriodFirst=True,
                 ascending=False,
                 kpi=benchmarkFeatures + [
@@ -553,24 +558,28 @@ class Fund(object):
         and summary of periods. For example, period='month & year'
         computes KPIs for each month aligned with the summary of 12
         months (an year).
-
+        
         Result is a structure and readable report organized as financial
         institutions use to show mutual funds performance reports.
-
+        
         output can be:
         - styled (default): returns a pandas.styler object with nice number
             formatting, red negative numbers and multi-index structure.
-
+        
         - plain: returns a plain pandas.DataFrame ready for further data
             analysis.
-
+        
         - flat_unformatted: as plain but all values are converted to text.
-
+        
         - flat: returns a pandas.DataFrame with hard number formatting (all is
             converter to text after formatting) and flattened multi-indexes for
             limited displays as Streamlit.
         """
-
+        
+        def ddebug(table):
+            display(table)
+            return table
+        
         # Find period structure
         try:
             p = self.periodPairs[period]
@@ -580,112 +589,127 @@ class Fund(object):
                     str(Fund.getPeriodPairs())
                 )
             )
-
-
+        
+        
         # How many periods fit in a macroPeriod ?
         periodsInSummary = Fund.div_offsets(p['macroPeriod'],p['period'])
-
+        
         if benchmark is None:
             # Remove benchmark features because there is no benchmark
             kpi=[i for i in kpi if i not in self.benchmarkFeatures]
-
+        
             # Can't use set() operations here because it messes with features
             # order, which are important to us
-
-
+        
+        
         # Get detailed part of report with period data
         periodOffset = pandas.tseries.frequencies.to_offset(p['period'])
         period = self.periodicReport(
             period     = p['period'],
             benchmark  = benchmark,
             start      = start,
-            end        = end
+            end        = end,
+            tz         = tz
         )[kpi]
-
+        
         # Get summary part report with summary of a period set
         macroPeriodOffset = pandas.tseries.frequencies.to_offset(p['macroPeriod'])
         macroPeriod = self.periodicReport(
             period     = p['macroPeriod'],
             benchmark  = benchmark,
             start      = start,
-            end        = end
+            end        = end,
+            tz         = tz
         )[kpi]
-
-
+        
+        
         report=None
-
+        
         # KPI income has a special formatter
         if KPI.PERIOD_GAIN in self.formatters:
             incomeFormatter=self.formatters[KPI.PERIOD_GAIN]['format']
         else:
             incomeFormatter=self.formatters['DEFAULT']['format']
-
+        
         # Break the periodic report in chunks equivalent to the summary report
         for i in range(len(macroPeriod.index)):
             macroPeriodPrev=macroPeriod.index[i] - macroPeriodOffset
             macroPeriodCurr=macroPeriod.index[i]
-
+        
             if i==0:
                 # Process first line, usually prepending NaNs
-                line=period[:macroPeriodCurr]
+                line=period[:macroPeriodCurr.end_time]
                 nPeriods=line.shape[0]
-
+        
                 completeMe = periodsInSummary - nPeriods
-
+        
                 if completeMe > 0:
                     # First line in report use to need leading empty
                     # periods if they start in the middle of macro period
                     line=(
                         pandas.concat(
                             [
-                                # Preppend empty lines
+                                # Preppend empty lines from a DataFrame that has
+                                # only a useful index
                                 pandas.DataFrame(
-                                    index=pandas.date_range(
-                                        line.index[0] - completeMe*periodOffset,
-                                        periods=completeMe,
-                                        freq=p['period']
+                                    index=pandas.period_range(
+                                        start=line.index[0]-completeMe,
+                                        periods=completeMe
                                     )
                                 ),
                                 line
                             ]
                         )
-                        .pipe(
-                            lambda table: table[
-                                (table.index > macroPeriodPrev) &
-                                (table.index <= macroPeriodCurr)
-                            ]
-                        )
+                        # .pipe(
+                        #     lambda table: table[
+                        #         (table.index > macroPeriodPrev.end_time) &
+                        #         (table.index <= macroPeriodCurr.end_time)
+                        #     ]
+                        # )
                     )
-
+        
                     nPeriods=line.shape[0]
             else:
                 # Process lines that are not the first
-                currentRange=(
-                    (period.index > macroPeriodPrev) &
-                    (period.index <= macroPeriodCurr)
-                )
-                line=period[currentRange]
+                # currentRange=(
+                #     (period.index.start_time >= macroPeriodCurr.start_time) &
+                #     (period.index.end_time   <= macroPeriodCurr.end_time)
+                # )
+                line=period[macroPeriodCurr.start_time:macroPeriodCurr.end_time]
                 nPeriods=line.shape[0]
-
+        
             # Add a row label, as '2020' or '4·Thu' or '2022-w25'
             line=(
                 ## Add the time index of the summary report as an additional
                 ## index level to columns
                 pandas.concat([line], axis=1, keys=[macroPeriod.index[i]])
-
+        
                 ## Rename the title for labels so we can join latter
                 .rename_axis(['time','KPI'], axis='columns')
-
-                ## Convert index from full DateTimeIndex to something that can
+        
+                ## Convert index from full PeriodIndex to something that can
                 ## be matched across macro-periods, as just '08·Aug'
                 .assign(
                     **{
-                        p['periodLabel']: (
-                            line.index.strftime(p['periodFormatter'])
-                            if 'periodFormatter' in p
+                        p['periodLabel']: lambda table: (
+                            # Fill with a reformatted index or a plain range
+                            (
+                                pandas.Series(table.index, index=table.index)
+                                .apply(
+                                    lambda cell: (
+                                        p['periodFormatter']
+                                        .format(
+                                            start    = cell.start_time,
+                                            end      = cell.end_time,
+                                            period   = cell
+                                        )
+                                    )
+                                )
+                                # .pipe(ddebug)
+                            ) if 'periodFormatter' in p
                             else range(1,nPeriods+1,1)
                         ),
-                        '': 'periods'
+                        '': 'periods',
                     }
                 )
                 .set_index(['',p['periodLabel']])
@@ -701,19 +725,19 @@ class Fund(object):
 
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
-#             if KPI.PERIOD_GAIN in kpi:
-#                 macroPeriod.loc[macroPeriod.index[i],'new ' + KPI.PERIOD_GAIN]='{n} × {inc}'.format(
-#                     n=nPeriods,
-#                     inc=incomeFormatter.format(
-#                         macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
-#                     )
-#                 )
+        #             if KPI.PERIOD_GAIN in kpi:
+        #                 macroPeriod.loc[macroPeriod.index[i],'new ' + KPI.PERIOD_GAIN]='{n} × {inc}'.format(
+        #                     n=nPeriods,
+        #                     inc=incomeFormatter.format(
+        #                         macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
+        #                     )
+        #                 )
 
-#         if KPI.PERIOD_GAIN in kpi:
-#             macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
+        #         if KPI.PERIOD_GAIN in kpi:
+        #             macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
 
-        # Make summary report a column, sort and name labels for perfect join
-        macroPeriod=(
+        # Turn summary report into a column, sort and name labels for perfect join
+        report[('summary of periods',p['macroPeriodLabel'])] = (
             macroPeriod
             .rename_axis(columns='KPI')
             .T
@@ -722,84 +746,99 @@ class Fund(object):
             .sort_index()
         )
 
-        # Join the summary report to main report
-        report[('summary of periods',p['macroPeriodLabel'])]=macroPeriod
+        report = (
+            report
 
-        # Reformat line index from a full DateTimeIndex to something more readable
-        report.index=pandas.MultiIndex.from_tuples(
-            [
-                (x[0].strftime(p['macroPeriodFormatter']), x[1])
-                for x in report.index
-            ],
-            name=['time','KPI']
+            # Reformat line index from a full PeriodIndex into something more
+            # readable
+            .pipe(
+                lambda table:
+                    table.set_index(
+                        pandas.MultiIndex.from_tuples(
+                            [
+                                (
+                                    (
+                                        p['macroPeriodFormatter']
+                                        .format(
+                                            start=x[0].start_time,
+                                            end=x[0].end_time,
+                                            period=x[0]
+                                        )
+                                    ),
+                                    x[1]
+                                )
+                                for x in report.index
+                            ],
+                            name=['time','KPI']
+                        )
+                    )
+            )
+
+            # Sort rows as requested by parameters
+            .sort_index(
+                level=0,
+                sort_remaining=False,
+                ascending=ascending
+            )
         )
-
-        # Sort rows as requested by parameters
-        report=report.sort_index(
-            level=0,
-            sort_remaining=False,
-            ascending=ascending
-        )
-
-
 
 
         # output may be:
         ## - styled (default): returns a styled Dataframe
         ## - flat: hard format and simplify the dataframe for Streamlit
         ## - plain: the Dataframe without style
-
+        
         if output=='plain':
             ## Just return the Dataframe with raw numeric values
             return report
-
+        
         if output=='flat' or output=='flat_unformatted':
             ## Convert all to object to attain more flexibility per cell
             out=report.astype(object)
-
+        
             if output=='flat_unformatted':
                 return out
-
+        
         if output=='styled':
             ## Lets work with a styled DataFrame. Best and default output type.
             out=(
                 report.style
                 .apply(lambda cell: numpy.where(cell<0,"color: red",None), axis=1)
             )
-
+        
         # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
         # not plain (just the data), we'll have to apply formatting, either as style or
         # hardcoded (in case of flat).
-
-
+        
+        
         defaultFormat=None
         if 'DEFAULT' in self.formatters:
             defaultFormat=self.formatters['DEFAULT']
-
+        
         for i in kpi:
             for g in ['periods', 'summary of periods']:
                 # Select formatter for KPI
-
+        
                 f=defaultFormat['format']
                 if g=='summary of periods' and 'summaryFormat' in defaultFormat:
                     f=defaultFormat['summaryFormat']
-
+        
                 if i in self.formatters:
                     if g=='summary of periods' and 'summaryFormat' in self.formatters[i]:
                         f=self.formatters[i]['summaryFormat']
                     else:
                         f=self.formatters[i]['format']
-
-
+        
+        
                 selector=pandas.IndexSlice[
                     # Apply format in KPI row
                     pandas.IndexSlice[:,i],
-
+        
                     # Apply style in «periods» or «summary of periods»
                     pandas.IndexSlice[g,:]
                 ]
-
-
+        
+        
                 if output=='flat':
                     out.loc[selector]=out.loc[selector].apply(
                         lambda s: [f.format(x) for x in s]
@@ -808,11 +847,11 @@ class Fund(object):
                 elif output=='styled':
                     # Styler advanced slicing only works in Pandas>=1.3
                     out=out.format(formatter=f, subset=selector, na_rep='')
-
+        
         if output=='styled':
             # Styled report is ready to go
             return out
-
+        
         # Final cleanup for flat
         out.replace(['nan','nan%'],'', inplace=True)
         if flatPeriodFirst:
@@ -822,46 +861,43 @@ class Fund(object):
         level=out.loc[:,pandas.IndexSlice['summary of periods',:]].columns.values[0][1]
         out.rename(columns={level:'summary of periods'},inplace=True)
         out.columns=out.columns.droplevel(0)
-
+        
         return out
 
 
 
-    def periodicReport(self, period=None, benchmark=None, start=None, end=None):
+    def periodicReport(self, period=None, benchmark=None, start=None, end=None,
+            tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo):
         """
         This is the most important summarization and reporting method of the class.
         Returns a DataFrame with features as rate of return, income, balance, shares,
         share_value, benchmark rate of return, excess return compared to benchmark.
 
-        period: Either 'M' (monthly), 'Y' (yearly), 'W' (weekly) to aggregate data for
-        these periods. If not passed, returned dataframe will be a ragged time series as
-        precise as the amount of data available.
+        period: Either 'M' (monthly), 'Y' (yearly), 'W' (weekly) to aggregate
+        data for these periods. If not passed, returned dataframe will be a
+        ragged time series as precise as the amount of data available.
 
-        benchmark: A MarketIndex object to use a performance indicator used to compute
-        benchmark rate of return and excess return. Features are omitted and not computed
-        if this objected is not passed.
+        benchmark: A MarketIndex object to use a performance indicator used to
+        compute benchmark rate of return and excess return. Features are omitted
+        and not computed if this objected is not passed.
 
         start: A starting date for the report. Makes benchmark rate of return start at
         value 1 on this date. Starts at beginning of data if this is None.
+
+        end: Cut data up to this time
+
+        tz: A time zone to convert all data. Uses local time zone if omited.
         """
+
+        errorMsg='{par} parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with pandas.Timestamp.fromisoformat(), but got "{value}"'
 
         # Chronological index where data begins to be non-zero
         startOfReport=self.start
-
-
-        errorMsg='{par} parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with pandas.Timestamp.fromisoformat(), but got "{value}"'
 
         if (start is not None) or (end is not None):
             params=dict(
                 start=start,
                 end=end
-            )
-
-            # Get current timezone
-            currtz=(
-                datetime.datetime.now(datetime.timezone.utc)
-                .astimezone()
-                .tzinfo
             )
 
             for p in params:
@@ -880,7 +916,7 @@ class Fund(object):
 
                     # Make it timezone-aware
                     if params[p].tzinfo is None:
-                        params[p]=params[p].tz_localize(currtz)
+                        params[p]=params[p].tz_localize(tz)
 
             start=params['start']
             end=params['end']
@@ -933,6 +969,9 @@ class Fund(object):
                 }
             )
 
+            # Convert all to desired timezone which is probably local timezone
+            .pipe(lambda table: table.set_index(table.index.tz_convert(tz)))
+
             # Cut the report just before period-aggregation operation
             [startOfReport:end]
         )
@@ -944,6 +983,28 @@ class Fund(object):
         # If period=None, number of report lines will match the amount of
         # fund data we have.
         # These 3 situations affect how benchmark has to be handled.
+
+        # Add 3 benchmark-related features
+        benchmarkFeatures=[]
+        benchmarkAggregation=dict()
+        if benchmark is not None:
+            # Pair with Benchmark
+            report=pandas.merge_asof(
+                report,
+                (
+                    benchmark
+                    .getData()
+                    .pipe(lambda table: table.set_index(table.index.tz_convert(tz)))
+                    [['value']]
+                    .rename(columns={'value': KPI.BENCHMARK})
+                ),
+                left_index=True,
+                right_index=True
+            )
+
+            benchmarkFeatures=self.benchmarkFeatures
+            benchmarkAggregation={KPI.BENCHMARK: 'last'}
+
 
         if period is not None:
             # Make it a regular time series (D, M, Y etc), each column
@@ -968,7 +1029,12 @@ class Fund(object):
 
             report=(
                 report
-                .resample(dateOffset)
+
+                .resample(
+                    rule=dateOffset,
+                    kind='period',
+                    label='right'
+                )
 
                 # Compute summarizations for each KPI
                 .agg(
@@ -985,47 +1051,33 @@ class Fund(object):
                                 KPI.GAINS,
                             ]
                         },
+
                         **{
                             # KPIs which aggregations should be summed
                             kpi: 'sum'
                             for kpi in [
                                 KPI.MOVEMENTS
                             ]
-                        }
+                        },
+
+                        **benchmarkAggregation
                     )
                 )
 
                 # We want timestamps on end of each period, not in the
                 # begining as Pandas defaults
-                .reset_index()
-                .assign(
-                    time=lambda table: (
-                        table.time +
-                        pandas.Timedelta(nanoseconds=periodShift)
-                    )
-                )
-                .set_index('time')
+                # .reset_index()
+                # .assign(
+                #     time=lambda table: (
+                #         table.time +
+                #         pandas.Timedelta(nanoseconds=periodShift)
+                #     )
+                # )
+                # .set_index('time')
 
                 # Fill the gaps after aggregation
                 .ffill()
             )
-
-        # Add 3 benchmark-related features
-        benchmarkFeatures=[]
-        if benchmark is not None:
-            # Pair with Benchmark
-            report=pandas.merge_asof(
-                report,
-                (
-                    benchmark
-                    .getData()[['value']]
-                    .rename(columns={'value': KPI.BENCHMARK})
-                ),
-                left_index=True,
-                right_index=True
-            )
-
-            benchmarkFeatures=self.benchmarkFeatures
 
         # Compute rate of return (pure gain excluding movements)
         report[KPI.RATE_RETURN]=report[KPI.SHARE_VALUE].pct_change().fillna(0)
@@ -1048,10 +1100,10 @@ class Fund(object):
         # shift() yields NaN for first position, so fix it
         if startOfReport==self.start:
             # Balance is always Zero before the fund ever existed
-            report.loc[report.index[0],KPI.BALANCE+'_prev']=0
+            report.loc[report.index[0],KPI.BALANCE_PREV]=0
         else:
             # Compute Balance based on immediate previous data
-            report.loc[report.index[0],KPI.BALANCE+'_prev']=(
+            report.loc[report.index[0],KPI.BALANCE_PREV]=(
                 self.shares[KPI.SHARE_VALUE].asof(startOfReport-pandas.Timedelta(seconds=1)) *
                 self.shares[KPI.SHARES].asof(startOfReport-pandas.Timedelta(seconds=1))
             )
@@ -1064,7 +1116,7 @@ class Fund(object):
                 x[KPI.BALANCE]
 
                 # Balance of previous period
-                -x[KPI.BALANCE + '_prev']
+                -x[KPI.BALANCE_PREV]
 
                 # Movements of current period
                 -x[KPI.MOVEMENTS]

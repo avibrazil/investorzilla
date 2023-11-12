@@ -43,7 +43,6 @@ class StreamlitInvestorzillaApp:
 
 
     def __init__(self, refresh=False):
-        print('vou rodar 2')
         self.prepare_logging(level=logging.INFO)
 
         streamlit.set_page_config(layout="wide")
