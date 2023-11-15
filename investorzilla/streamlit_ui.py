@@ -24,21 +24,23 @@ class StreamlitInvestorzillaApp:
 
         # Configure logging for Investor
 
-        FORMATTER = logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s")
-        HANDLER = logging.StreamHandler()
-        HANDLER.setFormatter(FORMATTER)
+        if 'logger' not in streamlit.session_state:
+            FORMATTER = logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s")
+            HANDLER = logging.StreamHandler()
+            HANDLER.setFormatter(FORMATTER)
 
-        loggers=[
-            logging.getLogger('__main__'),
-            logging.getLogger('investorzilla'),
-            # logging.getLogger('sqlite')
-        ]
+            loggers=[
+                logging.getLogger('__main__'),
+                logging.getLogger('investorzilla'),
+                # logging.getLogger('sqlite')
+            ]
 
-        for logger in loggers:
-            logger.addHandler(HANDLER)
-            logger.setLevel(level)
+            for logger in loggers:
+                logger.addHandler(HANDLER)
+                logger.setLevel(level)
 
-        return loggers[0]
+            streamlit.session_state.logger=loggers[0]
+            return streamlit.session_state.logger
 
 
 
