@@ -60,10 +60,10 @@ class StreamlitInvestorzillaApp:
 
 
         if ('investor' not in streamlit.session_state) or (True in self.refreshMap.values()):
-            streamlit.session_state['investor']=investorzilla.Investor('investorzilla.yaml',self.refreshMap)
-        # else:
-        #     # Simply reuse what you have
-        #     streamlit.session_state['investor']
+            streamlit.session_state.investor=investorzilla.Investor(
+                'investorzilla.yaml',
+                self.refreshMap
+            )
 
         with streamlit.sidebar:
             # Put controls in the sidebar
@@ -78,7 +78,7 @@ class StreamlitInvestorzillaApp:
 
 
 
-    def update_content_fund(self):
+    def prepare_fund(self):
         """
         Generate a virtual fund (shares and share value) based on portfolio
         items selected in sidebar.
@@ -101,7 +101,7 @@ class StreamlitInvestorzillaApp:
                 set(streamlit.session_state.interact_no_funds)
             )
 
-        streamlit.session_state['fund']=streamlit.session_state.investor.portfolio.getFund(
+        streamlit.session_state.fund=streamlit.session_state.investor.portfolio.getFund(
             subset           = fundset,
             currencyExchange = streamlit.session_state.investor.exchange
         )
@@ -117,8 +117,27 @@ class StreamlitInvestorzillaApp:
 
         streamlit.session_state.investor.currency=streamlit.session_state.interact_currencies
 
-        self.update_content_fund()
+        self.prepare_fund()
 
+        (tab_performance, tab_portfolio) = streamlit.tabs(["📈 Performance", "💼 Portfolio"])
+
+        with tab_performance:
+            self.render_performance_page()
+
+        with tab_portfolio:
+            self.render_portfolio_page()
+
+        streamlit.markdown('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
+
+
+
+    def render_portfolio_page(self):
+        streamlit.title('Portfolio')
+        streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
+
+
+
+    def render_performance_page(self):
         # Render title
         streamlit.title(streamlit.session_state.fund.name)
 
@@ -126,7 +145,7 @@ class StreamlitInvestorzillaApp:
         self.interact_start_end()
 
         # Render main metrics
-        streamlit.header('Main Metrics')
+        streamlit.header('Main Metrics', divider='rainbow')
         p=streamlit.session_state.fund.periodPairs[streamlit.session_state.interact_periods]
         # for p in streamlit.session_state['fund'].periodPairs:
         #     if p['period']==streamlit.session_state.interact_periods:
@@ -180,7 +199,7 @@ class StreamlitInvestorzillaApp:
         col1, col2 = streamlit.columns(2)
 
         with col1:
-            streamlit.header('Performance')
+            streamlit.header('Performance', divider='red')
             streamlit.line_chart(
                 streamlit.session_state.fund.performancePlot(
                     benchmark=streamlit.session_state.interact_benchmarks['obj'],
@@ -200,7 +219,7 @@ class StreamlitInvestorzillaApp:
             )
 
         with col2:
-            streamlit.header('Gains')
+            streamlit.header('Gains', divider='red')
             streamlit.altair_chart(
                 use_container_width=True,
                 altair_chart=streamlit.session_state.fund.incomePlot(
@@ -331,8 +350,6 @@ class StreamlitInvestorzillaApp:
                 streamlit.session_state.interact_start_end[1]
             )
         )
-
-        streamlit.markdown('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
 
 
 

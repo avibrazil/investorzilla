@@ -223,3 +223,39 @@ class URIBalanceOrLedger(Portfolio):
             kind              = self.kind
         )
 
+
+
+    def to_markdown(self, title_prefix=None):
+        title="{klass}({kind})".format(klass=type(self).__name__,kind=self.kind)
+
+        if '://' in str(self.URI):
+            URI = f"[remote URL]({self.URI})"
+        else:
+            URI = f"`{self.URI}`"
+
+        nonMonetary=set(['time','fund','comment'])
+
+        if self.has_balance:
+            data=self.balance
+        else:
+            data=self.ledger
+
+        body=[
+            "- {balance_or_ledger} from {URI}".format(
+                balance_or_ledger = 'balance' if self.has_balance else 'ledger',
+                URI=URI
+            ),
+            "- assets: `{}`".format('` · `'.join(data.fund.unique())),
+            "- currencies: `{}`".format('` · `'.join(set(data.columns)-nonMonetary)),
+            f"- from `{data.time.min()}` to `{data.time.max()}`"
+        ]
+
+        body='\n'.join(body)
+
+        if title_prefix is None:
+            return (title,body)
+        else:
+            return f"{title_prefix} {title}\n{body}"
+
+
+

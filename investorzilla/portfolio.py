@@ -533,3 +533,22 @@ class PortfolioAggregator(Portfolio):
         )
 
 
+
+    def to_markdown(self, title_prefix=None):
+        title="{klass}({n} members)".format(
+            klass=type(self).__name__,
+            n=len(self.members)
+        )
+
+        body=[
+            (m.to_markdown(title_prefix=title_prefix + '#' if title_prefix else None))
+            for m in self.members
+        ]
+
+        if title_prefix is None:
+            return (title,body)
+        else:
+            body='\n\n'.join(body)
+            return f"{title_prefix} {title}\n{body}"
+
+
