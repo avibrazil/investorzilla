@@ -85,22 +85,72 @@ class DataCache(object):
 
 
     def getDB(self):
-        sqlite_fake_multithreading=dict(
-            poolclass         = sqlalchemy.pool.QueuePool,
-            pool_size         = 1,
-            max_overflow      = 0,
+        if hasattr(self,'db') and self.db is not None:
+            return self.db
+        
+        engine_config_sets=dict(
+            # Documentation for all these SQLAlchemy pool control parameters:
+            # https://docs.sqlalchemy.org/en/14/core/engines.html#engine-creation-api
 
-            # virtually wait forever until the used connection is freed
-            pool_timeout      = 3600.0
+            DEFAULT=dict(
+                # QueuePool config for a real database
+                poolclass         = sqlalchemy.pool.QueuePool,
+
+                # 5 is the default. Reinforce default, which is good
+                pool_size         = 5,
+
+                # Default here was 10, which might be low sometimes, so
+                # increase to some big number in order to never let the
+                # QueuePool be a bottleneck.
+                max_overflow      = 50,
+
+                # Debug connection and all queries
+                # echo              = True
+            ),
+            sqlite=dict(
+                # SQLite doesn’t support concurrent writes, so we‘ll amend
+                # the DEFAULT configuration to make the pool work with only
+                # 1 simultaneous connection. Since Robson is agressively
+                # parallel and requires a DB service that can be used in
+                # parallel (regular DBs), the simplicity and portability
+                # offered by SQLite for a light developer laptop has its
+                # tradeoffs and we’ll have to tweak it to make it usable in
+                # a parallel environment even if SQLite is not parallel.
+
+                # A pool_size of 1 allows only 1 simultaneous connection.
+                pool_size         = 1,
+                max_overflow      = 0,
+
+                # Since we have only 1 stream of work (pool_size=1),
+                # we need to put a hold on other DB requests that arrive
+                # from other parallel tasks. We do this putting a high value
+                # on pool_timeout, which controls the number of seconds to
+                # wait before giving up on getting a connection from the
+                # pool.
+                pool_timeout      = 3600.0,
+
+                # Debug connection and all queries
+                # echo              = True
+            ),
         )
+        
+        # Start with a default config
+        engine_config=engine_config_sets['DEFAULT'].copy()
+
+        # Add engine-specific configs
+        for dbtype in engine_config_sets.keys():
+            # Extract from engine_config_sets configuration specific
+            # for each DB type
+            if dbtype in self.url:
+                engine_config.update(engine_config_sets[dbtype])
 
         if hasattr(self,'db')==False or self.db is None:
             self.getLogger().debug(f"Creating a DB engine on {self.url}")
 
             self.db=sqlalchemy.create_engine(
                 url = self.url,
-                **sqlite_fake_multithreading
-            )
+                **engine_config
+            ).connect()
 
         return self.db
 
@@ -308,7 +358,7 @@ class DataCache(object):
                 )
 
                 self.getLogger().debug(f'Clean old cache entries as {cleanQuery}')
-                self.getDB().execute(cleanQuery)
+                self.getDB().execute(sqlalchemy.text(cleanQuery))
 
 
 
