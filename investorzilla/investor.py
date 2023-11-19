@@ -32,7 +32,7 @@ class Investor(object):
         refresh=defaultRefreshMap
         refresh.update(refreshMap)
 
-        with open(file, 'r') as f:
+        with open(file, 'r', encoding="utf8") as f:
             self.config = yaml.load(f, Loader=yaml.FullLoader)
 
         self.currency=self.config['currency']
