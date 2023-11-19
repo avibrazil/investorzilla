@@ -83,7 +83,8 @@ class BCBCurrencyConverter(CurrencyConverter):
                 + numpy.random.randint(
                     low  = -10*(10**9),
                     high =  10*(10**9),
-                    size =  len(self.data.index)
+                    size =  len(self.data.index),
+                    dtype=  numpy.int64
                 )
             ) # convert it back to a DatetimeIndex
 
