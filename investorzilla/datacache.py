@@ -110,7 +110,7 @@ class DataCache(object):
             sqlite=dict(
                 # SQLite doesn’t support concurrent writes, so we‘ll amend
                 # the DEFAULT configuration to make the pool work with only
-                # 1 simultaneous connection. Since Robson is agressively
+                # 1 simultaneous connection. Since Investorzilla is agressively
                 # parallel and requires a DB service that can be used in
                 # parallel (regular DBs), the simplicity and portability
                 # offered by SQLite for a light developer laptop has its
@@ -150,7 +150,7 @@ class DataCache(object):
             self.db=sqlalchemy.create_engine(
                 url = self.url,
                 **engine_config
-            ).connect()
+            )
 
         return self.db
 
@@ -268,7 +268,8 @@ class DataCache(object):
         try:
             self.getLogger().debug(f'Trying cache as {query}')
 
-            df=pandas.read_sql(query,con=self.db)
+            with self.getDB().connect() as con:
+                df=pandas.read_sql(query,con=con)
 
             if df.shape[0]>0:
                 age=pandas.Timestamp(df[self.timeCol].max())
@@ -336,29 +337,30 @@ class DataCache(object):
         '''
 
         if self.recycle is not None:
-            deprecated=pandas.read_sql_query(
-                versionSelector.format(
-                    typeTable    = self.typeTable.format(kind=kind),
-                    idCol        = self.idCol,
-                    timeCol      = self.timeCol,
-                    id           = id,
-                    recycle      = self.recycle
-                ),
-                con=self.getDB()
-            )
-
-            if deprecated.shape[0]>0:
-                cleanQuery=cleaner.format(
-                    typeTable    = self.typeTable.format(kind=kind),
-                    idCol        = self.idCol,
-                    timeCol      = self.timeCol,
-                    id           = id,
-                    deprecated   = deprecated.deprecated.iloc[0],
-                    recycle      = self.recycle
+            with self.getDB().connect() as con:
+                deprecated=pandas.read_sql_query(
+                    versionSelector.format(
+                        typeTable    = self.typeTable.format(kind=kind),
+                        idCol        = self.idCol,
+                        timeCol      = self.timeCol,
+                        id           = id,
+                        recycle      = self.recycle
+                    ),
+                    con=con
                 )
 
-                self.getLogger().debug(f'Clean old cache entries as {cleanQuery}')
-                self.getDB().execute(sqlalchemy.text(cleanQuery))
+                if deprecated.shape[0]>0:
+                    cleanQuery=cleaner.format(
+                        typeTable    = self.typeTable.format(kind=kind),
+                        idCol        = self.idCol,
+                        timeCol      = self.timeCol,
+                        id           = id,
+                        deprecated   = deprecated.deprecated.iloc[0],
+                        recycle      = self.recycle
+                    )
+    
+                    self.getLogger().debug(f'Clean old cache entries as {cleanQuery}')
+                    con.execute(sqlalchemy.text(cleanQuery))
 
 
 
@@ -384,13 +386,14 @@ class DataCache(object):
 
         self.getLogger().info(f'Set cache to kind={kind}, id={id}, time={now}')
 
-        d[[self.idCol,self.timeCol] + columns].to_sql(
-            self.typeTable.format(kind=kind),
-            index       = False,
-            if_exists   = 'append',
-            chunksize   = 999,
-            con         = self.getDB(),
-            method      = 'multi'
-        )
+        with self.getDB().connect() as con:
+            d[[self.idCol,self.timeCol] + columns].to_sql(
+                self.typeTable.format(kind=kind),
+                index       = False,
+                if_exists   = 'append',
+                chunksize   = 999,
+                con         = con,
+                method      = 'multi'
+            )
 
         self.cleanOld(kind, id)
