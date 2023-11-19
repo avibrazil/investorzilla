@@ -32,8 +32,10 @@ class YahooMarketIndex(MarketIndex):
         self.data=pandas.read_csv(
             self.url.format(
                 ticker=self.id,
-                start=round(datetime.datetime(1900,1,1).timestamp()),
-                now=round(datetime.datetime.utcnow().timestamp()+3600*24)
+                now=round(datetime.datetime.utcnow().timestamp()+3600*24),
+                
+                # Equivalent to round(datetime.datetime(1900,1,1).timestamp()), but Windows...
+                start=round((datetime.datetime(1900,1,1) - datetime.datetime(1970,1,1))/datetime.timedelta(seconds=1)),
             )
         )
 
