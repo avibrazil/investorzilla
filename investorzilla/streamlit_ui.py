@@ -127,7 +127,7 @@ class StreamlitInvestorzillaApp:
         with tab_portfolio:
             self.render_portfolio_page()
 
-        streamlit.markdown('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
+        streamlit.caption('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
 
 
 
