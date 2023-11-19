@@ -194,6 +194,7 @@ class MarketIndex(MonetaryTimeSeries):
         self.currencyConverter=cc
         self.currency=cc.currencyTo
         self.id=cc.currencyFrom+cc.currencyTo
+        self.home=cc.__repr__()
 
         return self
 
@@ -227,6 +228,29 @@ class MarketIndex(MonetaryTimeSeries):
                 curr            = self.currency,
                 klass           = type(self).__name__
             )
+
+
+
+    def to_markdown(self, title_prefix=None):
+        title=f"{self.id} ({self.currency}) ({type(self).__name__})"
+
+        # Point to correct DataFrame
+        if hasattr(self,'currencyConverter'):
+            data=self.currencyConverter.data
+        else:
+            data=self.data
+        
+        body=[
+            ("- home: " + self.home).format(ticker=self.id),
+            f"- `{data.index.min()}` to `{data.index.max()}`"
+        ]
+
+        body='\n'.join(body)
+
+        if title_prefix is None:
+            return (title,body)
+        else:
+            return f"{title_prefix} {title}\n{body}"
 
 
 

@@ -8,12 +8,13 @@ class YahooMarketIndex(MarketIndex):
     """
     Any market index from Yahoo Finance.
 
-    Pass to name attribute index names such as `^DJI` (Dow Jones), `^IXIC` (NASDAQ) etc.
+    Pass to name attribute the index name such as `^DJI` (Dow Jones), `^IXIC` (NASDAQ) etc.
 
     """
 
     url='https://query1.finance.yahoo.com/v7/finance/download/{ticker}?period1={start}&period2={now}&interval=1d&events=history&includeAdjustedClose=true'
-
+    home='https://finance.yahoo.com/quote/{ticker}'
+    
     def __init__(self, name, friendlyName=None, currency='USD', isRate=False, cache=None, refresh=False):
         super().__init__(
             kind     = 'YahooMarketIndex',
@@ -86,3 +87,4 @@ class YahooMarketIndex(MarketIndex):
             )
         else:
             return super().__str__()
+

@@ -43,6 +43,12 @@ class BCBMarketIndex(MarketIndex):
 
 
 
+    @property
+    def home(self):
+        return self.series[self.id]['home']
+
+
+
     def refreshData(self):
         try:
             self.data=pandas.read_json(self.series[self.id]['url'])

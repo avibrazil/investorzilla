@@ -133,7 +133,12 @@ class StreamlitInvestorzillaApp:
 
     def render_portfolio_page(self):
         streamlit.title('Portfolio')
+        
         streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
+
+        streamlit.header('Market Indexes')
+        for b in streamlit.session_state.investor.benchmarks:
+            streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
 
 
 
