@@ -63,37 +63,48 @@ class BCBCurrencyConverter(CurrencyConverter):
 
 
     def processData(self):
-        self.data['time']=pandas.to_datetime(self.data['time'],utc=True)
-        self.data['value']=(self.data['cotacaoCompra']+self.data['cotacaoVenda'])/2
-        self.data=(
-            self.data.drop('cotacaoCompra cotacaoVenda'.split(),axis=1)
+        self.data = (
+            self.data
+            
+            .assign(
+                value = lambda table: (table.cotacaoCompra+table.cotacaoVenda)/2,
+            )
+            .drop('cotacaoCompra cotacaoVenda'.split(),axis=1)
+
+            .assign(
+                time  = lambda table: (
+                    (
+                        pandas.to_datetime(table.time,utc=True)
+                        
+                        # convert index to number of nanoseconds since
+                        # 1970-01-01T00:00:00
+                        .astype(numpy.int64)
+                        
+                        # Add some seconds of entropy to the index to eliminate repeated values
+                        + numpy.random.randint(
+                            low  = -10*(10**9),
+                            high =  10*(10**9),
+                            size =  len(table.time),
+                            dtype=  numpy.int64
+                        )
+                    )
+                    .pipe(pandas.to_datetime)
+                    
+                    .dt
+                    
+                    # Set timezone to Brasilia
+                    .tz_localize('Brazil/East')
+        
+                    .dt
+        
+                    # Keep it as UTC as module´s internal standard and to improve
+                    # precision of joins.
+                    .tz_convert('UTC')
+                    
+                )
+            )
+            
             .set_index('time')
+
             .sort_index()
         )
-
-        # Add some seconds of entropy to the index to eliminate repeated values
-        self.data.index=(
-            pandas.DatetimeIndex(
-                self.data.index
-
-                # convert index to number of nanoseconds since
-                # 1970-01-01T00:00:00
-                .astype(numpy.int64)
-                # add random nanoseconds to each timestamp
-                + numpy.random.randint(
-                    low  = -10*(10**9),
-                    high =  10*(10**9),
-                    size =  len(self.data.index),
-                    dtype=  numpy.int64
-                )
-            ) # convert it back to a DatetimeIndex
-
-            # Set timezone to Brasilia
-            .tz_localize('Brazil/East')
-
-            # Keep it as UTC as module´s internal standard and to improve
-            # precision of joins.
-            .tz_convert('UTC')
-        )
-
-        self.data.sort_index(inplace=True)

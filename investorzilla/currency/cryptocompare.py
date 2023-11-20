@@ -72,10 +72,17 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
 
 
     def processData(self):
-        self.data.rename(columns={'time': 'ts', 'close': 'value'}, inplace=True)
-        self.data['time']=pandas.to_datetime(self.data['ts'],unit='s',utc=True)
-        self.data.drop(columns=["high","low","open","volumefrom","volumeto","conversionType","conversionSymbol",'ts'], inplace=True)
-        self.data.set_index('time', inplace=True)
-        self.data.sort_index(inplace=True)
+        self.data = (
+            self.data
 
+            .rename(columns={'time': 'ts', 'close': 'value'})
 
+            .assign(
+                time = lambda table: pandas.to_datetime(table.ts,unit='s',utc=True)
+            )
+
+            .set_index('time')
+            .sort_index()
+            
+            .drop(columns="high low open volumefrom volumeto conversionType conversionSymbol ts".split())
+        )
