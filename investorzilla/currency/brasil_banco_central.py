@@ -32,11 +32,13 @@ class BCBCurrencyConverter(CurrencyConverter):
 
 
     def refreshData(self):
+        # Format for start in BCB API parameters is MM-DD-YYYY.
         tomorrow=(datetime.date.today()+datetime.timedelta(days=1)).strftime('%m-%d-%Y')
+
+        start='01-01-1970'
         if self.currencyFrom=='USD':
-            start='07-01-1994'
-        else:
-            start='01-01-1970'
+            # The of birth of BRL. Before this date fiat was another thing and values can't be mixed
+            start='07-01-1994' # MM-DD-YYYY
         ptax="https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)"
 
         ptaxParams={
@@ -72,37 +74,18 @@ class BCBCurrencyConverter(CurrencyConverter):
             .drop('cotacaoCompra cotacaoVenda'.split(),axis=1)
 
             .assign(
-                time  = lambda table: (
-                    (
-                        pandas.to_datetime(table.time,utc=True)
-                        
-                        # convert index to number of nanoseconds since
-                        # 1970-01-01T00:00:00
-                        .astype(numpy.int64)
-                        
-                        # Add some seconds of entropy to the index to eliminate repeated values
-                        + numpy.random.randint(
-                            low  = -10*(10**9),
-                            high =  10*(10**9),
-                            size =  len(table.time),
-                            dtype=  numpy.int64
-                        )
-                    )
-                    .pipe(pandas.to_datetime)
-                    
-                    .dt
-                    
-                    # Set timezone to Brasilia
-                    .tz_localize('Brazil/East')
-        
-                    .dt
-        
-                    # Keep it as UTC as module´s internal standard and to improve
-                    # precision of joins.
-                    .tz_convert('UTC')
-                    
+                time = lambda table: (
+                    pandas.to_datetime(table.time)
+
+                    # Time is delivered as Brazil local time
+                    .dt.tz_localize('Brazil/East')
+
+                    # Keep it as UTC internally because this is our standard
+                    .dt.tz_convert('UTC')
                 )
             )
+
+            .drop_duplicates()
             
             .set_index('time')
 
