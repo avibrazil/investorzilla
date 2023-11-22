@@ -37,8 +37,9 @@ class BCBCurrencyConverter(CurrencyConverter):
 
         start='01-01-1970'
         if self.currencyFrom=='USD':
-            # The of birth of BRL. Before this date fiat was another thing and values can't be mixed
+            # The of birth of BRLUSD. Before this date fiat was another thing and values can't be mixed
             start='07-01-1994' # MM-DD-YYYY
+
         ptax="https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)"
 
         ptaxParams={
@@ -53,21 +54,16 @@ class BCBCurrencyConverter(CurrencyConverter):
 
         response=requests.get(ptax,params=ptaxParamsStr)
 
-#         logging.debug(response.content[:700])
-
         self.data=pandas.DataFrame(response.json()['value'])
 
         self.data.rename(columns={'dataHoraCotacao': 'time'}, inplace=True)
-
-#         print(self.data.head())
-
 
 
 
     def processData(self):
         self.data = (
             self.data
-            
+
             .assign(
                 value = lambda table: (table.cotacaoCompra+table.cotacaoVenda)/2,
             )
@@ -86,7 +82,7 @@ class BCBCurrencyConverter(CurrencyConverter):
             )
 
             .drop_duplicates()
-            
+
             .set_index('time')
 
             .sort_index()

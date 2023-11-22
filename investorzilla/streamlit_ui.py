@@ -141,6 +141,10 @@ class StreamlitInvestorzillaApp:
             for b in streamlit.session_state.investor.benchmarks:
                 streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
 
+        with streamlit.expander('Currency Converters'):
+            for c in streamlit.session_state.investor.currency_converters:
+                streamlit.markdown(c['obj'].to_markdown(title_prefix='###'))
+
 
 
     def render_performance_page(self):

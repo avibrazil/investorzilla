@@ -165,6 +165,23 @@ class CurrencyConverter(MonetaryTimeSeries):
 
 
 
+    def to_markdown(self, title_prefix=None):
+        title=f"{self.id} ({self.currencyFrom}→{self.currencyTo}) ({type(self).__name__})"
+
+        body=[
+            # ("- home: " + self.home).format(ticker=self.id),
+            f"- `{self.data.index.min()}` to `{self.data.index.max()}`"
+        ]
+
+        body='\n'.join(body)
+
+        if title_prefix is None:
+            return (title,body)
+        else:
+            return f"{title_prefix} {title}\n{body}"
+
+
+
 
 
 
@@ -239,7 +256,7 @@ class MarketIndex(MonetaryTimeSeries):
             data=self.currencyConverter.data
         else:
             data=self.data
-        
+
         body=[
             ("- home: " + self.home).format(ticker=self.id),
             f"- `{data.index.min()}` to `{data.index.max()}`"
