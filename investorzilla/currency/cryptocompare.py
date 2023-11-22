@@ -39,13 +39,7 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
         maxTime=datetime.datetime.utcnow().timestamp()+(24*3600)
 
         for t in range(10):
-            url=self.api.format(
-                cfrom=self.currencyFrom,
-                cto=self.currencyTo,
-                key=self.apiKey,
-                maxTime=round(maxTime)
-            )
-
+            # Go back in time until closing price equals zero
             data=requests.get(
                 self.api.format(
                     cfrom=self.currencyFrom,
@@ -63,6 +57,8 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
                 self.data=pandas.concat([self.data,table])
 
             if table[table['time']==data['Data']['TimeFrom']]['close'][0]==0:
+                # First datapoint of iteration presents no closing price.
+                # Stop going back in time.
                 break
             else:
                 maxTime=data['Data']['TimeFrom']
@@ -83,6 +79,6 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
 
             .set_index('time')
             .sort_index()
-            
+
             .drop(columns="high low open volumefrom volumeto conversionType conversionSymbol ts".split())
         )

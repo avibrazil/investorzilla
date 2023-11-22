@@ -24,23 +24,25 @@ class StreamlitInvestorzillaApp:
 
         # Configure logging for Investor
 
-        if 'logger' not in streamlit.session_state:
-            FORMATTER = logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s")
-            HANDLER = logging.StreamHandler()
-            HANDLER.setFormatter(FORMATTER)
+        loggers=[
+            logging.getLogger('__main__'),
+            logging.getLogger('investorzilla'),
+            # logging.getLogger('sqlite')
+        ]
 
-            loggers=[
-                logging.getLogger('__main__'),
-                logging.getLogger('investorzilla'),
-                # logging.getLogger('sqlite')
-            ]
+        if loggers[0].handlers:  # logger is already setup, don't setup again
+            return loggers[0]
 
-            for logger in loggers:
-                logger.addHandler(HANDLER)
-                logger.setLevel(level)
+        FORMATTER = logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s")
+        HANDLER = logging.StreamHandler()
+        HANDLER.setFormatter(FORMATTER)
 
-            streamlit.session_state.logger=loggers[0]
-            return streamlit.session_state.logger
+        for logger in loggers:
+            logger.addHandler(HANDLER)
+            logger.setLevel(level)
+
+        streamlit.session_state.logger=loggers[0]
+        return streamlit.session_state.logger
 
 
 
@@ -119,7 +121,7 @@ class StreamlitInvestorzillaApp:
 
         self.prepare_fund()
 
-        (tab_performance, tab_portfolio) = streamlit.tabs(["📈 Performance", "💼 Portfolio"])
+        (tab_performance, tab_portfolio) = streamlit.tabs(["📈 Performance", "💼 Portfolio Components and Information"])
 
         with tab_performance:
             self.render_performance_page()
@@ -132,13 +134,12 @@ class StreamlitInvestorzillaApp:
 
 
     def render_portfolio_page(self):
-        streamlit.title('Portfolio')
-        
-        streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
+        with streamlit.expander('Personal Portfolio'):
+            streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
 
-        streamlit.header('Market Indexes')
-        for b in streamlit.session_state.investor.benchmarks:
-            streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
+        with streamlit.expander('Market Indexes'):
+            for b in streamlit.session_state.investor.benchmarks:
+                streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
 
 
 

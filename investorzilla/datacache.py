@@ -87,7 +87,7 @@ class DataCache(object):
     def getDB(self):
         if hasattr(self,'db') and self.db is not None:
             return self.db
-        
+
         engine_config_sets=dict(
             # Documentation for all these SQLAlchemy pool control parameters:
             # https://docs.sqlalchemy.org/en/14/core/engines.html#engine-creation-api
@@ -133,7 +133,7 @@ class DataCache(object):
                 # echo              = True
             ),
         )
-        
+
         # Start with a default config
         engine_config=engine_config_sets['DEFAULT'].copy()
 

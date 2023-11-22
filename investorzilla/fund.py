@@ -321,19 +321,13 @@ class Fund(object):
         part=df.columns.get_level_values(0)[0]
 
         # Get list of currencies that need conversion
-        toConvert=list(df.columns.get_level_values(1))
-
-        if 'comment' in toConvert:
-            toConvert.remove('comment')
+        toConvert=list(set(list(df.columns.get_level_values(1)))-{'comment'})
 
         ## Do not convert values already in target currency, will sum() them later
         sumCurrent=[]
         if self.exchange.target in toConvert:
             toConvert.remove(self.exchange.target)
             sumCurrent.append((part,self.exchange.target))
-
-
-
 
         # Create a working dataframe with our input df simply joined with
         # currency exchange data, using super powerful merge_asof()
