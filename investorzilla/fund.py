@@ -446,12 +446,7 @@ class Fund(object):
                 combinedBalance=self.balance.dropna().unstack(level=0).ffill()
             except Exception as e:
                 self.logger.debug(e)
-#                 self.balance.to_csv('balance_dups.csv')
-#                 iii=self.balance.index.to_frame().reset_index(drop=True) #.set_index('time')
-#                 iii.to_csv('index.csv')
                 raise e
-#                 iii=iii.join(iii, rsuffix='_aa')
-#                 self.logger.debug(iii[iii.fund!=iii.fund_aa])
 
             ## Combined balance is the sum() of balances of all funds at each point in time
             combinedBalance=(
