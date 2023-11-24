@@ -424,9 +424,9 @@ class Fund(object):
         number of shares and share value.
 
         Number of shares change when there is ledger activity, meaning there was
-        money added or removed from fund.
+        money manually added or removed from fund.
 
-        Value of the share changes when balance changes.
+        Value of the share changes when balance changes because of interest.
         """
         self.initial_share_value=initial_share_value
 
@@ -440,17 +440,18 @@ class Fund(object):
         # Handle Balance by combining/summing all balances
         combinedBalance=None
         if len(funds)>1:
-            ## Put balance of each fund in a different column,
-            ## repeat value for empty times and fillna(0) for first empty values
-            try:
-                combinedBalance=self.balance.dropna().unstack(level=0).ffill()
-            except Exception as e:
-                self.logger.debug(e)
-                raise e
-
-            ## Combined balance is the sum() of balances of all funds at each point in time
             combinedBalance=(
-                combinedBalance
+                self.balance
+
+                ## Put balance of each fund in a different column,
+                ## repeat value for empty times and fillna(0) for first empty
+                ## values
+                .dropna()
+                .unstack(level=0)
+                .ffill()
+
+                ## Combined balance is the sum() of balances of all funds at
+                ## each point in time
                 .sum(axis=1)
                 .where(lambda s: s!=0)
                 .dropna()
@@ -493,22 +494,28 @@ class Fund(object):
         )
 
         for i,t in theShares.iterrows():
-            # First adjust number of shares if there was any movements
-            if not pandas.isna(t['ledger']) and t['ledger']!=0:
+
+            # First adjust NUMBER OF SHARES if there was any movement
+            if not pandas.isna(t['ledger']):
                 if share_value!=0:
+                    # If fund was already initialized
                     shares += t['ledger']/share_value
                 elif shares==0:
+                    # If fund was not initialized yet
                     share_value = initial_share_value
                     shares = t['ledger']/share_value
 
 
-            # Second, adjust the share value based on balance
-            if not pandas.isna(t[KPI.BALANCE]) and t[KPI.BALANCE]!=0:
+            # Second, adjust the SHARE VALUE based on balance
+            if not pandas.isna(t[KPI.BALANCE]):
                 if shares==0:
-                    # The rare situation where we have balance before any movement
-                    shares=t[KPI.BALANCE]/initial_share_value
-
-                share_value = t[KPI.BALANCE]/shares
+                    if len(shares_evolution)==0:
+                        # The rare situation where we have balance before any
+                        # movement
+                        share_value = initial_share_value
+                        shares = t[KPI.BALANCE]/share_value
+                else:
+                    share_value = t[KPI.BALANCE]/shares
 
             shares_evolution.append(
                 (i,shares,share_value)
