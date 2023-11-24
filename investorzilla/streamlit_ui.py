@@ -49,7 +49,17 @@ class StreamlitInvestorzillaApp:
     def __init__(self, refresh=False):
         self.prepare_logging(level=logging.INFO)
 
-        streamlit.set_page_config(layout="wide")
+        streamlit.set_page_config(
+            layout="wide",
+            page_title='Investorzilla',
+            menu_items={
+                "Report a Bug": 'https://github.com/avibrazil/investorzilla/issues',
+                "About": '\n'.join([
+                    '# [Investorzilla](https://github.com/avibrazil/investorzilla)',
+                    'Brought to you by **[Avi Alkalay](https://Avi.Alkalay.NET/)**'
+                ])
+            }
+        )
         with streamlit.sidebar:
             # Get the kind of refresh user wants, if any
             self.refreshMap=self.interact_refresh()
