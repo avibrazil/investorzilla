@@ -66,14 +66,19 @@ class BCBCurrencyConverter(CurrencyConverter):
 
             .assign(
                 value = lambda table: (table.cotacaoCompra+table.cotacaoVenda)/2,
+                std   = lambda table: abs(table.cotacaoCompra/table.cotacaoVenda-1)
             )
-            .drop('cotacaoCompra cotacaoVenda'.split(),axis=1)
+
+            # Remove impossible values
+            .query("cotacaoCompra!=0 and cotacaoVenda!=0 and std<0.2")
+
+            .drop('cotacaoCompra cotacaoVenda std'.split(),axis=1)
 
             .assign(
                 time = lambda table: (
                     pandas.to_datetime(table.time)
 
-                    # Time is delivered as Brazil local time
+                    # Data source time is delivered as Brasilia local time
                     .dt.tz_localize('Brazil/East')
 
                     # Keep it as UTC internally because this is our standard
