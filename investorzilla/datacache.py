@@ -169,8 +169,6 @@ class DataCache(object):
             WHERE {idCol} = '{id}'
         '''
 
-        self.getDB()
-
         query=q.format(
             typeTable     = table,
             idCol         = self.idCol,
@@ -181,7 +179,8 @@ class DataCache(object):
         try:
             self.getLogger().debug(f'Trying cache as {query}')
 
-            df=pandas.read_sql(query,con=self.db)
+            with self.getDB().connect() as db:
+                df=pandas.read_sql(query,con=db)
 
             if df.shape[0]>0:
                 self.logger.info(f"Successful cache hit for kind={kind} and id={id} with {df.shape[0]} records.")
@@ -263,13 +262,11 @@ class DataCache(object):
             pointInTime  = pointInTime
         )
 
-        self.getDB()
-
         try:
             self.getLogger().debug(f'Trying cache as {query}')
 
-            with self.getDB().connect() as con:
-                df=pandas.read_sql(query,con=con)
+            with self.getDB().connect() as db:
+                df=pandas.read_sql(query,con=db)
 
             if df.shape[0]>0:
                 age=pandas.Timestamp(df[self.timeCol].max())
@@ -337,7 +334,7 @@ class DataCache(object):
         '''
 
         if self.recycle is not None:
-            with self.getDB().connect() as con:
+            with self.getDB().connect() as db:
                 deprecated=pandas.read_sql_query(
                     versionSelector.format(
                         typeTable    = self.typeTable.format(kind=kind),
@@ -346,7 +343,7 @@ class DataCache(object):
                         id           = id,
                         recycle      = self.recycle
                     ),
-                    con=con
+                    con=db
                 )
 
                 if deprecated.shape[0]>0:
@@ -358,9 +355,9 @@ class DataCache(object):
                         deprecated   = deprecated.deprecated.iloc[0],
                         recycle      = self.recycle
                     )
-    
+
                     self.getLogger().debug(f'Clean old cache entries as {cleanQuery}')
-                    con.execute(sqlalchemy.text(cleanQuery))
+                    db.execute(sqlalchemy.text(cleanQuery))
 
 
 
@@ -386,13 +383,13 @@ class DataCache(object):
 
         self.getLogger().info(f'Set cache to kind={kind}, id={id}, time={now}')
 
-        with self.getDB().connect() as con:
+        with self.getDB().connect() as db:
             d[[self.idCol,self.timeCol] + columns].to_sql(
                 self.typeTable.format(kind=kind),
                 index       = False,
                 if_exists   = 'append',
                 chunksize   = 999,
-                con         = con,
+                con         = db,
                 method      = 'multi'
             )
 
