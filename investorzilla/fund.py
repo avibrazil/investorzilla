@@ -500,13 +500,14 @@ class Fund(object):
                 if share_value!=0:
                     # If fund was already initialized
                     shares += t['ledger']/share_value
+                    shares = round(shares,6)
                 elif shares==0:
                     # If fund was not initialized yet
                     share_value = initial_share_value
                     shares = t['ledger']/share_value
 
 
-            # Second, adjust the SHARE VALUE based on balance
+            # Second, adjust the VALUE OF A SHARE based on balance
             if not pandas.isna(t[KPI.BALANCE]):
                 if shares==0:
                     if len(shares_evolution)==0:

@@ -189,7 +189,7 @@ class Investor(object):
     @property
     def cache(self):
         if self._cache is None:
-            self._cache=DataCache(self.config['cache_database'])
+            self._cache=DataCache(self.config['cache_database'],recycle=2)
             self.logger.debug(f"Using cache: {self._cache}")
 
         return self._cache
