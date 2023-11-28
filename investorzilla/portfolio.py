@@ -120,6 +120,11 @@ class Portfolio(object):
 
             .set_index('fund')
 
+
+            # Get rid of completely empty rows
+            .dropna(how='all')
+
+
             # replace by True where there is NaN
             .isnull()
 
@@ -369,18 +374,17 @@ class Portfolio(object):
             .tzinfo
         )
 
-        # Work on a copy of the input
-        instrumented=time.copy()
-
-        # Shift dates that have no time (time part is 00:00:00) to the
-        # middle of the day (12:00:00) using naiveTimeShift parameter
-        instrumented.update(
-            instrumented[instrumented.dt.time==datetime.time(0)]
-            .apply(lambda cell: cell+timeShift)
-        )
-
         instrumented=(
-            instrumented
+            time
+
+            # Shift dates that have no time (time part is 00:00:00) to the
+            # middle of the day (12:00:00) using naiveTimeShift parameter
+            .apply(
+                lambda cell:
+                    pandas.Timestamp(cell+timeShift)
+                    if cell.time()==datetime.time(0)
+                    else pandas.Timestamp(cell)
+            )
 
             # Convert all to current time zone, or simply add current time
             # zone to TZ-naive entries.

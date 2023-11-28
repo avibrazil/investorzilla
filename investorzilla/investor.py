@@ -23,7 +23,7 @@ class Investor(object):
 
 
 
-    def __init__(self,file,refreshMap=dict(zip(domains,len(domains)*[False]))):
+    def __init__(self,file,refreshMap=dict(zip(domains,len(domains)*[False])),load=True):
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
 
@@ -43,8 +43,10 @@ class Investor(object):
         self.benchmarks           = None
         self.exchange             = CurrencyExchange(self.currency)
 
-        # Load all time series data from cache or web and compute derived data
-        self.loadDomains(refresh)
+        if load:
+            # Load all time series data from cache or web and compute derived
+            # data
+            self.loadDomains(refresh)
 
 
 
@@ -68,7 +70,8 @@ class Investor(object):
         refresh=defaultRefreshMap
         refresh.update(refreshMap)
 
-        # Decide wether we need to update extra benchmarks based on CurrencyConverters
+        # Decide wether we need to update extra benchmarks based on
+        # CurrencyConverters
         augmentDomains=False
         for dom in ['benchmarks','currency_converters']:
             augmentDomains=augmentDomains or refresh[dom] or not getattr(self,dom)
@@ -76,7 +79,11 @@ class Investor(object):
         # Decide wether we need to update CurrencyExchange object
         updateCurrencyExchange=False
         for dom in ['currency_converters']:
-            updateCurrencyExchange=updateCurrencyExchange or refresh[dom] or not getattr(self,dom)
+            updateCurrencyExchange=(
+                updateCurrencyExchange or
+                refresh[dom] or not
+                getattr(self,dom)
+            )
 
         with concurrent.futures.ThreadPoolExecutor(thread_name_prefix='load_domains') as executor:
             tasks={}

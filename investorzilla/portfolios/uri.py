@@ -72,7 +72,7 @@ class URIBalanceOrLedger(Portfolio):
 
     ############################################################################
     ##
-    ## Portfolio interface mathods.
+    ## Portfolio interface methods.
     ##
     ## Concrete implementation of abstract virtual methods from Portfolio class
     ##
@@ -159,8 +159,13 @@ class URIBalanceOrLedger(Portfolio):
     ############################################################################
 
     def processSheetData(self, prop):
+        def ddebug(table):
+            self.logger.debug(table)
+            return table
+
         sheet=getattr(self,f'_{prop}')
         columnsProfile=self.sheetStructure[prop]['columns']
+        monetaryColumns=[c['currency'] for c in columnsProfile['monetary']]
 
         # Set the naiveTimeShift for ledger and balance
         naiveTimeShift=12*3600
@@ -169,9 +174,13 @@ class URIBalanceOrLedger(Portfolio):
 
         sheet=(
             sheet
+
+            # Normalize NaNs
+            .fillna(pandas.NA)
             .replace('#N/A',pandas.NA)
 
-            # Remove rows that don't have fund names
+            # Remove rows that don't have fund names or monetary values
+            .dropna(subset=monetaryColumns, how='all')
             .dropna(subset=['fund'])
 
             # Optimize and be gentle with storage
@@ -187,14 +196,12 @@ class URIBalanceOrLedger(Portfolio):
                     pandas.to_datetime(
                         table.time,
                         format='mixed',
-                        yearfirst=True
+                        yearfirst=True,
+                        utc=False
                     ),
                     naiveTimeShift
                 )
             )
-
-            # Normalize NaNs
-            .fillna(pandas.NA)
         )
 
         # Handle monetary columns, remove currency symbols and make them numbers
