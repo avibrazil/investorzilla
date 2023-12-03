@@ -135,7 +135,7 @@ class StreamlitInvestorzillaApp:
         (tab_performance, tab_shares, tab_portfolio) = streamlit.tabs(
             [
                 "📈 Performance",
-                "🎼 Shares and Share Price",
+                "🎼 Inspect Fund Shares",
                 "💼 Portfolio Components and Information",
             ]
         )
@@ -175,7 +175,7 @@ class StreamlitInvestorzillaApp:
                 investorzilla.KPI.SHARE_VALUE: streamlit.column_config.NumberColumn(
                     help=f"The value of each share, in {streamlit.session_state.fund.currency}",
                     # format=investorzilla.Fund.formatters[investorzilla.KPI.SHARE_VALUE]['format'],
-                    format="$%.2f"
+                    format="$%.6f"
                 ),
                 investorzilla.KPI.BALANCE: streamlit.column_config.NumberColumn(
                     help=f"Balance in that point of time, in {streamlit.session_state.fund.currency}",
