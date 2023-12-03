@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 # Dependencies available via OS packages:
@@ -131,15 +132,57 @@ class StreamlitInvestorzillaApp:
 
         self.prepare_fund()
 
-        (tab_performance, tab_portfolio) = streamlit.tabs(["📈 Performance", "💼 Portfolio Components and Information"])
+        (tab_performance, tab_shares, tab_portfolio) = streamlit.tabs(
+            [
+                "📈 Performance",
+                "🎼 Shares and Share Price",
+                "💼 Portfolio Components and Information",
+            ]
+        )
 
         with tab_performance:
             self.render_performance_page()
+
+        with tab_shares:
+            self.render_shares_page()
 
         with tab_portfolio:
             self.render_portfolio_page()
 
         streamlit.caption('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
+
+
+
+    def render_shares_page(self):
+        streamlit.title(streamlit.session_state.fund.name)
+        streamlit.dataframe(
+            (
+                streamlit.session_state.fund.shares
+                .assign(
+                    time=lambda table: table.index.tz_convert(datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo),
+                    balance=lambda table: (
+                        table[investorzilla.KPI.SHARES] *
+                        table[investorzilla.KPI.SHARE_VALUE]
+                    )
+                )
+                .set_index('time')
+            ),
+            use_container_width=True,
+            column_config={
+                investorzilla.KPI.SHARES: streamlit.column_config.NumberColumn(
+                    help="Number of shares of the virtual fund formed by selected assets, in that point of time",
+                ),
+                investorzilla.KPI.SHARE_VALUE: streamlit.column_config.NumberColumn(
+                    help=f"The value of each share, in {streamlit.session_state.fund.currency}",
+                    # format=investorzilla.Fund.formatters[investorzilla.KPI.SHARE_VALUE]['format'],
+                    format="$%.2f"
+                ),
+                investorzilla.KPI.BALANCE: streamlit.column_config.NumberColumn(
+                    help=f"Balance in that point of time, in {streamlit.session_state.fund.currency}",
+                    format="$%.2f"
+                )
+            }
+        )
 
 
 
