@@ -16,6 +16,7 @@ class KPI(object):
     BALANCE                 =  'balance'
     BALANCE_PREV            =  'balance_prev' # of previous period
     MOVEMENTS               =  'movements'
+    LEDGER                  =  'ledger'
 
     # Cumulative movements
     SAVINGS                 =  'cumulative savings'
@@ -469,12 +470,11 @@ class Fund(object):
             combinedBalance=self.balance.droplevel(0)
 
         # Handle Ledger by simply sorting by time the movements of all funds
-
         theShares=(
             self.ledger
 
             # Get rid of comment column
-            .drop(columns=('ledger','comment'))
+            .drop(columns=(KPI.LEDGER,'comment'))
 
             # Get rid of fund names
             .droplevel(0)
@@ -493,21 +493,25 @@ class Fund(object):
             .droplevel(1, axis=1)
         )
 
+        wiped = False
         for i,t in theShares.iterrows():
 
             # First adjust NUMBER OF SHARES if there was any movement
-            if not pandas.isna(t['ledger']):
+            if not pandas.isna(t[KPI.LEDGER]):
                 if share_value!=0:
                     # If fund was already initialized
-                    shares += t['ledger']/share_value
-                    shares = round(shares,6)
+                    shares += t[KPI.LEDGER]/share_value
+                    shares = round(shares,12)
+                    if shares==0:
+                        # all assets withdraw from account
+                        wiped=True
                 elif shares==0:
                     # If fund was not initialized yet
                     share_value = initial_share_value
-                    shares = t['ledger']/share_value
+                    shares = t[KPI.LEDGER]/share_value
 
 
-            # Second, adjust the VALUE OF A SHARE based on balance
+            # Second, adjust the VALUE OF A SHARE based on new balance
             if not pandas.isna(t[KPI.BALANCE]):
                 if shares==0:
                     if len(shares_evolution)==0:
@@ -515,6 +519,16 @@ class Fund(object):
                         # movement
                         share_value = initial_share_value
                         shares = t[KPI.BALANCE]/share_value
+                    elif t[KPI.BALANCE]!=0:
+                        # The even more rare situation where interest arrives
+                        # after an existing balance became zero. So we have
+                        # a share_value but no shares. Interests affect
+                        # share_value while ledger movements affect number of
+                        # shares. But here we'll have to fabricate shares to
+                        # be able to express some balance. Result will be an
+                        # artificially huge increase in share_value.
+                        shares = 0.01
+                        share_value = t[KPI.BALANCE]/shares
                 else:
                     share_value = t[KPI.BALANCE]/shares
 
@@ -711,7 +725,7 @@ class Fund(object):
                 )
                 .set_index(['',p['periodLabel']])
             )
-
+    
             # Add to main report transposing it into a true row (we were
             # columns until now)
             report=(
@@ -719,7 +733,7 @@ class Fund(object):
                 if report is not None
                 else line.T
             )
-
+    
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
         #             if KPI.PERIOD_GAIN in kpi:
@@ -729,10 +743,10 @@ class Fund(object):
         #                         macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
         #                     )
         #                 )
-
+    
         #         if KPI.PERIOD_GAIN in kpi:
         #             macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
-
+    
         # Turn summary report into a column, sort and name labels for perfect join
         report[('summary of periods',p['macroPeriodLabel'])] = (
             macroPeriod
@@ -742,10 +756,10 @@ class Fund(object):
             .reorder_levels(['time','KPI'])
             .sort_index()
         )
-
+    
         report = (
             report
-
+    
             # Reformat line index from a full PeriodIndex into something more
             # readable
             .pipe(
@@ -770,7 +784,7 @@ class Fund(object):
                         )
                     )
             )
-
+    
             # Sort rows as requested by parameters
             .sort_index(
                 level=0,
@@ -778,8 +792,8 @@ class Fund(object):
                 ascending=ascending
             )
         )
-
-
+    
+    
         # output may be:
         ## - styled (default): returns a styled Dataframe
         ## - flat: hard format and simplify the dataframe for Streamlit
