@@ -493,33 +493,29 @@ class Fund(object):
             .droplevel(1, axis=1)
         )
 
-        wiped = False
-        for i,t in theShares.iterrows():
+        for time,row in theShares.iterrows():
 
             # First adjust NUMBER OF SHARES if there was any movement
-            if not pandas.isna(t[KPI.LEDGER]):
+            if not pandas.isna(row[KPI.LEDGER]):
                 if share_value!=0:
                     # If fund was already initialized
-                    shares += t[KPI.LEDGER]/share_value
+                    shares += row[KPI.LEDGER]/share_value
                     shares = round(shares,12)
-                    if shares==0:
-                        # all assets withdraw from account
-                        wiped=True
                 elif shares==0:
                     # If fund was not initialized yet
                     share_value = initial_share_value
-                    shares = t[KPI.LEDGER]/share_value
+                    shares = row[KPI.LEDGER]/share_value
 
 
             # Second, adjust the VALUE OF A SHARE based on new balance
-            if not pandas.isna(t[KPI.BALANCE]):
+            if not pandas.isna(row[KPI.BALANCE]):
                 if shares==0:
                     if len(shares_evolution)==0:
                         # The rare situation where we have balance before any
                         # movement
                         share_value = initial_share_value
-                        shares = t[KPI.BALANCE]/share_value
-                    elif t[KPI.BALANCE]!=0:
+                        shares = row[KPI.BALANCE]/share_value
+                    elif row[KPI.BALANCE]!=0:
                         # The even more rare situation where interest arrives
                         # after an existing balance became zero. So we have
                         # a share_value but no shares. Interests affect
@@ -528,12 +524,12 @@ class Fund(object):
                         # be able to express some balance. Result will be an
                         # artificially huge increase in share_value.
                         shares = 0.01
-                        share_value = t[KPI.BALANCE]/shares
+                        share_value = row[KPI.BALANCE]/shares
                 else:
-                    share_value = t[KPI.BALANCE]/shares
+                    share_value = row[KPI.BALANCE]/shares
 
             shares_evolution.append(
-                (i,shares,share_value)
+                (time,shares,share_value)
             )
 
         self.shares=(
