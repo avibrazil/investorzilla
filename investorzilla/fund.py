@@ -249,20 +249,15 @@ class Fund(object):
 
 
         # Compute number of shares and share value over time
-        try:
-            self.computeShares()
+        self.computeShares()
 
-            # Date and time the fund begins and ends
-            self.start=((self.shares[KPI.SHARES] != 0) | (self.shares[KPI.SHARE_VALUE] != 0)).idxmax()
-            self.end=self.shares.tail(1).index.item()
-        except Exception as e:
-            self.logger.warning(
-                f'Failed to compute shares with error "{e}". ' +
-                'Returning an incomplete object for debug purposes'
-            )
+        # Date and time the fund begins and ends
+        self.start=((self.shares[KPI.SHARES] != 0) | (self.shares[KPI.SHARE_VALUE] != 0)).idxmax()
+        self.end=self.shares.tail(1).index.item()
 
+        # Set a nice fund name based on its assets
         self.setName()
-        # self.name='aaa'
+
 
 
     def setName(self, name=None, top=3) -> str:
@@ -548,17 +543,134 @@ class Fund(object):
     ##
     ############################################################################
 
-    def report(self, period='month & year', benchmark=None, output='styled',
-                start=None,
-                end=None,
-                tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo,
-                flatPeriodFirst=True,
-                ascending=False,
+    def filter(
+                report: pandas.DataFrame,
+                timeSortAscending=False,
                 kpi=benchmarkFeatures + [
                     KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,
                     KPI.SAVINGS,       KPI.MOVEMENTS,     KPI.SHARES,
                     KPI.SHARE_VALUE
+                ],
+              ):
+        """
+        Filter the report and returns only the KPIs in the list.
+        """
+        return (
+            report.loc[
+                # All time segments (slice(None)) but only desired KPIs, all columns
+                (slice(None),pandas.Index(kpi, name='KPI')), :
+            ]
+
+            # KPIs came in correct order but time is a mess, so reorder the
+            # time axis
+            .sort_index(
+                level='time',
+                ascending=timeSortAscending,
+                sort_remaining=False
+            )
+        )
+
+
+
+    def format(report: pandas.DataFrame, output='styled', flatPeriodFirst=True):
+        """
+        output can be:
+        - styled (default): returns a pandas.styler object with nice number
+            formatting, red negative numbers and multi-index structure.
+
+        - plain: returns a plain pandas.DataFrame ready for further data
+            analysis.
+
+        - flat_unformatted: as plain but all values are converted to text.
+
+        - flat: returns a pandas.DataFrame with hard number formatting (all is
+            converter to text after formatting) and flattened multi-indexes for
+            limited displays as Streamlit.
+        """
+        if output=='plain':
+            ## Just return the Dataframe with raw numeric values
+            return report
+        
+        if output=='flat' or output=='flat_unformatted':
+            ## Convert all to object to attain more flexibility per cell
+            out=report.astype(object)
+        
+            if output=='flat_unformatted':
+                return out
+        
+        if output=='styled':
+            ## Lets work with a styled DataFrame. Best and default output type.
+            out=(
+                report.style
+                .apply(lambda cell: numpy.where(cell<0,"color: red",None), axis=1)
+            )
+        
+        # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
+        # not plain (just the data), we'll have to apply formatting, either as style or
+        # hardcoded (in case of flat).
+        
+        
+        defaultFormat=None
+        if 'DEFAULT' in Fund.formatters:
+            defaultFormat=Fund.formatters['DEFAULT']
+
+        # Work only in available KPIs
+        for i in report.index.get_level_values('KPI').unique():
+            for g in ['periods', 'summary of periods']:
+                # Select formatter for KPI
+
+                f=defaultFormat['format']
+                if g=='summary of periods' and 'summaryFormat' in defaultFormat:
+                    f=defaultFormat['summaryFormat']
+        
+                if i in Fund.formatters:
+                    if g=='summary of periods' and 'summaryFormat' in Fund.formatters[i]:
+                        f=Fund.formatters[i]['summaryFormat']
+                    else:
+                        f=Fund.formatters[i]['format']
+
+
+                selector=pandas.IndexSlice[
+                    # Apply format in KPI row
+                    pandas.IndexSlice[:,i],
+        
+                    # Apply style in «periods» or «summary of periods»
+                    pandas.IndexSlice[g,:]
                 ]
+        
+        
+                if output=='flat':
+                    out.loc[selector]=out.loc[selector].apply(
+                        lambda s: [f.format(x) for x in s]
+                    )
+                    out.loc[selector]=out.loc[selector].replace('$nan','')
+                elif output=='styled':
+                    # Styler advanced slicing only works in Pandas>=1.3
+                    out=out.format(formatter=f, subset=selector, na_rep='')
+        
+        if output=='styled':
+            # Styled report is ready to go
+            return out
+        
+        # Final cleanup for flat
+        out.replace(['nan','nan%'],'', inplace=True)
+        if flatPeriodFirst:
+            out.index=['·'.join((p,k)).strip() for (p,k) in out.index.values]
+        else:
+            out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
+        level=out.loc[:,pandas.IndexSlice['summary of periods',:]].columns.values[0][1]
+        out.rename(columns={level:'summary of periods'},inplace=True)
+        out.columns=out.columns.droplevel(0)
+
+        return out
+
+
+
+    def report(self, period='month & year', benchmark=None, output='styled',
+                start=None,
+                end=None,
+                tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo,
+                ascending=False,
         ):
         """
         Joins 2 periodicReports() to get a complete report with periods
@@ -601,14 +713,6 @@ class Fund(object):
         # How many periods fit in a macroPeriod ?
         periodsInSummary = Fund.div_offsets(p['macroPeriod'],p['period'])
         
-        if benchmark is None:
-            # Remove benchmark features because there is no benchmark
-            kpi=[i for i in kpi if i not in self.benchmarkFeatures]
-        
-            # Can't use set() operations here because it messes with features
-            # order, which are important to us
-        
-        
         # Get detailed part of report with period data
         periodOffset = pandas.tseries.frequencies.to_offset(p['period'])
         period = self.periodicReport(
@@ -617,7 +721,7 @@ class Fund(object):
             start      = start,
             end        = end,
             tz         = tz
-        )[kpi]
+        )
         
         # Get summary part report with summary of a period set
         macroPeriodOffset = pandas.tseries.frequencies.to_offset(p['macroPeriod'])
@@ -627,7 +731,7 @@ class Fund(object):
             start      = start,
             end        = end,
             tz         = tz
-        )[kpi]
+        )
         
         
         report=None
@@ -752,10 +856,10 @@ class Fund(object):
             .reorder_levels(['time','KPI'])
             .sort_index()
         )
-    
-        report = (
+
+        return (
             report
-    
+
             # Reformat line index from a full PeriodIndex into something more
             # readable
             .pipe(
@@ -780,96 +884,7 @@ class Fund(object):
                         )
                     )
             )
-    
-            # Sort rows as requested by parameters
-            .sort_index(
-                level=0,
-                sort_remaining=False,
-                ascending=ascending
-            )
         )
-    
-    
-        # output may be:
-        ## - styled (default): returns a styled Dataframe
-        ## - flat: hard format and simplify the dataframe for Streamlit
-        ## - plain: the Dataframe without style
-        
-        if output=='plain':
-            ## Just return the Dataframe with raw numeric values
-            return report
-        
-        if output=='flat' or output=='flat_unformatted':
-            ## Convert all to object to attain more flexibility per cell
-            out=report.astype(object)
-        
-            if output=='flat_unformatted':
-                return out
-        
-        if output=='styled':
-            ## Lets work with a styled DataFrame. Best and default output type.
-            out=(
-                report.style
-                .apply(lambda cell: numpy.where(cell<0,"color: red",None), axis=1)
-            )
-        
-        # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
-        # not plain (just the data), we'll have to apply formatting, either as style or
-        # hardcoded (in case of flat).
-        
-        
-        defaultFormat=None
-        if 'DEFAULT' in self.formatters:
-            defaultFormat=self.formatters['DEFAULT']
-        
-        for i in kpi:
-            for g in ['periods', 'summary of periods']:
-                # Select formatter for KPI
-        
-                f=defaultFormat['format']
-                if g=='summary of periods' and 'summaryFormat' in defaultFormat:
-                    f=defaultFormat['summaryFormat']
-        
-                if i in self.formatters:
-                    if g=='summary of periods' and 'summaryFormat' in self.formatters[i]:
-                        f=self.formatters[i]['summaryFormat']
-                    else:
-                        f=self.formatters[i]['format']
-        
-        
-                selector=pandas.IndexSlice[
-                    # Apply format in KPI row
-                    pandas.IndexSlice[:,i],
-        
-                    # Apply style in «periods» or «summary of periods»
-                    pandas.IndexSlice[g,:]
-                ]
-        
-        
-                if output=='flat':
-                    out.loc[selector]=out.loc[selector].apply(
-                        lambda s: [f.format(x) for x in s]
-                    )
-                    out.loc[selector]=out.loc[selector].replace('$nan','')
-                elif output=='styled':
-                    # Styler advanced slicing only works in Pandas>=1.3
-                    out=out.format(formatter=f, subset=selector, na_rep='')
-        
-        if output=='styled':
-            # Styled report is ready to go
-            return out
-        
-        # Final cleanup for flat
-        out.replace(['nan','nan%'],'', inplace=True)
-        if flatPeriodFirst:
-            out.index=['·'.join((p,k)).strip() for (p,k) in out.index.values]
-        else:
-            out.index=['·'.join((k,p)).strip() for (p,k) in out.index.values]
-        level=out.loc[:,pandas.IndexSlice['summary of periods',:]].columns.values[0][1]
-        out.rename(columns={level:'summary of periods'},inplace=True)
-        out.columns=out.columns.droplevel(0)
-        
-        return out
 
 
 

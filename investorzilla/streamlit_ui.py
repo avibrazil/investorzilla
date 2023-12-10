@@ -153,53 +153,6 @@ class StreamlitInvestorzillaApp:
 
 
 
-    def render_shares_page(self):
-        streamlit.title(streamlit.session_state.fund.name)
-        streamlit.dataframe(
-            (
-                streamlit.session_state.fund.shares
-                .assign(
-                    time=lambda table: table.index.tz_convert(datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo),
-                    balance=lambda table: (
-                        table[investorzilla.KPI.SHARES] *
-                        table[investorzilla.KPI.SHARE_VALUE]
-                    )
-                )
-                .set_index('time')
-            ),
-            use_container_width=True,
-            column_config={
-                investorzilla.KPI.SHARES: streamlit.column_config.NumberColumn(
-                    help="Number of shares of the virtual fund formed by selected assets, in that point of time",
-                ),
-                investorzilla.KPI.SHARE_VALUE: streamlit.column_config.NumberColumn(
-                    help=f"The value of each share, in {streamlit.session_state.fund.currency}",
-                    # format=investorzilla.Fund.formatters[investorzilla.KPI.SHARE_VALUE]['format'],
-                    format="$%.6f"
-                ),
-                investorzilla.KPI.BALANCE: streamlit.column_config.NumberColumn(
-                    help=f"Balance in that point of time, in {streamlit.session_state.fund.currency}",
-                    format="$%.2f"
-                )
-            }
-        )
-
-
-
-    def render_portfolio_page(self):
-        with streamlit.expander('Personal Portfolio'):
-            streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
-
-        with streamlit.expander('Market Indexes'):
-            for b in streamlit.session_state.investor.benchmarks:
-                streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
-
-        with streamlit.expander('Currency Converters'):
-            for c in streamlit.session_state.investor.currency_converters:
-                streamlit.markdown(c['obj'].to_markdown(title_prefix='###'))
-
-
-
     def render_performance_page(self):
         # Render title
         streamlit.title(streamlit.session_state.fund.name)
@@ -352,15 +305,21 @@ class StreamlitInvestorzillaApp:
             key='kpi_performance'
         )
 
-        streamlit.markdown(
-        # streamlit.dataframe(
-            streamlit.session_state['fund'].report(
+        # kpi        = streamlit.session_state['kpi_performance'],
+
+        report=streamlit.session_state.fund.report(
                 period     = streamlit.session_state.interact_periods,
                 benchmark  = streamlit.session_state.interact_benchmarks['obj'],
                 start      = streamlit.session_state.interact_start_end[0],
                 end        = streamlit.session_state.interact_start_end[1],
-                kpi        = streamlit.session_state['kpi_performance'],
-                # output     = 'flat'
+            )
+
+        streamlit.markdown(
+            investorzilla.Fund.format(
+                investorzilla.Fund.filter(
+                    report,
+                    kpi=streamlit.session_state.kpi_performance
+                )
             )
             .set_table_styles(table_styles)
 
@@ -386,13 +345,11 @@ class StreamlitInvestorzillaApp:
         )
 
         streamlit.markdown(
-            streamlit.session_state['fund'].report(
-                period=streamlit.session_state.interact_periods,
-                benchmark=streamlit.session_state.interact_benchmarks['obj'],
-                start=streamlit.session_state.interact_start_end[0],
-                end=streamlit.session_state.interact_start_end[1],
-                kpi=streamlit.session_state['kpi_wealth'],
-                # output='flat'
+            investorzilla.Fund.format(
+                investorzilla.Fund.filter(
+                    report,
+                    kpi=streamlit.session_state.kpi_wealth
+                )
             )
             .set_table_styles(table_styles)
 
@@ -400,7 +357,7 @@ class StreamlitInvestorzillaApp:
             unsafe_allow_html=True
         )
 
-        # Render footer
+        # Render footer stats
         streamlit.markdown(
             'Most recent porfolio data is **{}**'.format(
                 streamlit.session_state.investor.portfolio.asof
@@ -413,6 +370,53 @@ class StreamlitInvestorzillaApp:
                 streamlit.session_state.interact_start_end[1]
             )
         )
+
+
+
+    def render_shares_page(self):
+        streamlit.title(streamlit.session_state.fund.name)
+        streamlit.dataframe(
+            (
+                streamlit.session_state.fund.shares
+                .assign(
+                    time=lambda table: table.index.tz_convert(datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo),
+                    balance=lambda table: (
+                        table[investorzilla.KPI.SHARES] *
+                        table[investorzilla.KPI.SHARE_VALUE]
+                    )
+                )
+                .set_index('time')
+            ),
+            use_container_width=True,
+            column_config={
+                investorzilla.KPI.SHARES: streamlit.column_config.NumberColumn(
+                    help="Number of shares of the virtual fund formed by selected assets, in that point of time",
+                ),
+                investorzilla.KPI.SHARE_VALUE: streamlit.column_config.NumberColumn(
+                    help=f"The value of each share, in {streamlit.session_state.fund.currency}",
+                    # format=investorzilla.Fund.formatters[investorzilla.KPI.SHARE_VALUE]['format'],
+                    format="$%.6f"
+                ),
+                investorzilla.KPI.BALANCE: streamlit.column_config.NumberColumn(
+                    help=f"Balance in that point of time, in {streamlit.session_state.fund.currency}",
+                    format="$%.2f"
+                )
+            }
+        )
+
+
+
+    def render_portfolio_page(self):
+        with streamlit.expander('Personal Portfolio'):
+            streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
+
+        with streamlit.expander('Market Indexes'):
+            for b in streamlit.session_state.investor.benchmarks:
+                streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
+
+        with streamlit.expander('Currency Converters'):
+            for c in streamlit.session_state.investor.currency_converters:
+                streamlit.markdown(c['obj'].to_markdown(title_prefix='###'))
 
 
 
