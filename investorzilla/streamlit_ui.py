@@ -167,16 +167,24 @@ class StreamlitInvestorzillaApp:
         #     if p['period']==streamlit.session_state.interact_periods:
         #         break
 
-        metricsPeriod=streamlit.session_state.fund.periodicReport(
-            period=p['period'],
-            start=streamlit.session_state.interact_start_end[0],
-            end=streamlit.session_state.interact_start_end[1],
+        reportRagged=streamlit.session_state.fund.periodicReport(
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            start      = streamlit.session_state.interact_start_end[0],
+            end        = streamlit.session_state.interact_start_end[1],
         )
 
-        metricsMacroPeriod=streamlit.session_state.fund.periodicReport(
-            period=p['macroPeriod'],
-            start=streamlit.session_state.interact_start_end[0],
-            end=streamlit.session_state.interact_start_end[1],
+        reportPeriodic=streamlit.session_state.fund.periodicReport(
+            period     = p['period'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            start      = streamlit.session_state.interact_start_end[0],
+            end        = streamlit.session_state.interact_start_end[1],
+        )
+
+        reportMacroPeriodic=streamlit.session_state.fund.periodicReport(
+            period     = p['macroPeriod'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            start      = streamlit.session_state.interact_start_end[0],
+            end        = streamlit.session_state.interact_start_end[1],
         )
 
         if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
@@ -188,25 +196,25 @@ class StreamlitInvestorzillaApp:
 
         col1.metric(
             label=label.format(p=p,kpi=investorzilla.KPI.RATE_RETURN),
-            value='{:6.2f}%'.format(100*metricsPeriod.iloc[-1][investorzilla.KPI.RATE_RETURN]),
-            delta='{:6.2f}%'.format(100*metricsMacroPeriod.iloc[-1][investorzilla.KPI.RATE_RETURN]),
+            value='{:6.2f}%'.format(100*reportPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
+            delta='{:6.2f}%'.format(100*reportMacroPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
         )
 
         col2.metric(
             label=label.format(p=p,kpi=investorzilla.KPI.PERIOD_GAIN),
-            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
+            value='${:0,.2f}'.format(reportPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
             delta='{sign}${value:0,.2f}'.format(
-                value=abs(metricsMacroPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
-                sign=('-' if metricsMacroPeriod.iloc[-1][investorzilla.KPI.PERIOD_GAIN]<0 else '')
+                value=abs(reportMacroPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
+                sign=('-' if reportMacroPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]<0 else '')
             )
         )
 
         col3.metric(
             label='current {} & {}'.format(investorzilla.KPI.BALANCE,investorzilla.KPI.SAVINGS),
-            value='${:0,.2f}'.format(metricsPeriod.iloc[-1][investorzilla.KPI.BALANCE]),
+            value='${:0,.2f}'.format(reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE]),
             delta='{sign}${value:0,.2f}'.format(
-                value=abs(metricsMacroPeriod.iloc[-1][investorzilla.KPI.SAVINGS]),
-                sign=('-' if metricsMacroPeriod.iloc[-1][investorzilla.KPI.SAVINGS]<0 else '')
+                value=abs(reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]),
+                sign=('-' if reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]<0 else '')
             )
         )
 
@@ -219,17 +227,14 @@ class StreamlitInvestorzillaApp:
             streamlit.line_chart(
                 streamlit.session_state.fund.performancePlot(
                     benchmark=streamlit.session_state.interact_benchmarks['obj'],
-                    start=streamlit.session_state.interact_start_end[0],
-                    end=streamlit.session_state.interact_start_end[1],
+                    precomputedReport=reportRagged,
                     type='raw'
                 )
             )
 
             streamlit.pyplot(
                 streamlit.session_state.fund.rateOfReturnPlot(
-                    period=p['period'],
-                    start=streamlit.session_state.interact_start_end[0],
-                    end=streamlit.session_state.interact_start_end[1],
+                    precomputedReport=reportPeriodic,
                     type='pyplot'
                 )
             )
@@ -240,47 +245,18 @@ class StreamlitInvestorzillaApp:
                 use_container_width=True,
                 altair_chart=streamlit.session_state.fund.incomePlot(
                     periodPair=streamlit.session_state.interact_periods,
-                    start=streamlit.session_state.interact_start_end[0],
-                    end=streamlit.session_state.interact_start_end[1],
-                    type='altair'
+                    type='altair',
+                    precomputedReport=reportPeriodic
                 )
             )
 
-            wealthPlotData=streamlit.session_state.fund.wealthPlot(
-                benchmark=streamlit.session_state.interact_benchmarks['obj'],
-                start=streamlit.session_state.interact_start_end[0],
-                end=streamlit.session_state.interact_start_end[1],
-                type='raw'
-            ) #[['balance','savings','cumulative income']]
-
-#             wealthPlotData['balance÷savings'] *= 0.5 * (
-#                 wealthPlotData['balance'] -
-#                 wealthPlotData['savings']
-#             ).mean()
-
-            streamlit.line_chart(wealthPlotData)
-
-#             streamlit.bar_chart(
-#                 streamlit.session_state['fund'].incomePlot(
-#                     period=streamlit.session_state.interact_periods,
-#                     start=streamlit.session_state.interact_start_end[0],
-#                     end=streamlit.session_state.interact_start_end[1],
-#                     type='raw'
-#                 )['income']
-#             )
-#
-#             rolling_income=streamlit.session_state['fund'].incomePlot(
-#                 period=streamlit.session_state.interact_periods,
-#                 start=streamlit.session_state.interact_start_end[0],
-#                 end=streamlit.session_state.interact_start_end[1],
-#                 type='raw'
-#             )
-#
-#             rolling_columns=list(rolling_income.columns)
-#             rolling_columns.remove('income')
-#
-#             streamlit.line_chart(rolling_income[rolling_columns])
-
+            streamlit.line_chart(
+                streamlit.session_state.fund.wealthPlot(
+                    benchmark=streamlit.session_state.interact_benchmarks['obj'],
+                    precomputedReport=reportRagged,
+                    type='raw'
+                )
+            )
 
         table_styles=[
             dict(selector="td", props="font-size: 0.8em; text-align: right"),
@@ -308,6 +284,8 @@ class StreamlitInvestorzillaApp:
         # kpi        = streamlit.session_state['kpi_performance'],
 
         report=streamlit.session_state.fund.report(
+                precomputedPeriodicReport      = reportPeriodic,
+                precomputedMacroPeriodicReport = reportMacroPeriodic,
                 period     = streamlit.session_state.interact_periods,
                 benchmark  = streamlit.session_state.interact_benchmarks['obj'],
                 start      = streamlit.session_state.interact_start_end[0],

@@ -666,39 +666,32 @@ class Fund(object):
 
 
 
-    def report(self, period='month & year', benchmark=None, output='styled',
+    def report(self,
+                period='month & year',
+                benchmark=None,
                 start=None,
                 end=None,
                 tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo,
-                ascending=False,
+                precomputedPeriodicReport=None,
+                precomputedMacroPeriodicReport=None,
         ):
         """
         Joins 2 periodicReports() to get a complete report with periods
         and summary of periods. For example, period='month & year'
         computes KPIs for each month aligned with the summary of 12
         months (an year).
-        
+
+        If precomputed* are passed, they'll be used and there must be full
+        compatibility between them and the other parameters.
+
         Result is a structure and readable report organized as financial
         institutions use to show mutual funds performance reports.
-        
-        output can be:
-        - styled (default): returns a pandas.styler object with nice number
-            formatting, red negative numbers and multi-index structure.
-        
-        - plain: returns a plain pandas.DataFrame ready for further data
-            analysis.
-        
-        - flat_unformatted: as plain but all values are converted to text.
-        
-        - flat: returns a pandas.DataFrame with hard number formatting (all is
-            converter to text after formatting) and flattened multi-indexes for
-            limited displays as Streamlit.
         """
-        
+
         def ddebug(table):
             display(table)
             return table
-        
+
         # Find period structure
         try:
             p = self.periodPairs[period]
@@ -708,52 +701,58 @@ class Fund(object):
                     str(Fund.getPeriodPairs())
                 )
             )
-        
-        
+
+
         # How many periods fit in a macroPeriod ?
         periodsInSummary = Fund.div_offsets(p['macroPeriod'],p['period'])
-        
+
         # Get detailed part of report with period data
         periodOffset = pandas.tseries.frequencies.to_offset(p['period'])
-        period = self.periodicReport(
-            period     = p['period'],
-            benchmark  = benchmark,
-            start      = start,
-            end        = end,
-            tz         = tz
-        )
-        
+        if precomputedPeriodicReport is not None:
+            period = precomputedPeriodicReport
+        else:
+            period = self.periodicReport(
+                period     = p['period'],
+                benchmark  = benchmark,
+                start      = start,
+                end        = end,
+                tz         = tz
+            )
+
         # Get summary part report with summary of a period set
         macroPeriodOffset = pandas.tseries.frequencies.to_offset(p['macroPeriod'])
-        macroPeriod = self.periodicReport(
-            period     = p['macroPeriod'],
-            benchmark  = benchmark,
-            start      = start,
-            end        = end,
-            tz         = tz
-        )
-        
-        
+        if precomputedMacroPeriodicReport is not None:
+            macroPeriod = precomputedMacroPeriodicReport
+        else:
+            macroPeriod = self.periodicReport(
+                period     = p['macroPeriod'],
+                benchmark  = benchmark,
+                start      = start,
+                end        = end,
+                tz         = tz
+            )
+
+
         report=None
-        
+
         # KPI income has a special formatter
         if KPI.PERIOD_GAIN in self.formatters:
             incomeFormatter=self.formatters[KPI.PERIOD_GAIN]['format']
         else:
             incomeFormatter=self.formatters['DEFAULT']['format']
-        
+
         # Break the periodic report in chunks equivalent to the summary report
         for i in range(len(macroPeriod.index)):
             macroPeriodPrev=macroPeriod.index[i] - macroPeriodOffset
             macroPeriodCurr=macroPeriod.index[i]
-        
+
             if i==0:
                 # Process first line, usually prepending NaNs
                 line=period[:macroPeriodCurr.end_time]
                 nPeriods=line.shape[0]
-        
+
                 completeMe = int(periodsInSummary - nPeriods)
-        
+
                 if completeMe > 0:
                     # First line in report use to need leading empty
                     # periods if they start in the middle of macro period
@@ -778,7 +777,7 @@ class Fund(object):
                         #     ]
                         # )
                     )
-        
+
                     nPeriods=line.shape[0]
             else:
                 # Process lines that are not the first
@@ -788,16 +787,16 @@ class Fund(object):
                 # )
                 line=period[macroPeriodCurr.start_time:macroPeriodCurr.end_time]
                 nPeriods=line.shape[0]
-        
+
             # Add a row label, as '2020' or '4·Thu' or '2022-w25'
             line=(
                 ## Add the time index of the summary report as an additional
                 ## index level to columns
                 pandas.concat([line], axis=1, keys=[macroPeriod.index[i]])
-        
+
                 ## Rename the title for labels so we can join latter
                 .rename_axis(['time','KPI'], axis='columns')
-        
+
                 ## Convert index from full PeriodIndex to something that can
                 ## be matched across macro-periods, as just '08·Aug'
                 .assign(
@@ -825,7 +824,7 @@ class Fund(object):
                 )
                 .set_index(['',p['periodLabel']])
             )
-    
+
             # Add to main report transposing it into a true row (we were
             # columns until now)
             report=(
@@ -833,7 +832,7 @@ class Fund(object):
                 if report is not None
                 else line.T
             )
-    
+
             # Make the 'income' value of summary report the average multiplied
             # by number of periods
         #             if KPI.PERIOD_GAIN in kpi:
@@ -843,10 +842,10 @@ class Fund(object):
         #                         macroPeriod.loc[macroPeriod.index[i],KPI.PERIOD_GAIN]/nPeriods
         #                     )
         #                 )
-    
+
         #         if KPI.PERIOD_GAIN in kpi:
         #             macroPeriod[KPI.PERIOD_GAIN]=macroPeriod['new ' + KPI.PERIOD_GAIN]
-    
+
         # Turn summary report into a column, sort and name labels for perfect join
         report[('summary of periods',p['macroPeriodLabel'])] = (
             macroPeriod
@@ -1190,113 +1189,115 @@ class Fund(object):
     ##
     ############################################################################
 
-    def performancePlot(self, benchmark, start=None, end=None, type='pyplot'):
+    def performancePlot(self,
+                benchmark=None,
+                start=None,
+                end=None,
+                type='pyplot',
+                precomputedReport=None
+            ):
         if benchmark.currency!=self.currency:
             self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
 
-        # Get prototype of data to plot
-        data=self.periodicReport(
-            benchmark=benchmark,
-            start=start,
-            end=end
-        )[[KPI.SHARE_VALUE,KPI.BENCHMARK]]
+        if precomputedReport is not None:
+            report=precomputedReport
+        else:
+            report=self.periodicReport(
+                benchmark=benchmark,
+                start=start,
+                end=end
+            )
 
-        # Normalize share_value to make it start on value 1
-        data[KPI.SHARE_VALUE]/=data[KPI.SHARE_VALUE].iloc[0]
+        return (
+            report
 
+            # Normalize share_value to make it start on value 1
+            .assign(
+                **{
+                    KPI.SHARE_VALUE: lambda table: (
+                        table[KPI.SHARE_VALUE]/table[KPI.SHARE_VALUE].iloc[0]
+                    )
+                }
+            )
+            [[KPI.SHARE_VALUE, KPI.BENCHMARK]]
 
-        data.rename(
-            columns=dict(
-                share_value=str(self),
-                benchmark=str(benchmark)
-            ),
-            inplace=True
+            # Rename columns for plotting
+            .rename(
+                columns={
+                    KPI.SHARE_VALUE: str(self),
+                    KPI.BENCHMARK: str(benchmark)
+                }
+            )
+
+            # Decide what to return
+            .pipe(
+                lambda table: (
+                    table.plot(kind='line')
+                    if type=='pyplot'
+                    else table
+                )
+            )
         )
 
 
 
-        if type=='pyplot':
-            return data.plot(kind='line')
-        elif type=='vegalite':
-            spec=dict(
-                description='Performance of {name}'.format(name=self.name,index=benchmark.id),
-                mark='trail',
-                encoding=dict(
-                    x=dict(
-                        field='date',
-                        type='temporal'
-                    ),
-                    y=dict(
-                        field='performance',
-                        type='quantitative'
-                    ),
-                    size=dict(
-                        field='performance',
-                        type='quantitative'
-                    ),
-                    color=dict(
-                        field='performance',
-                        type='quantitative'
-                    )
-                )
-            )
-        elif type=='raw':
-            return data
-
-
-
-    def wealthPlot(self, benchmark, start=None, end=None, type='pyplot'):
+    def wealthPlot(self,
+                benchmark,
+                start=None,
+                end=None,
+                type='pyplot',
+                precomputedReport=None
+            ):
         if benchmark.currency!=self.currency:
             self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
 
-        # Get prototype of data to plot
-        data=self.periodicReport(
-            benchmark=benchmark,
-            start=start,
-            end=end
-        )[[KPI.BALANCE,KPI.SAVINGS,KPI.GAINS]]
+        if precomputedReport is not None:
+            report=precomputedReport
+        else:
+            report=self.periodicReport(
+                benchmark=benchmark,
+                start=start,
+                end=end
+            )
 
+        return (
+            report
 
+            [[KPI.BALANCE,KPI.SAVINGS,KPI.GAINS]]
 
-
-        if type=='pyplot':
-            return data.plot(kind='line')
-        elif type=='vegalite':
-            spec=dict(
-                description='Performance of {name}'.format(name=self.name,index=benchmark.id),
-                mark='trail',
-                encoding=dict(
-                    x=dict(
-                        field='date',
-                        type='temporal'
-                    ),
-                    y=dict(
-                        field='performance',
-                        type='quantitative'
-                    ),
-                    size=dict(
-                        field='performance',
-                        type='quantitative'
-                    ),
-                    color=dict(
-                        field='performance',
-                        type='quantitative'
-                    )
+            # Decide what to return
+            .pipe(
+                lambda table: (
+                    table.plot(kind='line')
+                    if type=='pyplot'
+                    else table
                 )
             )
-        elif type=='raw':
-            return data
+        )
 
 
 
-    def rateOfReturnPlot(self,period='M', confidence_interval=0.95, start=None, end=None, type='pyplot'):
-        # Get prototype of data to plot
-        data=(
-            self.periodicReport(
+    def rateOfReturnPlot(self,
+                period='M',
+                confidence_interval=0.95,
+                start=None,
+                end=None,
+                type='pyplot',
+                precomputedReport=None,
+            ):
+
+        if precomputedReport is not None:
+            data=precomputedReport
+        else:
+            data=self.periodicReport(
                 period=period,
                 start=start,
                 end=end
-            )[[KPI.SHARE_VALUE]]
+            )
+
+        data=(
+            data
+            [[KPI.SHARE_VALUE]]
             .pct_change()
             .replace([numpy.inf, -numpy.inf], numpy.nan)
             .dropna()
@@ -1326,7 +1327,13 @@ class Fund(object):
 
 
 
-    def incomePlot(self,periodPair='month & year', start=None, end=None, type='pyplot'):
+    def incomePlot(self,
+                periodPair='month & year',
+                start=None,
+                end=None,
+                type='pyplot',
+                precomputedReport=None,
+            ):
         p=self.periodPairs[periodPair]
 
         # Compute how many 'period's fit in one 'macroPeriod'.
@@ -1345,19 +1352,35 @@ class Fund(object):
 
         # Now compute moving averages
 
-        data=self.periodicReport(period=p['period'], start=start, end=end)[[KPI.PERIOD_GAIN]]
+        if precomputedReport is None:
+            data=self.periodicReport(period=p['period'], start=start, end=end)
+        else:
+            data=precomputedReport
 
 
-        data['{} {}s moving average'.format(periodCountInMacroPeriod,p['periodLabel'])] = (
-            data[KPI.PERIOD_GAIN]
-            .rolling(periodCountInMacroPeriod, min_periods=1)
-            .mean()
-        )
-
-        data['{} {}s moving median'.format(periodCountInMacroPeriod,p['periodLabel'])] = (
-            data[KPI.PERIOD_GAIN]
-            .rolling(periodCountInMacroPeriod, min_periods=1)
-            .median()
+        report=(
+            data
+            [[KPI.PERIOD_GAIN]]
+            .assign(
+                **{
+                    '{} {}s moving average'.format(
+                        periodCountInMacroPeriod,
+                        p['periodLabel']
+                    ): lambda table: (
+                        table[KPI.PERIOD_GAIN]
+                        .rolling(periodCountInMacroPeriod, min_periods=1)
+                        .mean()
+                    ),
+                    '{} {}s moving median'.format(
+                        periodCountInMacroPeriod,
+                        p['periodLabel']
+                    ): lambda table: (
+                        table[KPI.PERIOD_GAIN]
+                        .rolling(periodCountInMacroPeriod, min_periods=1)
+                        .median()
+                    )
+                }
+            )
         )
 
 #         data=data.tail(24)
@@ -1367,7 +1390,7 @@ class Fund(object):
 #         ax = data[['income']].plot(kind='bar', ax=ax)
 
         if type=='raw':
-            return data
+            return report
 
         if type=='altair':
             import altair
@@ -1375,11 +1398,11 @@ class Fund(object):
             colors=['blue', 'red', 'green', 'cyan', 'yellow', 'brown']
             color=0
 
-            columns=list(data.columns)
+            columns=list(report.columns)
             columns.remove(KPI.PERIOD_GAIN)
 
 
-            base=altair.Chart(data.reset_index()).encode(x='time')
+            base=altair.Chart(report.reset_index()).encode(x='time')
             bar=base.mark_bar(color=colors[color]).encode(y=KPI.PERIOD_GAIN)
             color+=1
 
