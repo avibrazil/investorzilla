@@ -1,10 +1,10 @@
 # Personal Investments Dashboard
 
-Classes and Streamlit app to manage a diverse investment portfolio in multiple currencies, including crypto and market indexes.
+Personal web application to manage a diverse investment portfolio in multiple currencies, including crypto and market indexes. Delivered as a [Streamlit](https://streamlit.io/) app. Includes also a module to hack your investments in Jupyter notebooks.
 
 ![](pics/overview.png)
 
-Dashboards reads your **ledger** and **balances** from an online Google Spreadsheet ([see example](https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk)), get historical benchmarks and currency convertion tables from multiple configurabe internet sources, and created a rich explorable dashboard.
+Dashboards reads your **ledger** and **balances** from an online Google Spreadsheet ([see example](https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk)), gets historical benchmarks and currency convertion tables from multiple configurabe internet sources, and created a rich explorable dashboard.
 
 All or some or each of your investments are internally normalized into a single “fund” with **number of shares** and **share value**. From there, multiple visualizations are possible.
 
@@ -14,33 +14,27 @@ Runs on macOS, Windows, Linux or anywhere Python, Pandas and Streamlit can be in
 
 ### Install
 
-After getting Python 3 installed, install also some requirements as:
+After getting Python 3 installed, install with `pip`:
 
 ```
-pip3 install -r requirements.txt --user
+pip install investorzilla --user
 ```
 
 ### Configure
 
-Create `investor_ui_config.yaml` file copying `investor_ui_config.example.yaml` and edit to your needs.
+Create a folder and then build your `investorzilla.yaml` file with information about data sources, benchmarks and currencies.
 
-Get CryptoCompare (in case of having crypto) API key and update it on `investor_ui_config.yaml`. More instructions on `investor_ui_config.example.yaml`.
-
-To get access to your Google Spreadsheets, app will send you to a Google authorization screen. Your Google Sheets data will be saved and cached in the computer this Streamlit app is running.
-
-Not required, but you can use your own Google OAuth app authorization secrets in `app-credentials-for-google-sheets.json`
+Start with the examples from https://github.com/avibrazil/investorzilla/blob/main/config_examples/
 
 ### Run
 
-After installing your API keys, current configuration on the example file will work out of the box as I left a [usable example spreadsheet](https://docs.google.com/spreadsheets/d/1AE0F_mzXTJJuuuQwPnSzBejRrmui01CfUUY1qyvnbkk) on the web.
-
-Run it as:
+After installing your API keys (in case of using CryptoCompare data), run it like the following from the same folder containing `investorzilla.yaml`:
 
 ```
-streamlit run investor_ui.py
+investorzilla
 ```
 
-Access the dashboard on http://localhost:8501
+Access the dashboard on http://localhost:8501 (or remotelly if your browser is in a different machine)
 
 ## Features
 
