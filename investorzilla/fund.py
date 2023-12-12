@@ -112,26 +112,27 @@ class Fund(object):
         ),
 
 
-       'quarter & year': dict(
-            period                     = 'Q',
-            periodLabel                = 'quarter',
-            periodFormatter            = 'Q{period:%q}',
+        # Removing those two out of scene because of Pandas limitations
+       # 'quarter & year': dict(
+       #      period                     = 'Q',
+       #      periodLabel                = 'quarter',
+       #      periodFormatter            = 'Q{period:%q}',
 
-            macroPeriod                = 'Y',
-            macroPeriodLabel           = 'year',
-            macroPeriodFormatter       = '{end:%Y}'
-        ),
+       #      macroPeriod                = 'Y',
+       #      macroPeriodLabel           = 'year',
+       #      macroPeriodFormatter       = '{end:%Y}'
+       #  ),
 
 
-        'half month & month': dict(
-            period                     = 'SM',
-            periodLabel                = 'month half',
-            # periodFormatter            = '%d',
+       #  'half month & month': dict(
+       #      period                     = 'SM',
+       #      periodLabel                = 'month half',
+       #      # periodFormatter            = '%d',
 
-            macroPeriod                = 'M',
-            macroPeriodLabel           = 'month',
-            macroPeriodFormatter       = '{end:%m}'
-        ),
+       #      macroPeriod                = 'M',
+       #      macroPeriodLabel           = 'month',
+       #      macroPeriodFormatter       = '{end:%m}'
+       #  ),
 
 
         'year & 5 years': dict(

@@ -11,6 +11,10 @@ All or some or each of your investments are internally normalized into a single 
 ## Install and Run
 
 Runs on macOS, Windows, Linux or anywhere Python, Pandas and Streamlit can be installed.
+Here is a video I put in place that shows Investorzilla getting installed on a Mac
+and run for the first time with its [example portfolio file](https://github.com/avibrazil/investorzilla/blob/main/config_examples/investorzilla.yaml).
+
+[![install and use Investorzilla](http://img.youtube.com/vi/CrR-PoXhPQY/0.jpg)](http://www.youtube.com/watch?v=CrR-PoXhPQY "Install and use Investorzilla")
 
 ### Install
 

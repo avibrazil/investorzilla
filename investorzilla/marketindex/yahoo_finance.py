@@ -88,3 +88,16 @@ class YahooMarketIndex(MarketIndex):
         else:
             return super().__str__()
 
+
+
+    def to_markdown(self, title_prefix=None):
+        (title,body)=super().to_markdown()
+
+        # Overwrite title with a specialization from this class
+        title=f"{self.friendlyName} ({self.currency}) ({type(self).__name__})"
+
+        if title_prefix is None:
+            return (title,body)
+        else:
+            return f"{title_prefix} {title}\n{body}"
+

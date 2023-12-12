@@ -388,13 +388,13 @@ class StreamlitInvestorzillaApp:
         with streamlit.expander('Personal Portfolio'):
             streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
 
-        with streamlit.expander('Market Indexes'):
-            for b in streamlit.session_state.investor.benchmarks:
-                streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
-
         with streamlit.expander('Currency Converters'):
             for c in streamlit.session_state.investor.currency_converters:
                 streamlit.markdown(c['obj'].to_markdown(title_prefix='###'))
+
+        with streamlit.expander('Market Indexes'):
+            for b in streamlit.session_state.investor.benchmarks:
+                streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
 
 
 
