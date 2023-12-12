@@ -18,7 +18,7 @@ and run for the first time with its [example portfolio file](https://github.com/
 
 ### Install
 
-After getting Python 3 installed, install with `pip`:
+After getting Python 3 installed, install [Investorzilla](https://pypi.org/project/investorzilla/) with `pip`:
 
 ```
 pip install investorzilla --user
