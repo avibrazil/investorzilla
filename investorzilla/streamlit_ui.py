@@ -135,8 +135,8 @@ class StreamlitInvestorzillaApp:
         (tab_performance, tab_shares, tab_currencies, tab_portfolio) = streamlit.tabs(
             [
                 "📈 Performance",
-                "📶 Inspect Fund Shares",
-                "🔁 Inspect Currencies",
+                "📶 Fund Shares inspector",
+                "🔁 Currencies inspector",
                 "💼 Portfolio Components and Information",
             ]
         )
@@ -358,8 +358,26 @@ class StreamlitInvestorzillaApp:
     def render_currencies_page(self):
         streamlit.title(f"1 {streamlit.session_state.investor.exchange.currency} in other currencies")
         streamlit.dataframe(
-            1/streamlit.session_state.investor.exchange.data,
+            (
+                (1/streamlit.session_state.investor.exchange.data)
+                # Deliver time information in user’s timezone
+                .assign(
+                    time=lambda table: (
+                        table.index
+                        .tz_convert(
+                            datetime.datetime.now(datetime.timezone.utc)
+                            .astimezone()
+                            .tzinfo
+                        )
+                    ),
+                )
+                .set_index('time')
+            ),
             use_container_width=True,
+            column_config={
+                c: streamlit.column_config.NumberColumn(format="%.16f")
+                for c in streamlit.session_state.investor.exchange.data.columns
+            }
         )
 
 
