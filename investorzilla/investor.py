@@ -144,8 +144,12 @@ class Investor(object):
             self.exchange=CurrencyExchange(self.currency)
 
             # Put all CurrencyConverters in a single useful CurrencyExchange machine
-            for curr in self.currency_converters:
-                self.exchange.addCurrency(curr['obj'])
+            self.exchange.addCurrencies(
+                [
+                    curr['obj']
+                    for curr in self.currency_converters
+                ]
+            )
 
 
     def augmentDomains(self):

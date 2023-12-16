@@ -185,8 +185,6 @@ class CurrencyConverter(MonetaryTimeSeries):
 
 
 
-
-
 class MarketIndex(MonetaryTimeSeries):
     """
     self.data holds a time-indexed DataFrame with 2 columns:
@@ -286,50 +284,68 @@ class CurrencyExchange(object):
 
 
 
-    def addCurrency(self, currency: CurrencyConverter):
-        if self.data is None:
-            # We have no previous data yet.
-            # Initialize the self.data with currency or 1/currency
-            if currency.currencyTo==self.target:
-                self.data=currency.getData().rename(columns={'value':currency.currencyFrom})
-            elif currency.currencyFrom==self.target:
-                self.data=(1/currency.getData()).rename(columns={'value':currency.currencyTo})
+    def addCurrencies(self, currencies: list):
+        # Backward compatibility
+        if type(currencies)==CurrencyConverter:
+            currencies=[currencies]
+
+        for currency in currencies:
+            if self.data is None:
+                # We have no previous data yet.
+                # Initialize the self.data with currency or 1/currency
+                if currency.currencyTo==self.target:
+                    self.data=(
+                        currency.getData()
+                        .rename(columns={'value':currency.currencyFrom})
+                    )
+                elif currency.currencyFrom==self.target:
+                    self.data=(
+                        (1/currency.getData())
+                        .rename(columns={'value':currency.currencyTo})
+                    )
+                else:
+                    currency.logger.warning(f"Can’t add {currency} to {self}")
             else:
-                currency.logger.warning(f"Can’t add {currency} to {self}")
-        else:
-            # We already had data.
-            # Add currency (or 1/currency) to our data
-            if currency.currencyTo==self.target:
-                self.data=pandas.merge(
-                    left        = self.data,
-                    right       = currency.getData().rename(columns={'value':currency.currencyFrom}),
-                    how         = 'outer',
-                    left_index  = True,
-                    right_index = True,
-                )
-            elif currency.currencyFrom==self.target:
-                self.data=pandas.merge(
-                    left        = self.data,
-                    right       = (1/currency.getData()).rename(columns={'value':currency.currencyTo}),
-                    how         = 'outer',
-                    left_index  = True,
-                    right_index = True,
-                )
-            else:
-                currency.logger.warning(f"Can’t add {currency} to {self}")
+                # We already had data.
+                # Add currency (or 1/currency) to our data
+                if currency.currencyTo==self.target:
+                    self.data=pandas.merge(
+                        left        = self.data,
+                        right       = (
+                            currency.getData()
+                            .rename(columns=dict(value=currency.currencyFrom))
+                        ),
+                        how         = 'outer',
+                        left_index  = True,
+                        right_index = True,
+                    )
+                elif currency.currencyFrom==self.target:
+                    self.data=pandas.merge(
+                        left        = self.data,
+                        right       = (
+                            (1/currency.getData())
+                            .rename(columns=dict(value=currency.currencyTo))
+                        ),
+                        how         = 'outer',
+                        left_index  = True,
+                        right_index = True,
+                    )
+                else:
+                    currency.logger.warning(f"Can’t add {currency} to {self}")
 
-        self.data = (
-            self.data
+        if self.data is not None:
+            self.data = (
+                self.data
 
-            # Drop completely empty lines
-            .dropna(how='all')
+                # Drop completely empty lines
+                .dropna(how='all')
 
-            # Sort as a time series should be
-            .sort_index()
+                # Sort as a time series should be
+                .sort_index()
 
-            # Fill empty cells with the currency´s previous value
-            .ffill()
-        )
+                # Fill empty cells with the currency’s previous value
+                .ffill()
+            )
 
         return self
 
