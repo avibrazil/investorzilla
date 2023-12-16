@@ -294,21 +294,42 @@ class CurrencyExchange(object):
                 self.data=currency.getData().rename(columns={'value':currency.currencyFrom})
             elif currency.currencyFrom==self.target:
                 self.data=(1/currency.getData()).rename(columns={'value':currency.currencyTo})
+            else:
+                currency.logger.warning(f"Can’t add {currency} to {self}")
         else:
             # We already had data.
             # Add currency (or 1/currency) to our data
             if currency.currencyTo==self.target:
-                self.data=pandas.merge_asof(
-                    self.data,
-                    currency.getData().rename(columns={'value':currency.currencyFrom}),
-                    left_index=True, right_index=True,
+                self.data=pandas.merge(
+                    left        = self.data,
+                    right       = currency.getData().rename(columns={'value':currency.currencyFrom}),
+                    how         = 'outer',
+                    left_index  = True,
+                    right_index = True,
                 )
             elif currency.currencyFrom==self.target:
-                self.data=pandas.merge_asof(
-                    self.data,
-                    (1/currency.getData()).rename(columns={'value':currency.currencyTo}),
-                    left_index=True, right_index=True,
+                self.data=pandas.merge(
+                    left        = self.data,
+                    right       = (1/currency.getData()).rename(columns={'value':currency.currencyTo}),
+                    how         = 'outer',
+                    left_index  = True,
+                    right_index = True,
                 )
+            else:
+                currency.logger.warning(f"Can’t add {currency} to {self}")
+
+        self.data = (
+            self.data
+
+            # Drop completely empty lines
+            .dropna(how='all')
+
+            # Sort as a time series should be
+            .sort_index()
+
+            # Fill empty cells with the currency´s previous value
+            .ffill()
+        )
 
         return self
 

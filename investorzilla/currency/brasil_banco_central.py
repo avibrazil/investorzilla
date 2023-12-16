@@ -37,7 +37,8 @@ class BCBCurrencyConverter(CurrencyConverter):
 
         start='01-01-1970'
         if self.currencyFrom=='USD':
-            # The of birth of BRLUSD. Before this date fiat was another thing and values can't be mixed
+            # Date of birth of BRLUSD. Before this date fiat was another thing
+            # and values can't be mixed
             start='07-01-1994' # MM-DD-YYYY
 
         ptax="https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoMoedaPeriodo(moeda=@moeda,dataInicial=@dataInicial,dataFinalCotacao=@dataFinalCotacao)"
