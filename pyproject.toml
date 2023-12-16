@@ -1,10 +1,10 @@
 [project]
 name = "investorzilla"
-version = '2.4.1'
+version = '2.4.2'
 description = "Manage your investments like a data scientist"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     { name = "Avi Alkalay", email = "avi@unix.sh" },
 ]
