@@ -132,10 +132,11 @@ class StreamlitInvestorzillaApp:
 
         self.prepare_fund()
 
-        (tab_performance, tab_shares, tab_portfolio) = streamlit.tabs(
+        (tab_performance, tab_shares, tab_currencies, tab_portfolio) = streamlit.tabs(
             [
                 "📈 Performance",
-                "🎼 Inspect Fund Shares",
+                "📶 Inspect Fund Shares",
+                "🔁 Inspect Currencies",
                 "💼 Portfolio Components and Information",
             ]
         )
@@ -145,6 +146,9 @@ class StreamlitInvestorzillaApp:
 
         with tab_shares:
             self.render_shares_page()
+
+        with tab_currencies:
+            self.render_currencies_page()
 
         with tab_portfolio:
             self.render_portfolio_page()
@@ -351,6 +355,15 @@ class StreamlitInvestorzillaApp:
 
 
 
+    def render_currencies_page(self):
+        streamlit.title(f"1 {streamlit.session_state.investor.exchange.currency} in other currencies")
+        streamlit.dataframe(
+            1/streamlit.session_state.investor.exchange.data,
+            use_container_width=True,
+        )
+
+
+
     def render_shares_page(self):
         streamlit.title(streamlit.session_state.fund.name)
         streamlit.dataframe(
@@ -430,9 +443,16 @@ class StreamlitInvestorzillaApp:
 
 
     def interact_currencies(self):
+        currencies=streamlit.session_state.investor.exchange.currencies()
+
+        for i in range(len(currencies)):
+            if currencies[i]==streamlit.session_state.investor.config['currency']:
+                break
+
         streamlit.session_state['interact_currencies']=streamlit.radio(
             label     = 'Convert all to currency',
-            options   = streamlit.session_state.investor.exchange.currencies(),
+            options   = currencies,
+            index     = i,
             help      = 'Everything will be converted to this currency'
         )
 
