@@ -372,6 +372,7 @@ class StreamlitInvestorzillaApp:
                     ),
                 )
                 .set_index('time')
+                .sort_index(ascending=False)
             ),
             use_container_width=True,
             column_config={
