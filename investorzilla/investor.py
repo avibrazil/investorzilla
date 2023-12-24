@@ -19,6 +19,17 @@ from .portfolios   import uri                      as uri
 
 
 class Investor(object):
+    """
+    Class that encapsulates everything needed to provide a useful report:
+
+    - Portfolio with assets
+    - Currency converters
+    - Market benchmarks such as S&P500, Índice BoVeSPa etc
+
+    Organizes use of cache database.
+    Can be configured from a YAML file and then trigger data loading for all
+    these domain, either from cache or the Internet.
+    """
     domains={'portfolio','currency_converters','benchmarks'}
 
 

@@ -56,6 +56,10 @@ class Portfolio(object):
         # Last updated at
         # self.asof = None
 
+        # Internal protfolio-as-a-fund uninitialized. Initialize with
+        # makeInternalFund() passing a currencyExchange object.
+        self.fund=None
+
         self.cache=cache
         self.nextRefresh=refresh
 
@@ -83,6 +87,8 @@ class Portfolio(object):
                 currencyExchange = currencyExchange,
             )
         else:
+            # We have a specific list of assets requested to form a fund
+
             if isinstance(subset, str):
                 # If only 1 fund passed, turn it into a list
                 subset=[subset]
@@ -98,17 +104,69 @@ class Portfolio(object):
 
 
 
-    def funds(self):
+    def makeInternalFund(self,currencyExchange):
+        self.fund=self.getFund(currencyExchange=currencyExchange)
+
+
+
+    def assets(self):
         """
         Return list of tuples as:
         [
-            ('fund1',['currency1']),
-            ('fund2',['currency1', 'currency2']),
-            ('fund3',['currency2'])
+            ('asset1',['currency1']),
+            ('asset2',['currency1', 'currency2']),
+            ('asset3',['currency2'])
         ]
 
-        Which is the list of funds, each with the currencies they present data.
+        Which is the list of assets, each with the currencies they present data.
+
+        If self has an internal fund (created with makeInternalFund()), assets
+        will be orderd by current balance, with biggest balance as the first
+        one. Otherwise they'll be ordered alphabetically -- less useful.
         """
+        def ddebug(data):
+            self.logger.debug(data.to_markdown())
+            return data
+
+        order=None
+        if self.fund is not None:
+            order=(
+                self.fund.balance
+
+                ## Put balance of each fund in a different column,
+                ## repeat value for empty times and fillna(0) for first empty
+                ## values
+                .dropna()
+                .unstack(level=0)
+                # .ffill()
+
+                .sort_index()
+
+                .ffill()
+
+                # Get last balance
+                .iloc[[-1]]
+
+                .T
+
+                # Get rid of useless index levels
+                .pipe(
+                    lambda table: table.set_index(table.index.droplevel().droplevel())
+                )
+
+                # The first column, no matter its name
+                .iloc[:,0]
+
+                # Order by balance of each asset
+                .sort_values(ascending=False)
+
+                # Get only the index
+                .index
+            )
+
+            self.logger.debug('Order of funds: ' + order)
+
+
         nonMonetary={'fund', 'time', 'comment'}
 
         return list(
@@ -143,15 +201,20 @@ class Portfolio(object):
             .drop_duplicates()
 
 
+            .set_index('fund')
+
 
             # Group by fund and make list of currencies
             .groupby(by='fund', observed=True).agg(list)
 
 
+            # Order by bigger current balance
+            .reindex(order)
+
+            .pipe(ddebug)
 
             # make fund name a regular column
             .reset_index()
-
 
 
             # convert to tuples
@@ -270,7 +333,7 @@ class Portfolio(object):
     def processData(self):
         """
         Called right after raw data is loaded from cache or from its original
-        source (API) to clean it up.
+        source (API, Internet, storage) to clean it up.
 
         Pure virtual method, needs to be implemented in derived classes.
         """
@@ -421,6 +484,11 @@ class Portfolio(object):
 
 
 class PortfolioAggregator(Portfolio):
+    """
+    Same concept as Portfolio, but can keep multiple sources of data.
+    When data needs to be refreshed, this class will submit refresh signals to
+    all its members.
+    """
     def __init__(self, cache=None, refresh=False):
         self.members=[]
 
@@ -442,9 +510,7 @@ class PortfolioAggregator(Portfolio):
 
     ############################################################################
     ##
-    ## Virtual methods.
-    ##
-    ## Need to be defined in derived classes.
+    ## Operations that will be dispatched to contained assets.
     ##
     ############################################################################
 

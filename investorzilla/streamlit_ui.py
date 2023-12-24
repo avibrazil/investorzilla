@@ -48,7 +48,7 @@ class StreamlitInvestorzillaApp:
 
 
     def __init__(self, refresh=False):
-        self.prepare_logging(level=logging.INFO)
+        self.prepare_logging(level=logging.DEBUG)
 
         streamlit.set_page_config(
             layout="wide",
@@ -78,10 +78,15 @@ class StreamlitInvestorzillaApp:
                 self.refreshMap
             )
 
+        # Make a preliminary internal fund from the portfolio for display purposes
+        streamlit.session_state.investor.portfolio.makeInternalFund(
+            streamlit.session_state.investor.exchange
+        )
+
         with streamlit.sidebar:
             # Put controls in the sidebar
-            self.interact_funds()
-            self.interact_exclude_funds()
+            self.interact_assets()
+            self.interact_exclude_assets()
             self.interact_currencies()
             self.interact_benchmarks()
             self.interact_periods()
@@ -94,28 +99,29 @@ class StreamlitInvestorzillaApp:
     def prepare_fund(self):
         """
         Generate a virtual fund (shares and share value) based on portfolio
-        items selected in sidebar.
+        items (assets) selected in sidebar.
         """
 
         fundset=None
-        if 'interact_funds' in streamlit.session_state:
-            fundset=streamlit.session_state.interact_funds
+        if 'interact_assets' in streamlit.session_state:
+            assets=streamlit.session_state.interact_assets
 
-            if 'ALL' in fundset:
-                fundset.remove('ALL')
+            if 'ALL' in assets:
+                assets.remove('ALL')
 
-        if fundset is None or len(fundset)==0:
-            fundset=streamlit.session_state.investor.portfolio.funds()
-            fundset=[f[0] for f in fundset]
+        if assets is None or len(assets)==0:
+            assets=streamlit.session_state.investor.portfolio.assets()
+            assets=[f[0] for f in assets]
 
-        if 'interact_no_funds' in streamlit.session_state:
-            fundset=list(
-                set(fundset) -
-                set(streamlit.session_state.interact_no_funds)
+        if 'interact_no_assets' in streamlit.session_state:
+            assets=list(
+                set(assets) -
+                set(streamlit.session_state.interact_no_assets)
             )
 
+        # Make a virtual fund (shares and share value) from selected assets
         streamlit.session_state.fund=streamlit.session_state.investor.portfolio.getFund(
-            subset           = fundset,
+            subset           = assets,
             currencyExchange = streamlit.session_state.investor.exchange
         )
 
@@ -432,31 +438,31 @@ class StreamlitInvestorzillaApp:
 
     # All the interact_* methods manager widgets in the Streamlit UI
 
-    def interact_funds(self):
+    def interact_assets(self):
         streamlit.multiselect(
             label     = 'Select assets to make a fund',
             options   = (
                 ['ALL']+
                 [
                     x[0]
-                    for x in streamlit.session_state.investor.portfolio.funds()
+                    for x in streamlit.session_state.investor.portfolio.assets()
                 ]
             ),
             help      = 'Shares and share value will be computed for the union of selected assets',
-            key       = 'interact_funds'
+            key       = 'interact_assets'
         )
 
 
 
-    def interact_exclude_funds(self):
+    def interact_exclude_assets(self):
         streamlit.multiselect(
-            label     = 'Except funds',
+            label     = 'Except assets',
             options   = [
                 x[0]
-                for x in streamlit.session_state.investor.portfolio.funds()
+                for x in streamlit.session_state.investor.portfolio.assets()
             ],
             help      = 'Exclude assets selected here',
-            key       = 'interact_no_funds'
+            key       = 'interact_no_assets'
         )
 
 
@@ -464,15 +470,17 @@ class StreamlitInvestorzillaApp:
     def interact_currencies(self):
         currencies=streamlit.session_state.investor.exchange.currencies()
 
+        # Find the index of default currency
         for i in range(len(currencies)):
             if currencies[i]==streamlit.session_state.investor.config['currency']:
                 break
 
-        streamlit.session_state['interact_currencies']=streamlit.radio(
+        streamlit.radio(
             label     = 'Convert all to currency',
             options   = currencies,
             index     = i,
-            help      = 'Everything will be converted to this currency'
+            help      = 'Everything will be converted to selected currency',
+            key       = 'interact_currencies'
         )
 
 
