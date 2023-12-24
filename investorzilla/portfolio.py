@@ -124,10 +124,6 @@ class Portfolio(object):
         will be orderd by current balance, with biggest balance as the first
         one. Otherwise they'll be ordered alphabetically -- less useful.
         """
-        def ddebug(data):
-            self.logger.debug(data.to_markdown())
-            return data
-
         order=None
         if self.fund is not None:
             order=(
@@ -211,7 +207,6 @@ class Portfolio(object):
             # Order by bigger current balance
             .reindex(order)
 
-            .pipe(ddebug)
 
             # make fund name a regular column
             .reset_index()

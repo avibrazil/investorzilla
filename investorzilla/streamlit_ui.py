@@ -48,7 +48,7 @@ class StreamlitInvestorzillaApp:
 
 
     def __init__(self, refresh=False):
-        self.prepare_logging(level=logging.DEBUG)
+        self.prepare_logging(level=logging.INFO)
 
         streamlit.set_page_config(
             layout="wide",
