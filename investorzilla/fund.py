@@ -222,32 +222,49 @@ class Fund(object):
     ##
     ############################################################################
 
-    def __init__(self, ledger, balance, currencyExchange=None, name=None):
+    def __init__(self, ledger, balance, currencyExchange=None, needCurrencyConversion=True, name=None):
+        """
+        Creates a virtual fund consolidating assets that appear on balance and
+        ledger. Before consolidation, assets will be converted to currency
+        from currencyExchange.
+
+        Funds are usually created by Portfolio.getFund(). But a Fund can also
+        be created by internal calls of Fund objects, such as
+        Fund.makeAssetsFunds(). In this situation, ledger and balance will be
+        already initialized and currency-converted, so a currencyExchange won't
+        be passed. Initialized ledger and balance have columns with multiindex,
+        so that is why we test nlevels==1.
+        """
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
 
-        # Configure a multi-currency converter engine
-        self.exchange=currencyExchange
-        self.currency=currencyExchange.target
+        self.ledger=ledger
+        if self.ledger.columns.nlevels==1:
+            # Group all columns under a ‘ledger’ multi-index
+            self.ledger = pandas.concat(
+                [self.ledger.set_index(['fund','time']).sort_index()],
+                axis=1,
+                keys=[KPI.LEDGER]
+            )
 
-        # Group all columns under a ‘ledger’ multi-index
-        self.ledger = pandas.concat(
-            [ledger.set_index(['fund','time']).sort_index()],
-            axis=1,
-            keys=['ledger']
-        )
+        self.balance=balance
+        if self.balance.columns.nlevels==1:
+            # Group all columns under a ‘balance’ multi-index
+            self.balance = pandas.concat(
+                [self.balance.set_index(['fund','time']).sort_index()],
+                axis=1,
+                keys=[KPI.BALANCE]
+            )
 
-        # Group all columns under a ‘balance’ multi-index
-        self.balance = pandas.concat(
-            [balance.set_index(['fund','time']).sort_index()],
-            axis=1,
-            keys=[KPI.BALANCE]
-        )
+        if currencyExchange is not None:
+            # Configure a multi-currency converter engine
+            self.exchange=currencyExchange
+            self.currency=currencyExchange.target
 
-        # Homogenize all to same currency
-        self.ledger  = self.convertCurrency(self.ledger)
-        self.balance = self.convertCurrency(self.balance)
-
+            if needCurrencyConversion:
+                # Homogenize all to same currency
+                self.ledger  = self.convertCurrency(self.ledger)
+                self.balance = self.convertCurrency(self.balance)
 
         # Compute number of shares and share value over time
         self.computeShares()
@@ -258,6 +275,22 @@ class Fund(object):
 
         # Set a nice fund name based on its assets
         self.setName()
+
+
+
+    def makeAssetsFunds(self):
+        """
+        For easier later computations, make a fund out of each asset overlooked
+        by this fund and store them in self.asFund[{asset_name}]
+        """
+        self.asFund=dict()
+        for asset in self.balance.index.get_level_values(0).unique():
+            self.asFund[asset]=Fund(
+                self.ledger[ self.ledger.index.get_level_values('fund') ==asset],
+                self.balance[self.balance.index.get_level_values('fund')==asset],
+                currencyExchange=self.exchange,
+                needCurrencyConversion=False
+            )
 
 
 
@@ -313,8 +346,7 @@ class Fund(object):
 
 
     def convertCurrency(self, df):
-
-        # Working on 'ledger' or KPI.BALANCE ?
+        # Working on KPI.LEDGER or KPI.BALANCE ?
         part=df.columns.get_level_values(0)[0]
 
         # Get list of currencies that need conversion
@@ -554,7 +586,8 @@ class Fund(object):
                 ],
               ):
         """
-        Filter the report and returns only the KPIs in the list.
+        Filter the report (as returned by report()) and returns only the KPIs
+        in the list.
         """
         return (
             report.loc[
@@ -575,7 +608,9 @@ class Fund(object):
 
     def format(report: pandas.DataFrame, output='styled', flatPeriodFirst=True):
         """
-        output can be:
+        Makes the output of report() more readable.
+
+        Output can be:
         - styled (default): returns a pandas.styler object with nice number
             formatting, red negative numbers and multi-index structure.
 
@@ -591,26 +626,26 @@ class Fund(object):
         if output=='plain':
             ## Just return the Dataframe with raw numeric values
             return report
-        
+
         if output=='flat' or output=='flat_unformatted':
             ## Convert all to object to attain more flexibility per cell
             out=report.astype(object)
-        
+
             if output=='flat_unformatted':
                 return out
-        
+
         if output=='styled':
             ## Lets work with a styled DataFrame. Best and default output type.
             out=(
                 report.style
                 .apply(lambda cell: numpy.where(cell<0,"color: red",None), axis=1)
             )
-        
+
         # Since we want results styled or pre-formatted (to overcome Streamlit bugs) and
         # not plain (just the data), we'll have to apply formatting, either as style or
         # hardcoded (in case of flat).
-        
-        
+
+
         defaultFormat=None
         if 'DEFAULT' in Fund.formatters:
             defaultFormat=Fund.formatters['DEFAULT']
@@ -623,7 +658,7 @@ class Fund(object):
                 f=defaultFormat['format']
                 if g=='summary of periods' and 'summaryFormat' in defaultFormat:
                     f=defaultFormat['summaryFormat']
-        
+
                 if i in Fund.formatters:
                     if g=='summary of periods' and 'summaryFormat' in Fund.formatters[i]:
                         f=Fund.formatters[i]['summaryFormat']
@@ -685,8 +720,11 @@ class Fund(object):
         If precomputed* are passed, they'll be used and there must be full
         compatibility between them and the other parameters.
 
-        Result is a structure and readable report organized as financial
+        Result is a structured and readable report organized as financial
         institutions use to show mutual funds performance reports.
+
+        The output of report() can be improved for readability by format() and
+        KPIs filtered by filter()
         """
 
         def ddebug(table):

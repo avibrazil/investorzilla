@@ -105,6 +105,10 @@ class Portfolio(object):
 
 
     def makeInternalFund(self,currencyExchange):
+        """
+        For easier later computations, make an internal fund out of the assets
+        overlooked by this portfolio.
+        """
         self.fund=self.getFund(currencyExchange=currencyExchange)
 
 
@@ -159,9 +163,6 @@ class Portfolio(object):
                 # Get only the index
                 .index
             )
-
-            self.logger.debug('Order of funds: ' + order)
-
 
         nonMonetary={'fund', 'time', 'comment'}
 
