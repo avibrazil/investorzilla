@@ -1398,7 +1398,7 @@ class Fund(object):
                 .encode(
                     x = altair.X(
                         value_name,
-                        bin = altair.BinParams(maxbins = bins)
+                        bin = altair.BinParams(maxbins = max(2,bins))
                     ),
                     y = 'count()'
                 )
