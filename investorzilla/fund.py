@@ -1318,7 +1318,6 @@ class Fund(object):
 
     def rateOfReturnPlot(self,
                 period='M',
-                confidence_interval=0.95,
                 start=None,
                 end=None,
                 type='pyplot',
@@ -1326,6 +1325,21 @@ class Fund(object):
             ):
         """
         The distribution of rate of returns as a plot.
+
+        Parameters
+        ----------
+        period : str, optional
+            The name of the period, such as 'M', '12H', 'W', to pass to
+            periodicReport()
+        start : optional
+            Time when data starts, to pass to periodicReport()
+        end : optional
+            Time when data ends, to pass to periodicReport()
+        type : str, optional
+            Type of output. Can be raw (a plain DataFrame), pyplot or altair
+        precomputedReport: pandas.DataFrame, optional
+            Pass the output of a previously computed periodicReport() here. The
+            periodic report will be computed by this method otherwise.
         """
 
         value_name='rate of return %, frequency per period'
