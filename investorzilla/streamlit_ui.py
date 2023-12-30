@@ -204,12 +204,14 @@ class StreamlitInvestorzillaApp:
 
         label='{kpi}: current {p[periodLabel]} and {p[macroPeriodLabel]}'
 
+        # Rate of return
         col1.metric(
             label=label.format(p=p,kpi=investorzilla.KPI.RATE_RETURN),
             value='{:6.2f}%'.format(100*reportPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
             delta='{:6.2f}%'.format(100*reportMacroPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
         )
 
+        # Gain
         col2.metric(
             label=label.format(p=p,kpi=investorzilla.KPI.PERIOD_GAIN),
             value='${:0,.2f}'.format(reportPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
@@ -219,6 +221,7 @@ class StreamlitInvestorzillaApp:
             )
         )
 
+        # Balance
         col3.metric(
             label='current {} & {}'.format(investorzilla.KPI.BALANCE,investorzilla.KPI.SAVINGS),
             value='${:0,.2f}'.format(reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE]),

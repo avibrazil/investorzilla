@@ -1422,14 +1422,23 @@ class Fund(object):
             )
         )
 
-#         data=data.tail(24)
-
-#         ax = data[['moving_average']].plot(kind='line')
-#         ax = data[['moving_median']].plot(kind='line', ax=ax)
-#         ax = data[['income']].plot(kind='bar', ax=ax)
-
         if type=='raw':
             return report
+
+        if type=='pyplot':
+            gains=(
+                report
+                .reset_index()
+                .assign(
+                    time=lambda table: table.time.astype(str)
+                )
+                .set_index('time')
+            )
+            ax=gains[[KPI.PERIOD_GAIN]].plot.bar(color='blue',figsize=(20,10))
+            ax=gains[['12 months moving average']].plot.line(color='red',ax=ax)
+            ax=gains[['12 months moving median']].plot.line(color='green',ax=ax)
+
+            return ax.get_figure()
 
         if type=='altair':
             import altair
@@ -1441,7 +1450,16 @@ class Fund(object):
             columns.remove(KPI.PERIOD_GAIN)
 
 
-            base=altair.Chart(report.reset_index()).encode(x='time')
+            base=(
+                altair.Chart(
+                    report
+                    .reset_index()
+                    .assign(
+                        time=lambda table: table.time.astype(str)
+                    )
+                )
+                .encode(x='time')
+            )
             bar=base.mark_bar(color=colors[color]).encode(y=KPI.PERIOD_GAIN)
             color+=1
 
