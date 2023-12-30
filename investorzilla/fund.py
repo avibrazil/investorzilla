@@ -1324,6 +1324,11 @@ class Fund(object):
                 type='pyplot',
                 precomputedReport=None,
             ):
+        """
+        The distribution of rate of returns as a plot.
+        """
+
+        value_name='rate of return %, frequency per period'
 
         if precomputedReport is not None:
             data=precomputedReport
@@ -1342,28 +1347,47 @@ class Fund(object):
             .dropna()
             .rename(
                 columns={
-                    KPI.SHARE_VALUE: 'rate of return %, frequency per period'
+                    KPI.SHARE_VALUE: value_name
                 }
             )
-            *100
         )
+
+        if type=='raw':
+            return data
+
+        if data.shape[0]<=1:
+            return None
+
+        data=data*100
+        bins=int(data.shape[0]/10)
 
         # Handle rate of return as a gaussian distribution
         μ=data.mean().iloc[0]
         σ=data.std().iloc[0]
 
         if type=='pyplot':
-            if data.shape[0]>1:
-                return data.plot(
-                    kind='hist',
-                    bins=200,
-                    xlim=(μ-2*σ,μ+2*σ)
-                ).get_figure()
-            else:
-                return None
-        elif type=='raw':
-            return data
+            return data.plot(
+                kind='hist',
+                bins=bins,
+                xlim=(μ-2*σ,μ+2*σ)
+            ).get_figure()
 
+        if type=='altair':
+            import altair
+
+            hist = (
+                altair.Chart(data)
+                .mark_bar()
+                .encode(
+                    x = altair.X(
+                        value_name,
+                        bin = altair.BinParams(maxbins = bins)
+                    ),
+                    y = 'count()'
+                )
+            )
+
+            return hist
 
 
     def incomePlot(self,
@@ -1467,7 +1491,7 @@ class Fund(object):
                 bar+=base.mark_line(color=colors[color]).encode(y=column)
                 color+=1
 
-            return bar.interactive()
+            return bar
 
 
 

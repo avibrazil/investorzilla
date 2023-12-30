@@ -245,11 +245,12 @@ class StreamlitInvestorzillaApp:
                 )
             )
 
-            streamlit.pyplot(
-                streamlit.session_state.fund.rateOfReturnPlot(
+            streamlit.altair_chart(
+                use_container_width=True,
+                altair_chart=streamlit.session_state.fund.rateOfReturnPlot(
                     precomputedReport=reportPeriodic,
-                    type='pyplot'
-                )
+                    type='altair'
+                ).interactive()
             )
 
         with col2:
@@ -260,7 +261,7 @@ class StreamlitInvestorzillaApp:
                     periodPair=streamlit.session_state.interact_periods,
                     type='altair',
                     precomputedReport=reportPeriodic
-                )
+                ).interactive()
             )
 
             streamlit.line_chart(
