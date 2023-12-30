@@ -198,7 +198,7 @@ class StreamlitInvestorzillaApp:
         )
 
         if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
-            streamlit.warning('Fund and Benchmark have different currencies. Benchamrk comparisons won’t make sense.')
+            streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
 
         col1, col2, col3 = streamlit.columns(3)
 

@@ -91,6 +91,7 @@ class Fund(object):
         ),
 
 
+        # Adjust to end
         'week & 4 weeks': dict(
             period                     = 'W',
             periodLabel                = 'week',
@@ -135,6 +136,7 @@ class Fund(object):
        #  ),
 
 
+        # Adjust to end
         'year & 5 years': dict(
             period                     = 'Y',
             periodLabel                = 'year',
@@ -146,6 +148,7 @@ class Fund(object):
         ),
 
 
+        # Adjust to end
         'year & decade': dict(
             period                     = 'Y',
             periodLabel                = 'year',
@@ -669,12 +672,11 @@ class Fund(object):
                 selector=pandas.IndexSlice[
                     # Apply format in KPI row
                     pandas.IndexSlice[:,i],
-        
+
                     # Apply style in «periods» or «summary of periods»
                     pandas.IndexSlice[g,:]
                 ]
-        
-        
+
                 if output=='flat':
                     out.loc[selector]=out.loc[selector].apply(
                         lambda s: [f.format(x) for x in s]
@@ -683,11 +685,11 @@ class Fund(object):
                 elif output=='styled':
                     # Styler advanced slicing only works in Pandas>=1.3
                     out=out.format(formatter=f, subset=selector, na_rep='')
-        
+
         if output=='styled':
             # Styled report is ready to go
             return out
-        
+
         # Final cleanup for flat
         out.replace(['nan','nan%'],'', inplace=True)
         if flatPeriodFirst:
@@ -724,7 +726,8 @@ class Fund(object):
         institutions use to show mutual funds performance reports.
 
         The output of report() can be improved for readability by format() and
-        KPIs filtered by filter()
+        KPIs filtered by filter(), so same report() output can be reused without
+        recomputing.
         """
 
         def ddebug(table):
