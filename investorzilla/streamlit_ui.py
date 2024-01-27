@@ -623,16 +623,29 @@ class StreamlitInvestorzillaApp:
 
 
     def interact_start_end(self):
+        inv=streamlit.session_state.investor
+
+        key='relevant period'
+        defaults = dict(
+            start = (
+                inv.config[key]['start']
+                if key in inv.config and 'start' in inv.config[key]
+                else inv.portfolio.fund.start.to_pydatetime()
+            ),
+            end = (
+                inv.config[key]['end']
+                if key in inv.config and 'end' in inv.config[key]
+                else inv.portfolio.fund.end.to_pydatetime()
+            )
+        )
+
         streamlit.date_input(
             label       = 'Report Period Range',
             help        = 'Report starting on date',
-            min_value   = streamlit.session_state.investor.portfolio.fund.start.to_pydatetime(),
-            max_value   = streamlit.session_state.investor.portfolio.fund.end.to_pydatetime(),
-            value       = (
-                streamlit.session_state.investor.portfolio.fund.start.to_pydatetime(),
-                streamlit.session_state.investor.portfolio.fund.end.to_pydatetime()
-            ),
-            format=     'YYYY-MM-DD',
+            min_value   = inv.portfolio.fund.start.to_pydatetime(),
+            max_value   = inv.portfolio.fund.end.to_pydatetime(),
+            value       = (defaults['start'],defaults['end']),
+            format      = 'YYYY-MM-DD',
             key         = 'interact_start_end'
         )
 

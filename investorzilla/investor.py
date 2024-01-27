@@ -25,6 +25,9 @@ class Investor(object):
     - Portfolio with assets
     - Currency converters
     - Market benchmarks such as S&P500, Índice BoVeSPa etc
+    - Other UI-related metadata such as assets grouping, relevant period,
+      default currency
+    - Other operational details such as cache DB URL
 
     Organizes use of cache database.
     Can be configured from a YAML file and then trigger data loading for all
