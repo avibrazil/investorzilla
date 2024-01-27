@@ -87,6 +87,7 @@ class StreamlitInvestorzillaApp:
             # Put controls in the sidebar
             self.interact_assets()
             self.interact_exclude_assets()
+            self.interact_start_end()
             self.interact_currencies()
             self.interact_benchmarks()
             self.interact_periods()
@@ -127,6 +128,50 @@ class StreamlitInvestorzillaApp:
 
         streamlit.session_state.fund.setName(top=4)
 
+        p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
+
+        self.start = (
+            streamlit.session_state.interact_start_end[0]
+            if len(streamlit.session_state.interact_start_end)>0
+            else streamlit.session_state.investor.portfolio.fund.start
+        )
+        self.end   = (
+            streamlit.session_state.interact_start_end[1]
+            if len(streamlit.session_state.interact_start_end)>1
+            else streamlit.session_state.investor.portfolio.fund.end
+        )
+
+        # Now that we have a fund, create periodic reports
+        self.reportRagged=streamlit.session_state.fund.periodicReport(
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            start      = self.start,
+            end        = self.end,
+        )
+
+        self.reportPeriodic=streamlit.session_state.fund.periodicReport(
+            period     = p['period'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            start      = self.start,
+            end        = self.end,
+        )
+
+        self.reportMacroPeriodic=streamlit.session_state.fund.periodicReport(
+            period     = p['macroPeriod'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            start      = self.start,
+            end        = self.end,
+        )
+
+        self.report=streamlit.session_state.fund.report(
+            precomputedPeriodicReport      = self.reportPeriodic,
+            precomputedMacroPeriodicReport = self.reportMacroPeriodic,
+            period     = streamlit.session_state.interact_periods,
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            start      = self.start,
+            end        = self.end,
+        )
+
+
 
 
     def update_content(self):
@@ -138,9 +183,16 @@ class StreamlitInvestorzillaApp:
 
         self.prepare_fund()
 
-        (tab_performance, tab_shares, tab_currencies, tab_portfolio) = streamlit.tabs(
+        (
+            tab_performance,
+            tab_wealth,
+            tab_shares,
+            tab_currencies,
+            tab_portfolio
+        ) = streamlit.tabs(
             [
                 "📈 Performance",
+                "📈 Wealth Evolution",
                 "📶 Fund Shares inspector",
                 "🔁 Currencies inspector",
                 "💼 Portfolio Components and Information",
@@ -149,6 +201,9 @@ class StreamlitInvestorzillaApp:
 
         with tab_performance:
             self.render_performance_page()
+
+        with tab_wealth:
+            self.render_wealth_page()
 
         with tab_shares:
             self.render_shares_page()
@@ -162,40 +217,14 @@ class StreamlitInvestorzillaApp:
         streamlit.caption('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
 
 
+    def render_wealth_page(self):
+        p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
 
-    def render_performance_page(self):
         # Render title
         streamlit.title(streamlit.session_state.fund.name)
 
-        # Render period slider
-        self.interact_start_end()
-
         # Render main metrics
-        streamlit.header('Main Metrics', divider='rainbow')
-        p=streamlit.session_state.fund.periodPairs[streamlit.session_state.interact_periods]
-        # for p in streamlit.session_state['fund'].periodPairs:
-        #     if p['period']==streamlit.session_state.interact_periods:
-        #         break
-
-        reportRagged=streamlit.session_state.fund.periodicReport(
-            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
-            start      = streamlit.session_state.interact_start_end[0],
-            end        = streamlit.session_state.interact_start_end[1],
-        )
-
-        reportPeriodic=streamlit.session_state.fund.periodicReport(
-            period     = p['period'],
-            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
-            start      = streamlit.session_state.interact_start_end[0],
-            end        = streamlit.session_state.interact_start_end[1],
-        )
-
-        reportMacroPeriodic=streamlit.session_state.fund.periodicReport(
-            period     = p['macroPeriod'],
-            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
-            start      = streamlit.session_state.interact_start_end[0],
-            end        = streamlit.session_state.interact_start_end[1],
-        )
+        streamlit.header('Main Metrics')
 
         if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
@@ -204,72 +233,57 @@ class StreamlitInvestorzillaApp:
 
         label='{kpi}: current {p[periodLabel]} and {p[macroPeriodLabel]}'
 
-        # Rate of return
-        col1.metric(
-            label=label.format(p=p,kpi=investorzilla.KPI.RATE_RETURN),
-            value='{:6.2f}%'.format(100*reportPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
-            delta='{:6.2f}%'.format(100*reportMacroPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
-        )
-
-        # Gain
-        col2.metric(
-            label=label.format(p=p,kpi=investorzilla.KPI.PERIOD_GAIN),
-            value='${:0,.2f}'.format(reportPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
-            delta='{sign}${value:0,.2f}'.format(
-                value=abs(reportMacroPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
-                sign=('-' if reportMacroPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]<0 else '')
-            )
-        )
-
         # Balance
-        col3.metric(
+        col1.metric(
             label='current {} & {}'.format(investorzilla.KPI.BALANCE,investorzilla.KPI.SAVINGS),
-            value='${:0,.2f}'.format(reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE]),
+            value='${:0,.2f}'.format(self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE]),
             delta='{sign}${value:0,.2f}'.format(
-                value=abs(reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]),
-                sign=('-' if reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]<0 else '')
+                value=abs(self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]),
+                sign=('-' if self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]<0 else '')
             )
         )
 
+        col2.metric(
+            label=investorzilla.KPI.BALANCE_OVER_SAVINGS,
+            value='{:6.2f}%'.format(100*self.reportPeriodic[investorzilla.KPI.BALANCE_OVER_SAVINGS].iloc[-1])
+        )
 
+        # Latest average movements (power of saving)
+        col3.metric(
+            label=f"{investorzilla.KPI.MOVEMENTS}: last {p['macroPeriodLabel']} median and mean for a {p['periodLabel']}",
+            value='${:0,.2f}'.format(
+                self.reportPeriodic[investorzilla.KPI.MOVEMENTS]
+                .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
+                .median()
+            ),
+            delta='${:0,.2f}'.format(
+                self.reportPeriodic[investorzilla.KPI.MOVEMENTS]
+                .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
+                .mean()
+            ),
+        )
 
         col1, col2 = streamlit.columns(2)
 
         with col1:
-            streamlit.header('Performance', divider='red')
-            streamlit.line_chart(
-                streamlit.session_state.fund.performancePlot(
-                    benchmark=streamlit.session_state.interact_benchmarks['obj'],
-                    precomputedReport=reportRagged,
-                    type='raw'
-                )
-            )
-
-            streamlit.altair_chart(
-                use_container_width=True,
-                altair_chart=streamlit.session_state.fund.rateOfReturnPlot(
-                    precomputedReport=reportPeriodic,
-                    type='altair'
-                ).interactive()
-            )
-
-        with col2:
-            streamlit.header('Gains', divider='red')
-            streamlit.altair_chart(
-                use_container_width=True,
-                altair_chart=streamlit.session_state.fund.incomePlot(
-                    periodPair=streamlit.session_state.interact_periods,
-                    type='altair',
-                    precomputedReport=reportPeriodic
-                ).interactive()
-            )
-
             streamlit.line_chart(
                 streamlit.session_state.fund.wealthPlot(
                     benchmark=streamlit.session_state.interact_benchmarks['obj'],
-                    precomputedReport=reportRagged,
+                    precomputedReport=self.reportRagged,
                     type='raw'
                 )
+            )
+
+        with col2:
+            # streamlit.header('Movements', divider='red')
+            streamlit.altair_chart(
+                use_container_width=True,
+                altair_chart=streamlit.session_state.fund.genericPeriodicPlot(
+                    kpi=investorzilla.KPI.MOVEMENTS,
+                    periodPair=streamlit.session_state.interact_periods,
+                    type='altair',
+                    precomputedReport=self.reportPeriodic
+                ).interactive()
             )
 
         table_styles=[
@@ -277,47 +291,6 @@ class StreamlitInvestorzillaApp:
             dict(selector="th", props="font-size: 0.8em; "),
             dict(selector='tr:hover', props='background-color: yellow')
         ]
-
-        streamlit.header('Performance')
-        streamlit.markdown("Benchmark is **{benchmark}**.".format(benchmark=streamlit.session_state.interact_benchmarks['obj']))
-
-        performance_benchmarks=[
-            investorzilla.KPI.RATE_RETURN,
-            investorzilla.KPI.BENCHMARK_RATE_RETURN,
-            investorzilla.KPI.BENCHMARK_EXCESS_RETURN,
-            investorzilla.KPI.PERIOD_GAIN
-        ]
-
-        streamlit.multiselect(
-            '',
-            options=performance_benchmarks,
-            default=performance_benchmarks,
-            key='kpi_performance'
-        )
-
-        # kpi        = streamlit.session_state['kpi_performance'],
-
-        report=streamlit.session_state.fund.report(
-                precomputedPeriodicReport      = reportPeriodic,
-                precomputedMacroPeriodicReport = reportMacroPeriodic,
-                period     = streamlit.session_state.interact_periods,
-                benchmark  = streamlit.session_state.interact_benchmarks['obj'],
-                start      = streamlit.session_state.interact_start_end[0],
-                end        = streamlit.session_state.interact_start_end[1],
-            )
-
-        streamlit.markdown(
-            investorzilla.Fund.format(
-                investorzilla.Fund.filter(
-                    report,
-                    kpi=streamlit.session_state.kpi_performance
-                )
-            )
-            .set_table_styles(table_styles)
-
-            .to_html(),
-            unsafe_allow_html=True
-        )
 
         streamlit.header('Wealth Evolution')
 
@@ -339,7 +312,7 @@ class StreamlitInvestorzillaApp:
         streamlit.markdown(
             investorzilla.Fund.format(
                 investorzilla.Fund.filter(
-                    report,
+                    self.report,
                     kpi=streamlit.session_state.kpi_wealth
                 )
             )
@@ -357,10 +330,153 @@ class StreamlitInvestorzillaApp:
         )
 
         streamlit.markdown(
-            'Graph data between **{}** and **{}**'.format(
-                streamlit.session_state.interact_start_end[0],
-                streamlit.session_state.interact_start_end[1]
+            'Graph data between **{}** and **{}**'.format(self.start,self.end)
+        )
+
+
+    def render_performance_page(self):
+        p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
+
+        # Render title
+        streamlit.title(streamlit.session_state.fund.name)
+
+        # Render period slider
+        # self.interact_start_end()
+
+        # Render main metrics
+        streamlit.header('Main Metrics')
+
+        if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
+            streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
+
+        col1, col2, col3 = streamlit.columns(3)
+
+        label='{kpi}: current {p[periodLabel]} and {p[macroPeriodLabel]}'
+
+        # Rate of return
+        col1.metric(
+            label=label.format(p=p,kpi=investorzilla.KPI.RATE_RETURN),
+            value='{:6.2f}%'.format(100*self.reportPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
+            delta='{:6.2f}%'.format(100*self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.RATE_RETURN]),
+        )
+
+        # Latest average rate of return
+        col2.metric(
+            label=f"{investorzilla.KPI.RATE_RETURN}: {p['periodLabel']} median and mean over last {p['macroPeriodLabel']}",
+            value='{:6.2f}%'.format(100 * (
+                    self.reportPeriodic[investorzilla.KPI.RATE_RETURN]
+                    .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
+                    .median()
+                )
+            ),
+            delta='{:6.2f}%'.format(100 * (
+                    self.reportPeriodic[investorzilla.KPI.RATE_RETURN]
+                    .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
+                    .mean()
+                )
+            ),
+        )
+
+        # Gain
+        col3.metric(
+            label=label.format(p=p,kpi=investorzilla.KPI.PERIOD_GAIN),
+            value='${:0,.2f}'.format(self.reportPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
+            delta='{sign}${value:0,.2f}'.format(
+                value=abs(self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]),
+                sign=('-' if self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]<0 else '')
             )
+        )
+
+        col1, col2 = streamlit.columns(2)
+
+        with col1:
+            streamlit.header('Performance', divider='red')
+            streamlit.line_chart(
+                streamlit.session_state.fund.performancePlot(
+                    benchmark=streamlit.session_state.interact_benchmarks['obj'],
+                    precomputedReport=self.reportRagged,
+                    type='raw'
+                )
+            )
+
+            streamlit.altair_chart(
+                use_container_width=True,
+                altair_chart=streamlit.session_state.fund.rateOfReturnPlot(
+                    precomputedReport=self.reportPeriodic,
+                    type='altair'
+                ).interactive()
+            )
+
+        with col2:
+            streamlit.header('Gains', divider='red')
+            streamlit.altair_chart(
+                use_container_width=True,
+                altair_chart=streamlit.session_state.fund.genericPeriodicPlot(
+                    kpi=investorzilla.KPI.PERIOD_GAIN,
+                    periodPair=streamlit.session_state.interact_periods,
+                    type='altair',
+                    precomputedReport=self.reportPeriodic
+                ).interactive()
+            )
+
+            streamlit.altair_chart(
+                use_container_width=True,
+                altair_chart=streamlit.session_state.fund.genericPeriodicPlot(
+                    kpi=investorzilla.KPI.RATE_RETURN,
+                    periodPair=streamlit.session_state.interact_periods,
+                    type='altair',
+                    precomputedReport=self.reportPeriodic
+                ).interactive()
+            )
+
+        table_styles=[
+            dict(selector="td", props="font-size: 0.8em; text-align: right"),
+            dict(selector="th", props="font-size: 0.8em; "),
+            dict(selector='tr:hover', props='background-color: yellow')
+        ]
+
+        streamlit.header('Performance')
+        streamlit.markdown(
+            "Benchmark is **{}**."
+            .format(streamlit.session_state.interact_benchmarks['obj'])
+        )
+
+        performance_benchmarks=[
+            investorzilla.KPI.RATE_RETURN,
+            investorzilla.KPI.BENCHMARK_RATE_RETURN,
+            investorzilla.KPI.BENCHMARK_EXCESS_RETURN,
+            investorzilla.KPI.PERIOD_GAIN
+        ]
+
+        streamlit.multiselect(
+            '',
+            options=performance_benchmarks,
+            default=performance_benchmarks,
+            key='kpi_performance'
+        )
+
+        streamlit.markdown(
+            investorzilla.Fund.format(
+                investorzilla.Fund.filter(
+                    self.report,
+                    kpi=streamlit.session_state.kpi_performance
+                )
+            )
+            .set_table_styles(table_styles)
+
+            .to_html(),
+            unsafe_allow_html=True
+        )
+
+        # Render footer stats
+        streamlit.markdown(
+            'Most recent porfolio data is **{}**'.format(
+                streamlit.session_state.investor.portfolio.asof
+            )
+        )
+
+        streamlit.markdown(
+            'Graph data between **{}** and **{}**'.format(self.start,self.end)
         )
 
 
@@ -501,15 +617,16 @@ class StreamlitInvestorzillaApp:
 
 
     def interact_start_end(self):
-        streamlit.slider(
+        streamlit.date_input(
             label       = 'Report Period Range',
             help        = 'Report starting on date',
-            min_value   = streamlit.session_state.fund.start.to_pydatetime(),
-            max_value   = streamlit.session_state.fund.end.to_pydatetime(),
+            min_value   = streamlit.session_state.investor.portfolio.fund.start.to_pydatetime(),
+            max_value   = streamlit.session_state.investor.portfolio.fund.end.to_pydatetime(),
             value       = (
-                streamlit.session_state.fund.start.to_pydatetime(),
-                streamlit.session_state.fund.end.to_pydatetime()
+                streamlit.session_state.investor.portfolio.fund.start.to_pydatetime(),
+                streamlit.session_state.investor.portfolio.fund.end.to_pydatetime()
             ),
+            format=     'YYYY-MM-DD',
             key         = 'interact_start_end'
         )
 
@@ -519,7 +636,7 @@ class StreamlitInvestorzillaApp:
         streamlit.radio(
             label       = 'How to divide time',
             options     = investorzilla.Fund.getPeriodPairs(),
-            format_func = investorzilla.Fund.getPeriodPairLabel,
+            # format_func = investorzilla.Fund.getPeriodPairLabel,
             index       = investorzilla.Fund.getPeriodPairs().index('month & year'), # the starting default
             help        = 'Refine observation periods and set relation with summary of periods',
             key         = 'interact_periods'

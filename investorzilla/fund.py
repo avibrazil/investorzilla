@@ -22,7 +22,7 @@ class KPI(object):
     SAVINGS                 =  'cumulative savings'
 
     # Rate of accumulated gains
-    BALANCE_OVER_SAVINGS    =  'balance ➗ savings'
+    BALANCE_OVER_SAVINGS    =  'balance∶savings'
 
     # Pure gain, on the period or accumulated
     PERIOD_GAIN             =  'gain'   # on each period
@@ -587,7 +587,7 @@ class Fund(object):
                     KPI.SAVINGS,       KPI.MOVEMENTS,     KPI.SHARES,
                     KPI.SHARE_VALUE
                 ],
-              ):
+        ):
         """
         Filter the report (as returned by report()) and returns only the KPIs
         in the list.
@@ -952,10 +952,14 @@ class Fund(object):
         tz: A time zone to convert all data. Uses local time zone if omited.
         """
 
-        errorMsg='{par} parameter must be of type Pandas Timestamp or Python date or time, or a string compatible with pandas.Timestamp.fromisoformat(), but got "{value}"'
+        errorMsg=(
+            '{par} parameter must be of type Pandas Timestamp, or a string '
+            'compatible with pandas.Timestamp.fromisoformat(), but got '
+            '"{value}" of type {type}.'
+        )
 
         # Chronological index where data begins to be non-zero
-        startOfReport=self.start
+        startOfReport=self.start.tz_convert(tz)
 
         if (start is not None) or (end is not None):
             params=dict(
@@ -968,14 +972,22 @@ class Fund(object):
                     # Check if text was passed then convert it to datetime
                     if isinstance(params[p],str):
                         params[p]=pandas.Timestamp.fromisoformat(params[p])
+                    elif isinstance(params[p],datetime.date):
+                        params[p]=pandas.Timestamp(params[p])
 
                     # Check if usable object
-                    if not (
-                            isinstance(params[p],datetime.date) or
-                            isinstance(params[p],datetime.time) or
-                            isinstance(params[p],pandas.Timestamp)
-                        ):
-                        raise TypeError(errorMsg.format(par=p,value=params[p]))
+                    if not isinstance(params[p],pandas.Timestamp):
+                        raise TypeError(
+                            errorMsg.format(
+                                par=p,
+                                value=params[p],
+                                type=type(params[p])
+                            )
+                        )
+
+                    # End date is actually last nanosecond of that date
+                    if p=='end':
+                        params[p]=params[p].to_period('D').to_timestamp(how="end")
 
                     # Make it timezone-aware
                     if params[p].tzinfo is None:
@@ -986,8 +998,11 @@ class Fund(object):
 
             # Now see if start time is more recent than the beginning of
             # our data, and use it
-            if params['start'] and params['start'] > startOfReport:
-                startOfReport=params['start']
+            if start and start > startOfReport:
+                startOfReport=start
+
+        self.logger.debug(f'Report period: {start} → {end}')
+        self.logger.debug(f'Fund period: {self.start} → {self.end}')
 
         report=(
             # Start fresh
@@ -1084,11 +1099,11 @@ class Fund(object):
 
             # End of period is the last nanosecond of that period, not the
             # beginning of the last day
-            periodShift=(
-                pandas.tseries.frequencies.to_offset(period).nanos-1
-                if Fund.div_offsets(period,'D') < 1
-                else pandas.tseries.frequencies.to_offset('D').nanos-1
-            )
+            # periodShift=(
+            #     pandas.tseries.frequencies.to_offset(period).nanos-1
+            #     if Fund.div_offsets(period,'D') < 1
+            #     else pandas.tseries.frequencies.to_offset('D').nanos-1
+            # )
 
             report=(
                 report
@@ -1327,7 +1342,7 @@ class Fund(object):
                 precomputedReport=None,
             ):
         """
-        The distribution of rate of returns as a plot.
+        The distribution (histogram) of rate of returns as a plot.
 
         Parameters
         ----------
@@ -1407,13 +1422,19 @@ class Fund(object):
             return hist
 
 
-    def incomePlot(self,
+
+    def genericPeriodicPlot(self,
+                kpi=KPI.RATE_RETURN,
                 periodPair='month & year',
                 start=None,
                 end=None,
                 type='pyplot',
                 precomputedReport=None,
             ):
+        """
+        Put the kpi per period in a bar chart with time on X axis. Add moving
+        average and moving median on the macro period.
+        """
         p=self.periodPairs[periodPair]
 
         # Compute how many 'period's fit in one 'macroPeriod'.
@@ -1438,24 +1459,28 @@ class Fund(object):
             data=precomputedReport
 
 
+        label_moving_average = '{} {}s MA'.format(
+            periodCountInMacroPeriod,
+            p['periodLabel']
+        )
+
+        label_moving_median = '{} {}s MM'.format(
+            periodCountInMacroPeriod,
+            p['periodLabel']
+        )
+
         report=(
             data
-            [[KPI.PERIOD_GAIN]]
+            [[kpi]]
             .assign(
                 **{
-                    '{} {}s moving average'.format(
-                        periodCountInMacroPeriod,
-                        p['periodLabel']
-                    ): lambda table: (
-                        table[KPI.PERIOD_GAIN]
+                    label_moving_average: lambda table: (
+                        table[kpi]
                         .rolling(periodCountInMacroPeriod, min_periods=1)
                         .mean()
                     ),
-                    '{} {}s moving median'.format(
-                        periodCountInMacroPeriod,
-                        p['periodLabel']
-                    ): lambda table: (
-                        table[KPI.PERIOD_GAIN]
+                    label_moving_median: lambda table: (
+                        table[kpi]
                         .rolling(periodCountInMacroPeriod, min_periods=1)
                         .median()
                     )
@@ -1475,9 +1500,9 @@ class Fund(object):
                 )
                 .set_index('time')
             )
-            ax=gains[[KPI.PERIOD_GAIN]].plot.bar(color='blue',figsize=(20,10))
-            ax=gains[['12 months moving average']].plot.line(color='red',ax=ax)
-            ax=gains[['12 months moving median']].plot.line(color='green',ax=ax)
+            ax=gains[[kpi]].plot.bar(color='blue',figsize=(20,10))
+            ax=gains[[label_moving_average]].plot.line(color='red',ax=ax)
+            ax=gains[[label_moving_median]].plot.line(color='green',ax=ax)
 
             return ax.get_figure()
 
@@ -1488,7 +1513,7 @@ class Fund(object):
             color=0
 
             columns=list(report.columns)
-            columns.remove(KPI.PERIOD_GAIN)
+            columns.remove(kpi)
 
 
             base=(
@@ -1501,7 +1526,7 @@ class Fund(object):
                 )
                 .encode(x='time')
             )
-            bar=base.mark_bar(color=colors[color]).encode(y=KPI.PERIOD_GAIN)
+            bar=base.mark_bar(color=colors[color]).encode(y=kpi)
             color+=1
 
             for column in columns:
@@ -1519,8 +1544,10 @@ class Fund(object):
     ############################################################################
 
     def pseudoRandomUniqueMilliseconds(self):
-        # Cycle over self.twoSeconds which has 1998 entries (0 to 1997) with
-        # random milliseconds in the range [-999..-1, 1..999]
+        """
+        Cycle over self.twoSeconds which has 1998 entries (0 to 1997) with
+        random milliseconds in the range [-999..-1, 1..999]
+        """
 
         twoSecondsLength=len(self.twoSeconds)
 
@@ -1539,14 +1566,19 @@ class Fund(object):
 
 
 
-    def getPeriodPairLabel(period):
-        return period
-
-
-
     def div_offsets(a, b, date=pandas.Timestamp(0)):
         '''
-        Compute pandas dateoffset ratios using nanosecond conversion
+        Computes how many b-periods are contained into an a-period. Exemple:
+
+        a=5Y, b=Y, returns 5.
+        a=4W, b=W, returns 4.
+        a=Y, b=M, returns 12.
+        a=W, b=D, return 7.
+
+        Use Pandas standard periods to represent a and b, from:
+        https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-period-aliases
+
+        Technique from:
         https://stackoverflow.com/a/68285031/367824
         '''
         a=pandas.tseries.frequencies.to_offset(a)
