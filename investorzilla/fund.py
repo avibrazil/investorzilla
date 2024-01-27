@@ -1253,6 +1253,9 @@ class Fund(object):
                 type='pyplot',
                 precomputedReport=None
             ):
+        """
+        A line plot with acumulated return rate compared with a benchmark
+        """
         if benchmark.currency!=self.currency:
             self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
 
@@ -1305,9 +1308,10 @@ class Fund(object):
                 type='pyplot',
                 precomputedReport=None
             ):
-        if benchmark.currency!=self.currency:
-            self.logger.warning(f"Benchmark {benchmark.id} has a different currency; comparison won't make sense")
-
+        """
+        A plot with 3 lines: balance, savings and the difference between them
+        (the gains).
+        """
         if precomputedReport is not None:
             report=precomputedReport
         else:

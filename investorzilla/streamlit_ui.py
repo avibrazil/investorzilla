@@ -173,7 +173,6 @@ class StreamlitInvestorzillaApp:
 
 
 
-
     def update_content(self):
         """
         Render the report
@@ -192,7 +191,7 @@ class StreamlitInvestorzillaApp:
         ) = streamlit.tabs(
             [
                 "📈 Performance",
-                "📈 Wealth Evolution",
+                "📈 Wealth",
                 "📶 Fund Shares inspector",
                 "🔁 Currencies inspector",
                 "💼 Portfolio Components and Information",
@@ -215,6 +214,7 @@ class StreamlitInvestorzillaApp:
             self.render_portfolio_page()
 
         streamlit.caption('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
+
 
 
     def render_wealth_page(self):
@@ -267,15 +267,21 @@ class StreamlitInvestorzillaApp:
 
         with col1:
             streamlit.line_chart(
-                streamlit.session_state.fund.wealthPlot(
+                use_container_width=True,
+                data=streamlit.session_state.fund.wealthPlot(
                     benchmark=streamlit.session_state.interact_benchmarks['obj'],
                     precomputedReport=self.reportRagged,
                     type='raw'
                 )
             )
 
+            streamlit.line_chart(
+                use_container_width=True,
+                data=self.reportRagged,
+                y=investorzilla.KPI.BALANCE_OVER_SAVINGS
+            )
+
         with col2:
-            # streamlit.header('Movements', divider='red')
             streamlit.altair_chart(
                 use_container_width=True,
                 altair_chart=streamlit.session_state.fund.genericPeriodicPlot(
