@@ -167,7 +167,7 @@ class URIBalanceOrLedger(Portfolio):
         columnsProfile=self.sheetStructure[prop]['columns']
         monetaryColumns=[c['currency'] for c in columnsProfile['monetary']]
 
-        # Set the naiveTimeShift for ledger and balance
+        # Timestamps whose time part is 0 will be shifted with naiveTimeShift
         naiveTimeShift=12*3600
         if prop=='balance':
             naiveTimeShift+=3*60
@@ -233,6 +233,10 @@ class URIBalanceOrLedger(Portfolio):
 
 
     def to_markdown(self, title_prefix=None):
+        """
+        Provides a markdown representation of this object to be used in the
+        "Portfolio Components and Information" tab of Investorzilla's UI.
+        """
         title="{klass}({kind})".format(klass=type(self).__name__,kind=self.kind)
 
         if '://' in str(self.URI):

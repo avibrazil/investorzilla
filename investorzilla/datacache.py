@@ -8,7 +8,8 @@ import pandas
 
 class DataCache(object):
     """
-    Implements a simple generic cache in a local SQLite database.
+    Implements a simple generic cache in a local SQLite database or any
+    database specified by the SQLAlchemy URL provided in object initialization.
 
     Time series for market indices, currency converters and even your portfolio
     kept on Google Sheets take a lot of time to load because they are published

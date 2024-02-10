@@ -38,6 +38,11 @@ class Investor(object):
 
 
     def __init__(self,file,refreshMap=dict(zip(domains,len(domains)*[False])),load=True):
+        """
+        Reads the YAML file which contains domains 'portfolio',
+        'currency_converters' and 'benchmarks', and then load their data from
+        cache or their original sources.
+        """
         # Setup logging
         self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
 
@@ -66,8 +71,8 @@ class Investor(object):
 
     def loadDomains(self,refreshMap=dict(zip(domains,len(domains)*[False]))):
         """
-        Load from cache or internet data for Portfolio, Currency Converters and
-        Benchmarks.
+        Load from cache or original data source (the Internet?) data for
+        Portfolio, Currency Converters and Benchmarks.
 
         refreshMap is a dict that controls wether to load from cache or update
         domain from internet (and update cache). It looks like:
@@ -79,9 +84,7 @@ class Investor(object):
         )
         """
 
-        defaultRefreshMap=dict(zip(self.domains,len(self.domains)*[False]))
-
-        refresh=defaultRefreshMap
+        refresh=dict(zip(self.domains,len(self.domains)*[False]))
         refresh.update(refreshMap)
 
         # Decide wether we need to update extra benchmarks based on
@@ -107,6 +110,7 @@ class Investor(object):
                     # Load if a refresh was requested or domain has nothing yet
                     setattr(self,domain,[])
                     for part in self.config[domain]:
+                        archived = 'archived' in part and part['archived']
                         if 'type' in part:
 #                             self.logger.info(f"processing {part['type']}")
 #                             self.logger.info(f"{part['params'].copy()}")
@@ -117,7 +121,13 @@ class Investor(object):
                             theparams.update(
                                 dict(
                                     cache   = self.cache,
-                                    refresh = refresh[domain]
+
+                                    # Reload data from original source only if
+                                    # an explicit refresh was requested by the
+                                    # UI button AND if asset not marked as
+                                    # archived AND (decided later) asset has no
+                                    # entries in cache.
+                                    refresh = refresh[domain] and not archived
                                 )
                             )
 

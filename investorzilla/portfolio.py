@@ -73,7 +73,7 @@ class Portfolio(object):
 
     def getFund(self, subset=None, name=None, currencyExchange=None):
         """
-        Given one or more investment items names, passed in the subset
+        Given one or more asset names, passed in the subset
         attribute, return a Fund object which allows handling it as shares
         with share value and currency.
         """
@@ -260,7 +260,7 @@ class Portfolio(object):
         else:
             return getattr(self,f'_{prop}')
 
-        # At this point we have raw data from cache or internet
+        # At this point we have raw data from cache or original source (internet)
 
         # Data cleanup and feature engineering
         self.processData()
