@@ -45,7 +45,13 @@ class Portfolio(object):
 
     def __init__(self, kind, id, cache=None, refresh=False):
         # Setup logging
-        self.logger = logging.getLogger(__name__ + '.' + self.__class__.__name__)
+        self.logger = logging.getLogger(
+            "{program}.{cls}({kind})".format(
+                program = __name__,
+                cls     = self.__class__.__name__,
+                kind    = kind
+            )
+        )
 
         # Suffix for DataCache table
         self.kind=kind
@@ -106,7 +112,7 @@ class Portfolio(object):
 
     def makeInternalFund(self,currencyExchange):
         """
-        For easier later computations, make an internal fund out of the assets
+        For easier computationslater, make an internal fund out of the assets
         overlooked by this portfolio.
         """
         self.fund=self.getFund(currencyExchange=currencyExchange)
@@ -251,6 +257,8 @@ class Portfolio(object):
         if getattr(self,f'has_{prop}') is False:
             return None
 
+        self.logger.info(f"Requested data for {prop}")
+
         if self.nextRefresh:
             self.callRefreshData()
             self.nextRefresh=False
@@ -297,14 +305,25 @@ class Portfolio(object):
         """
         if self.cache is not None:
             if self._ledger is not None:
-                self.cache.set(kind=f'{self.kind}__ledger', id=self.id, data=self._ledger)
+                self.cache.set(
+                    kind=f'{self.kind}__ledger',
+                    id=self.id,
+                    data=self._ledger
+                )
             if self._balance is not None:
-                self.cache.set(kind=f'{self.kind}__balance', id=self.id, data=self._balance)
+                self.cache.set(
+                    kind=f'{self.kind}__balance',
+                    id=self.id,
+                    data=self._balance
+                )
 
 
 
     def callRefreshData(self):
+        self.logger.info("Start retrieving data from original source")
+        # Calls derived class refreshData() method
         self.refreshData()
+        self.logger.info("Finished retrieving data from original source and writting cache with almost-raw refreshed data")
         self.cacheUpdate()
 
 
