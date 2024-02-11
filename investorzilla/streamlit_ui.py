@@ -224,7 +224,7 @@ class StreamlitInvestorzillaApp:
         streamlit.title(streamlit.session_state.fund.name)
 
         # Render main metrics
-        streamlit.header('Main Metrics')
+        # streamlit.header('Main Metrics')
 
         if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
@@ -240,12 +240,14 @@ class StreamlitInvestorzillaApp:
             delta='{sign}${value:0,.2f}'.format(
                 value=abs(self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]),
                 sign=('-' if self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.SAVINGS]<0 else '')
-            )
+            ),
+            help='Current balance compared to all your savings'
         )
 
         col2.metric(
             label=investorzilla.KPI.BALANCE_OVER_SAVINGS,
-            value='{:6.2f}%'.format(100*self.reportPeriodic[investorzilla.KPI.BALANCE_OVER_SAVINGS].iloc[-1])
+            value='{:6.2f}%'.format(100*self.reportPeriodic[investorzilla.KPI.BALANCE_OVER_SAVINGS].iloc[-1]),
+            help='How many times your balance is bigger than your savings'
         )
 
         # Latest average movements (power of saving)
@@ -261,6 +263,7 @@ class StreamlitInvestorzillaApp:
                 .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
                 .mean()
             ),
+            help='Long term tendency of saving money'
         )
 
         col1, col2 = streamlit.columns(2)
@@ -340,6 +343,7 @@ class StreamlitInvestorzillaApp:
         )
 
 
+
     def render_performance_page(self):
         p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
 
@@ -350,12 +354,12 @@ class StreamlitInvestorzillaApp:
         # self.interact_start_end()
 
         # Render main metrics
-        streamlit.header('Main Metrics')
+        # streamlit.header('Main Metrics')
 
         if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
 
-        col1, col2, col3 = streamlit.columns(3)
+        col1, col2, col3, col4 = streamlit.columns(4)
 
         label='{kpi}: current {p[periodLabel]} and {p[macroPeriodLabel]}'
 
@@ -392,6 +396,22 @@ class StreamlitInvestorzillaApp:
                 sign=('-' if self.reportMacroPeriodic.iloc[-1][investorzilla.KPI.PERIOD_GAIN]<0 else '')
             )
         )
+
+        # Average Gain
+        col4.metric(
+            label=f"{investorzilla.KPI.PERIOD_GAIN}: {p['periodLabel']} median and mean over last {p['macroPeriodLabel']}",
+            value='${:0,.2f}'.format(
+                self.reportPeriodic[investorzilla.KPI.PERIOD_GAIN]
+                .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
+                .median()
+            ),
+            delta='${:0,.2f}'.format(
+                self.reportPeriodic[investorzilla.KPI.PERIOD_GAIN]
+                .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
+                .mean()
+            ),
+        )
+
 
         col1, col2 = streamlit.columns(2)
 
@@ -562,7 +582,7 @@ class StreamlitInvestorzillaApp:
 
 
 
-    # All the interact_* methods manager widgets in the Streamlit UI
+    # All the interact_* methods manage widgets in the Streamlit UI
 
     def interact_assets(self):
         streamlit.multiselect(
@@ -657,7 +677,7 @@ class StreamlitInvestorzillaApp:
             options     = investorzilla.Fund.getPeriodPairs(),
             # format_func = investorzilla.Fund.getPeriodPairLabel,
             index       = investorzilla.Fund.getPeriodPairs().index('month & year'), # the starting default
-            help        = 'Refine observation periods and set relation with summary of periods',
+            help        = 'Pairs of period (as month) and macro period (as year)',
             key         = 'interact_periods'
         )
 
