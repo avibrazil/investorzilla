@@ -225,7 +225,10 @@ class Fund(object):
     ##
     ############################################################################
 
-    def __init__(self, ledger, balance, currencyExchange=None, needCurrencyConversion=True, name=None):
+    def __init__(
+                self, ledger, balance, currencyExchange=None,
+                needCurrencyConversion=True, name=None
+        ):
         """
         Creates a virtual fund consolidating assets that appear on balance and
         ledger. Before consolidation, assets will be converted to currency
