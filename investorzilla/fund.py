@@ -1313,7 +1313,7 @@ class Fund(object):
             ):
         """
         A plot with 3 lines: balance, savings and the difference between them
-        (the gains).
+        (the cumulated gains).
         """
         if precomputedReport is not None:
             report=precomputedReport
@@ -1439,7 +1439,7 @@ class Fund(object):
                 precomputedReport=None,
             ):
         """
-        Put the kpi per period in a bar chart with time on X axis. Add moving
+        Put the KPI per period in a bar chart with time on X axis. Add moving
         average and moving median on the macro period.
         """
         p=self.periodPairs[periodPair]
@@ -1543,6 +1543,288 @@ class Fund(object):
             return bar
 
 
+
+    def assetContributionPlot(self,
+                pointInTime,
+                kpi=KPI.PERIOD_GAIN,
+                period='M',
+                type='altair',
+                top=5,
+                precomputedReport=None
+            ):
+        """
+        A waterfall bar plot showing contribution of each asset to the final
+        result in that specific pointInTime.
+
+        pointInTime must be a string compatible with period.
+
+        So if period='M' (monthly periods), a compatible pointInTime can be
+        '2023-12'.
+        """
+
+        if not hasattr(self,'asFund'):
+            self.makeAssetsFunds()
+
+        # Make one giant report joining all reports from all internal assets
+        report = pandas.concat(
+            [
+                # This concat is just to add an axis level to the periodicReport
+                pandas.concat(
+                    [
+                        self.asFund[f].periodicReport(period)
+                    ],
+                    axis=1,
+                    keys=[f]
+                )
+                for f in list(self.asFund.keys())
+            ],
+            axis=1
+        )
+
+        # Now select and organize the contribution of each asset to the final
+        # TOTAL. Only top (argument) number of assets will be showed, all other
+        # assets will be aggregated into MINOR ASSETS. Final result is a table
+        # like:
+        # |    | Asset        |      {kpi} |
+        # |---:|:-------------|-----------:|
+        # |  0 | MINOR ASSETS |    9608.54 |
+        # |  4 | Asset 1      |  -56136    |
+        # |  3 | Asset 2      |   81159.8  |
+        # |  2 | Asset 3      |  124309    |
+        # |  1 | Asset 4      | -138660    |
+        # |  0 | Asset 5      | -148350    |
+        # |  0 | TOTAL        | -128068    |
+
+        contributions = (
+            report
+            .swaplevel(0, 1, 1)
+            .sort_index()
+            .sort_index(axis=1)
+
+            # Fill the blanks according to each KPI semantic
+            .assign(
+                **{
+                    # Dict comprehension didn't work because of variable into lambda
+                    KPI.BALANCE: lambda table: table[KPI.BALANCE].fillna(method='ffill'),
+                    KPI.BALANCE_OVER_SAVINGS: lambda table: table[KPI.BALANCE_OVER_SAVINGS].fillna(method='ffill'),
+                    KPI.SAVINGS: lambda table: table[KPI.SAVINGS].fillna(method='ffill'),
+                    KPI.GAINS: lambda table: table[KPI.GAINS].fillna(method='ffill'),
+                    KPI.SHARE_VALUE: lambda table: table[KPI.SHARE_VALUE].fillna(method='ffill'),
+                    KPI.SHARES: lambda table: table[KPI.SHARES].fillna(method='ffill'),
+                }
+            )
+            .fillna(0)
+
+            # Get only the desired KPI
+            [[kpi]]
+
+            # Reorg
+            .T
+
+            # Get only the desired period
+            [[pointInTime]]
+
+            # Rename columns and make others
+            .assign(
+                **{
+                    kpi: lambda table: table[pointInTime],
+                    "abs": lambda table: table[kpi].abs()
+                }
+            )
+
+            # Drop old column because of undesired name
+            .pipe(
+                lambda table: table.drop(columns=table.columns[0])
+            )
+
+            # Remove old columns spirit
+            .rename_axis(columns=None)
+
+            # Drop index level not used anymore
+            .droplevel(0)
+
+            # Assets column with correct name
+            .rename_axis("Asset")
+            .reset_index()
+
+            # Eliminate useless values
+            .dropna()
+            .query(f"`{kpi}`.abs() > 0")
+
+            # Order by KPI relevance
+            .sort_values('abs',ascending=False)
+            .reset_index(drop=True)
+
+            # Mark less relevant assets to be aggregated
+            .reset_index(names='rankk')
+            .assign(
+                agg=lambda table: table.apply(
+                    lambda row: True if row.rankk>=top else False,
+                    axis=1
+                )
+            )
+
+            .pipe(
+                lambda table: pandas.concat(
+                    [
+                        # Aggregate less relevant assets into a virtual MINOR ASSETS
+                        pandas.DataFrame(table.query('agg == True').sum())
+                        .T
+                        .assign(
+                            Asset='AGGREGATED MINOR ASSETS'
+                        ),
+
+                        # Invert assets order from less relevant up
+                        table.query('agg == False').iloc[::-1],
+                    ]
+                ) if table.shape[0]>(top+1) else table.iloc[::-1]
+            )
+
+            # Remove auxiliary columns
+            .drop(columns=['rankk','agg','abs'])
+
+            # Append the TOTAL row
+            .pipe(
+                lambda table: pandas.concat(
+                    [
+                        table,
+                        pandas.DataFrame([{
+                            'Asset': 'TOTAL',
+                            kpi: table.cumsum().iloc[-1].values[1],
+                            # kpi: 0,
+                        }]),
+                    ]
+                )
+            )
+
+            # Tidy up the index
+            .reset_index(drop=True)
+        )
+
+        if type=='raw':
+            return contributions
+
+        if type=='altair':
+            import altair
+
+            # Make TOTAL=0; Altair will compute TOTAL for display purposes
+            contributions.iloc[-1,1]=0
+
+            bar_size=85
+
+            base = (
+                altair.Chart(contributions, mark='line')
+                .transform_window(
+                    window_sum_amount=f"sum({kpi})",
+                    window_lead_asset="lead(Asset)",
+                )
+                .transform_calculate(
+                    calc_lead="datum.window_lead_asset === null ? datum.Asset : datum.window_lead_asset",
+                    calc_prev_sum=f"datum.Asset === 'TOTAL' ? 0 : datum.window_sum_amount - datum.{kpi}",
+                    calc_amount=f"datum.Asset === 'TOTAL' ? datum.window_sum_amount : datum.{kpi}",
+                    calc_text_amount="(datum.Asset !== 'TOTAL' && datum.calc_amount > 0 ? '+' : '') + datum.calc_amount",
+                    calc_center="(datum.window_sum_amount + datum.calc_prev_sum) / 2",
+                    calc_sum_dec="datum.window_sum_amount < datum.calc_prev_sum ? datum.window_sum_amount : 'NONE'",
+                    calc_sum_inc="datum.window_sum_amount > datum.calc_prev_sum ? datum.window_sum_amount : 'NONE'",
+                )
+                .encode(
+                    x=altair.X(
+                        "Asset:N",
+                        axis=altair.Axis(
+                            title='Assets',
+                            labelAngle=-45,
+                            labelExpr='split(datum.label," ")',
+                            labelBaseline='middle'
+                        ),
+                        sort=None,
+                    )
+                )
+            )
+
+            # More visible grid line at zero
+            zero = (
+                altair.Chart()
+                .mark_rule(size=5, color='#990000')
+                .encode(y=altair.datum(0))
+            )
+
+            bars = (
+                base
+                .mark_bar(size=bar_size)
+                .encode(
+                    y=altair.Y("calc_prev_sum:Q", title=f"{kpi}"),
+                    y2=altair.Y2("window_sum_amount:Q"),
+                    color=dict(
+                        condition=[
+                            dict(
+                                test="datum.Asset === 'TOTAL'",
+                                value="magenta"
+                            ),
+                            dict(
+                                test="datum.calc_amount < 0",
+                                value="#fa4d56"
+                            )
+                        ],
+                        value="#24a148",
+                    ),
+                )
+            )
+
+            # Connect result of previous bar to the next bar
+            connectors = (
+                base
+                .mark_rule(
+                    xOffset=-(bar_size/2),
+                    x2Offset=(bar_size/2),
+                ).encode(
+                    y="window_sum_amount:Q",
+                    x2="calc_lead",
+                )
+            )
+
+            # Add values as text
+            text_pos_values_top_of_bar = (
+                base
+                .mark_text(
+                    baseline="bottom",
+                    dy=-4
+                ).encode(
+                    text=altair.Text("calc_sum_inc:N",format=',.2f'),
+                    y="calc_sum_inc:Q"
+                )
+            )
+
+            text_neg_values_bot_of_bar = (
+                base
+                .mark_text(
+                    baseline="top",
+                    dy=4
+                ).encode(
+                    text=altair.Text("calc_sum_dec:N",format=',.2f'),
+                    y="calc_sum_dec:Q"
+                )
+            )
+
+            text_bar_values_mid_of_bar = (
+                base
+                .mark_text(baseline="middle")
+                .encode(
+                    text=altair.Text("calc_text_amount:N",format=',.2f'),
+                    y="calc_center:Q",
+                    color=altair.value("white"),
+                )
+            )
+
+            return altair.layer(
+                bars,
+                zero,
+                connectors,
+                text_pos_values_top_of_bar,
+                text_neg_values_bot_of_bar,
+                text_bar_values_mid_of_bar
+            ).properties(
+                height=600
+            )
 
     ############################################################################
     ##

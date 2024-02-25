@@ -185,6 +185,7 @@ class StreamlitInvestorzillaApp:
         (
             tab_performance,
             tab_wealth,
+            tab_contributions,
             tab_shares,
             tab_currencies,
             tab_portfolio
@@ -192,6 +193,7 @@ class StreamlitInvestorzillaApp:
             [
                 "📈 Performance",
                 "📈 Wealth",
+                "📶 Per Asset Contributions",
                 "📶 Fund Shares inspector",
                 "🔁 Currencies inspector",
                 "💼 Portfolio Components and Information",
@@ -204,6 +206,9 @@ class StreamlitInvestorzillaApp:
         with tab_wealth:
             self.render_wealth_page()
 
+        with tab_contributions:
+            self.render_contributions_page()
+
         with tab_shares:
             self.render_shares_page()
 
@@ -214,6 +219,44 @@ class StreamlitInvestorzillaApp:
             self.render_portfolio_page()
 
         streamlit.caption('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
+
+
+
+    def render_contributions_page(self):
+        # Render title
+        streamlit.title(streamlit.session_state.fund.name)
+
+        kpis=[
+            investorzilla.KPI.PERIOD_GAIN,
+            investorzilla.KPI.GAINS,
+            investorzilla.KPI.BALANCE,
+            investorzilla.KPI.SAVINGS,
+            investorzilla.KPI.MOVEMENTS
+        ]
+
+        col1, col2 = streamlit.columns(2)
+
+        col1.radio(
+            "Select KPI to show the contribution of each Asset",
+            kpis,
+            key='kpi_contributions',
+            horizontal=True,
+        )
+
+        col2.selectbox(
+           "Select point in time",
+            self.reportPeriodic.index.sort_values(ascending=False),
+            key="pointintime_contributions"
+        )
+
+        streamlit.altair_chart(
+            use_container_width=True,
+            altair_chart=streamlit.session_state.fund.assetContributionPlot(
+                pointInTime=streamlit.session_state.pointintime_contributions,
+                kpi=streamlit.session_state.kpi_contributions,
+                period=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]['period'],
+            ).interactive()
+        )
 
 
 
