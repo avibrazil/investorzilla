@@ -1605,12 +1605,12 @@ class Fund(object):
             .assign(
                 **{
                     # Dict comprehension didn't work because of variable into lambda
-                    KPI.BALANCE: lambda table: table[KPI.BALANCE].fillna(method='ffill'),
-                    KPI.BALANCE_OVER_SAVINGS: lambda table: table[KPI.BALANCE_OVER_SAVINGS].fillna(method='ffill'),
-                    KPI.SAVINGS: lambda table: table[KPI.SAVINGS].fillna(method='ffill'),
-                    KPI.GAINS: lambda table: table[KPI.GAINS].fillna(method='ffill'),
-                    KPI.SHARE_VALUE: lambda table: table[KPI.SHARE_VALUE].fillna(method='ffill'),
-                    KPI.SHARES: lambda table: table[KPI.SHARES].fillna(method='ffill'),
+                    KPI.BALANCE:              lambda table: table[KPI.BALANCE].ffill(),
+                    KPI.BALANCE_OVER_SAVINGS: lambda table: table[KPI.BALANCE_OVER_SAVINGS].ffill(),
+                    KPI.SAVINGS:              lambda table: table[KPI.SAVINGS].ffill(),
+                    KPI.GAINS:                lambda table: table[KPI.GAINS].ffill(),
+                    KPI.SHARE_VALUE:          lambda table: table[KPI.SHARE_VALUE].ffill(),
+                    KPI.SHARES:               lambda table: table[KPI.SHARES].ffill(),
                 }
             )
             .fillna(0)
@@ -1825,6 +1825,61 @@ class Fund(object):
             ).properties(
                 height=600
             )
+
+
+    def describe(self,output='styled'):
+        """
+        Short report of state of each asset in fund
+        """
+        totalBalance=(
+            self.balance
+            .groupby(level=0)
+            .last()
+            .droplevel(1,axis=1)
+            .sum()
+            .values[0]
+        )
+
+        desc = (
+            self.balance
+            .groupby(level=0)
+            .last()
+            .droplevel(1,axis=1)
+            .query(f"{KPI.BALANCE}>0")
+            .join(
+                self.ledger
+                .droplevel(0,axis=1)
+                .reset_index(1)
+                .groupby(level=0)
+                .last()
+                .rename(
+                    columns={
+                        'time': 'last movement',
+                        'comment': 'comment of last moevement',
+                        self.exchange.currency: 'movement'
+                    }
+                ),
+                how='inner'
+            )
+            .sort_values(KPI.BALANCE, ascending=False)
+            .assign(
+                **{
+                    '% of portfolio': lambda table: table[KPI.BALANCE]/totalBalance
+                }
+            )
+            [[
+                KPI.BALANCE,'% of portfolio','last movement',
+                'movement','comment of last moevement'
+            ]]
+        )
+
+        if output=='raw':
+            return desc
+
+        if output=='styled':
+            return desc.style
+
+
 
     ############################################################################
     ##
