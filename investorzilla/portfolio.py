@@ -238,7 +238,7 @@ class Portfolio(object):
 
 
     @property
-    def asof(self):
+    def asof(self,tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo):
         """
         Timestamp of most recent balance or ledger data of this portfolio asset
         """
@@ -249,7 +249,7 @@ class Portfolio(object):
                     self.balance.time.max() if self.has_balance else None
                 ] if t is not None
             ]
-        )
+        ).tz_convert(tz)
 
 
 
@@ -586,8 +586,8 @@ class PortfolioAggregator(Portfolio):
 
 
     @property
-    def asof(self):
-        return numpy.max([p.asof.tz_localize(None) for p in self.members])
+    def asof(self,tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo):
+        return numpy.max([p.asof for p in self.members]).tz_convert(tz)
 
 
 
