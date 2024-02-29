@@ -234,11 +234,6 @@ class StreamlitInvestorzillaApp:
         streamlit.dataframe(
             data                = streamlit.session_state.fund.describe(),
             use_container_width = True,
-            column_config       = {
-                'balance': streamlit.column_config.NumberColumn(format="$ %,.2f"),
-                '% of portfolio': streamlit.column_config.NumberColumn(format="%,.2%"),
-                'movement': streamlit.column_config.NumberColumn(format="$ %,.2f"),
-            }
         )
 
 
@@ -398,7 +393,7 @@ class StreamlitInvestorzillaApp:
         # Render footer stats
         streamlit.markdown(
             'Most recent porfolio data is **{}**'.format(
-                streamlit.session_state.investor.portfolio.asof
+                streamlit.session_state.investor.portfolio.asof.strftime('%Y-%m-%d %X %z')
             )
         )
 

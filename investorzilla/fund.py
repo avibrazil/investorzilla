@@ -1827,7 +1827,7 @@ class Fund(object):
             )
 
 
-    def describe(self,output='styled'):
+    def describe(self,output='styled',tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo):
         """
         Short report of state of each asset in fund
         """
@@ -1864,7 +1864,8 @@ class Fund(object):
             .sort_values(KPI.BALANCE, ascending=False)
             .assign(
                 **{
-                    '% of portfolio': lambda table: table[KPI.BALANCE]/totalBalance
+                    '% of portfolio': lambda table: table[KPI.BALANCE]/totalBalance,
+                    'last movement': lambda table: table['last movement'].dt.tz_convert(tz)
                 }
             )
             [[
@@ -1877,7 +1878,18 @@ class Fund(object):
             return desc
 
         if output=='styled':
-            return desc.style
+            return (
+                desc
+                .style
+                .format(
+                    {
+                        KPI.BALANCE: Fund.formatters[KPI.BALANCE]['format'],
+                        'movement': Fund.formatters[KPI.MOVEMENTS]['format'],
+                        '% of portfolio': '{:,.2%}',
+                        'last movement': '{:%Y-%m-%d %X %z}',
+                    }
+                )
+            )
 
 
 
