@@ -186,6 +186,7 @@ class StreamlitInvestorzillaApp:
             tab_performance,
             tab_wealth,
             tab_contributions,
+            tab_summary,
             tab_shares,
             tab_currencies,
             tab_portfolio
@@ -194,6 +195,7 @@ class StreamlitInvestorzillaApp:
                 "📈 Performance",
                 "📈 Wealth",
                 "📶 Per Asset Contributions",
+                "💼 Portfolio Summary",
                 "📶 Fund Shares inspector",
                 "🔁 Currencies inspector",
                 "💼 Portfolio Components and Information",
@@ -209,6 +211,9 @@ class StreamlitInvestorzillaApp:
         with tab_contributions:
             self.render_contributions_page()
 
+        with tab_summary:
+            self.render_summary_page()
+
         with tab_shares:
             self.render_shares_page()
 
@@ -219,6 +224,22 @@ class StreamlitInvestorzillaApp:
             self.render_portfolio_page()
 
         streamlit.caption('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
+
+
+
+    def render_summary_page(self):
+        # Render title
+        streamlit.title(streamlit.session_state.fund.name)
+
+        streamlit.dataframe(
+            data                = streamlit.session_state.fund.describe(),
+            use_container_width = True,
+            column_config       = {
+                'balance': streamlit.column_config.NumberColumn(format="$ %,.2f"),
+                '% of portfolio': streamlit.column_config.NumberColumn(format="%,.2%"),
+                'movement': streamlit.column_config.NumberColumn(format="$ %,.2f"),
+            }
+        )
 
 
 
