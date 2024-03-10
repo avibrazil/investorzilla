@@ -257,7 +257,7 @@ class Portfolio(object):
         if getattr(self,f'has_{prop}') is False:
             return None
 
-        self.logger.info(f"Requested data for {prop}")
+        self.logger.debug(f"Requested data for {prop}")
 
         if self.nextRefresh:
             self.callRefreshData()
