@@ -223,7 +223,8 @@ class StreamlitInvestorzillaApp:
         with tab_portfolio:
             self.render_portfolio_page()
 
-        streamlit.caption('Report by [investorzilla](https://github.com/avibrazil/investorzilla).')
+        streamlit.divider()
+        streamlit.caption(f'Report by **[Investorzilla](https://github.com/avibrazil/investorzilla) {investorzilla.__version__}**.')
 
 
 
