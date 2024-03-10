@@ -103,11 +103,11 @@ class Fund(object):
 
 
         'month & year': dict(
-            period                     = 'M',
+            period                     = 'ME',
             periodLabel                = 'month',
             periodFormatter            = '{end:%m·%b}',
 
-            macroPeriod                = 'Y',
+            macroPeriod                = 'YE',
             macroPeriodLabel           = 'year',
             macroPeriodFormatter       = '{end:%Y}'
         ),
@@ -138,7 +138,7 @@ class Fund(object):
 
         # Adjust to end
         'year & 5 years': dict(
-            period                     = 'Y',
+            period                     = 'YE',
             periodLabel                = 'year',
             # periodFormatter            = '%Y',
 
@@ -150,7 +150,7 @@ class Fund(object):
 
         # Adjust to end
         'year & decade': dict(
-            period                     = 'Y',
+            period                     = 'YE',
             periodLabel                = 'year',
             # periodFormatter            = '%Y',
 
@@ -1113,7 +1113,7 @@ class Fund(object):
 
                 .resample(
                     rule=dateOffset,
-                    kind='period',
+                    # kind='period',
                     label='right'
                 )
 
@@ -1144,6 +1144,8 @@ class Fund(object):
                         **benchmarkAggregation
                     )
                 )
+
+                .to_period()
 
                 # We want timestamps on end of each period, not in the
                 # begining as Pandas defaults
