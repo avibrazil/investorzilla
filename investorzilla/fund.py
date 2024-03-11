@@ -1113,7 +1113,7 @@ class Fund(object):
 
                 .resample(
                     rule=dateOffset,
-                    # kind='period',
+                    kind='period',
                     label='right'
                 )
 
@@ -1145,7 +1145,7 @@ class Fund(object):
                     )
                 )
 
-                .to_period()
+                # .to_period()
 
                 # We want timestamps on end of each period, not in the
                 # begining as Pandas defaults
