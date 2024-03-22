@@ -289,7 +289,7 @@ class StreamlitInvestorzillaApp:
         if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
 
-        col1, col2, col3 = streamlit.columns(3)
+        col1, col2, col3, col4 = streamlit.columns(4)
 
         label='{kpi}: current {p[periodLabel]} and {p[macroPeriodLabel]}'
 
@@ -305,13 +305,19 @@ class StreamlitInvestorzillaApp:
         )
 
         col2.metric(
+            label=investorzilla.KPI.GAINS,
+            value='${:0,.2f}'.format(self.reportPeriodic.iloc[-1][investorzilla.KPI.GAINS]),
+            help='Overall sum of all gains and losses so far'
+        )
+
+        col3.metric(
             label=investorzilla.KPI.BALANCE_OVER_SAVINGS,
             value='{:6.2f}%'.format(100*self.reportPeriodic[investorzilla.KPI.BALANCE_OVER_SAVINGS].iloc[-1]),
             help='How many times your balance is bigger than your savings'
         )
 
         # Latest average movements (power of saving)
-        col3.metric(
+        col4.metric(
             label=f"{investorzilla.KPI.MOVEMENTS}: last {p['macroPeriodLabel']} median and mean for a {p['periodLabel']}",
             value='${:0,.2f}'.format(
                 self.reportPeriodic[investorzilla.KPI.MOVEMENTS]
