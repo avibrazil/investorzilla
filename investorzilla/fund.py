@@ -1446,18 +1446,7 @@ class Fund(object):
         """
         p=self.periodPairs[periodPair]
 
-        # Compute how many 'period's fit in one 'macroPeriod'.
-        # https://stackoverflow.com/questions/68284757
-        o1 = pandas.tseries.frequencies.to_offset(p['period'])
-        o2 = pandas.tseries.frequencies.to_offset(p['macroPeriod'])
-
-        t0 = pandas.Timestamp(0)
-
-        # convert to a period in nanoseconds
-        o2ns = ((t0 + o2) - t0).total_seconds()*1e9
-        o1ns = ((t0 + o1) - t0).total_seconds()*1e9
-
-        periodCountInMacroPeriod=round(o2ns/o1ns)
+        periodCountInMacroPeriod = Fund.div_offsets(p['macroPeriod'],p['period'])
 
 
         # Now compute moving averages
@@ -1521,25 +1510,29 @@ class Fund(object):
             colors=['blue', 'red', 'green', 'cyan', 'yellow', 'brown']
             color=0
 
-            columns=list(report.columns)
-            columns.remove(kpi)
-
+            rollingAggregations=list(report.columns)
+            rollingAggregations.remove(kpi)
 
             base=(
                 altair.Chart(
                     report
                     .reset_index()
+
+                    # Altair won't handle correctly all our possibilities of a
+                    # true time type, thus convert it to text first
                     .assign(
                         time=lambda table: table.time.astype(str)
                     )
                 )
-                .encode(x='time')
+                .encode(
+                    x='time:N',
+                )
             )
             bar=base.mark_bar(color=colors[color]).encode(y=kpi)
             color+=1
 
-            for column in columns:
-                bar+=base.mark_line(color=colors[color]).encode(y=column)
+            for r in rollingAggregations:
+                bar += base.mark_line(color=colors[color]).encode(y=r)
                 color+=1
 
             return bar
