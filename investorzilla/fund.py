@@ -59,7 +59,7 @@ class Fund(object):
         # https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
 
         'hour of the day': dict(
-            period                     = 'H',
+            period                     = 'h',
             periodLabel                = 'hour of day',
             periodFormatter            = '{end:%H}',
 
@@ -70,7 +70,7 @@ class Fund(object):
 
 
         'part of the day': dict(
-            period                     = '12H',
+            period                     = '12h',
             periodLabel                = 'part of day',
             periodFormatter            = '{end:%p}',
 
@@ -1513,27 +1513,66 @@ class Fund(object):
             rollingAggregations=list(report.columns)
             rollingAggregations.remove(kpi)
 
-            base=(
+            base = (
                 altair.Chart(
                     report
-                    .reset_index()
 
-                    # Altair won't handle correctly all our possibilities of a
-                    # true time type, thus convert it to text first
-                    .assign(
-                        time=lambda table: table.time.astype(str)
-                    )
+                    # Altair won't handle Period objects correctly, thus convert
+                    # our index into regular Timestamps.
+                    .to_timestamp(how='end')
+                    .reset_index()
                 )
                 .encode(
-                    x='time:N',
+                    x='time',
                 )
             )
-            bar=base.mark_bar(color=colors[color]).encode(y=kpi)
+            bar = base.mark_bar(color=colors[color]).encode(y=kpi)
             color+=1
 
             for r in rollingAggregations:
                 bar += base.mark_line(color=colors[color]).encode(y=r)
                 color+=1
+
+            shades = (
+                pandas.DataFrame(
+                    report
+
+                    # Make Pandas stop complaining about Period resampling
+                    .to_timestamp(how='end')
+
+                    # The bigger blocks of our report
+                    .resample(p['macroPeriod'])
+
+                    # Aggregate by whatever just to get a real DataFrame
+                    .last()
+
+                    # Get only the index
+                    .index
+
+                    # Back to the convenient Period object
+                    .to_period()
+
+                    # Every other period
+                    [::2]
+                )
+                .assign(
+                    start=lambda table: table.time.apply(lambda cell: cell.start_time),
+                    end=lambda table: table.time.apply(lambda cell: cell.end_time),
+                )
+                .drop(columns='time')
+            )
+
+            # Add shades for every other macro-period (eg. Y, 4W) for better
+            # visualization of group of periods (eg. M, W)
+            bar += (
+                altair.Chart(shades)
+                .mark_rect(opacity=0.05)
+                .encode(
+                    x=altair.X('start', title=''),
+                    x2=altair.X2('end', title=''),
+                    color=altair.ColorValue('black')
+                )
+            )
 
             return bar
 
@@ -1932,11 +1971,14 @@ class Fund(object):
         Technique from:
         https://stackoverflow.com/a/68285031/367824
         '''
+        isNatural = lambda number: number%1==0
+
         a=pandas.tseries.frequencies.to_offset(a)
         b=pandas.tseries.frequencies.to_offset(b)
 
         try:
-            return a.nanos / b.nanos
+            result = a.nanos / b.nanos
+            return result if not isNatural(result) else int(result)
         except ValueError:
             pass
 
@@ -1947,13 +1989,13 @@ class Fund(object):
         bns  = ((prev + b) - prev).total_seconds()*1e9
 
         if ans > bns:
-            ratio = round(ans / bns)
+            result = round(ans / bns)
             # assert date + ratio * b == date + a
-            return ratio
+            return result if not isNatural(result) else int(result)
         else:
-            ratio = round(bns / ans)
+            result = round(1/(bns/ans))
             # assert date + b == date + ratio * a
-            return 1 / ratio
+            return result if not isNatural(result) else int(result)
 
 
 
