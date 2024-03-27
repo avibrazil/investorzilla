@@ -1396,8 +1396,10 @@ class Fund(object):
         if type=='raw':
             return data
 
-        if data.shape[0]<=1:
-            return None
+        # Doesn´t make sense to compute this chart if not enough data, but
+        # UI will break otherwise, so let it pass anyway.
+        # if data.shape[0]<=1:
+        #     return None
 
         data=data*100
         bins=int(data.shape[0]/10)
