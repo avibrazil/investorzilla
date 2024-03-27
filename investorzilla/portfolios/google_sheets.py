@@ -50,8 +50,8 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                         # Time is in column called 'Data'
                         time: Date and time
 
-                        # Name of funds on each row is under this column
-                        fund: Compound fund
+                        # Name of assets on each row is under this column
+                        asset: Compound asset
 
                         # Column called 'Saldo USD' contains values in 'USD' and so on.
                         monetary:
@@ -65,7 +65,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
                     sheetRange: Ledger!A:E
                     columns:
                         time: Date and time
-                        fund: Compound fund
+                        asset: Compound asset
 
                         # Name of columns with random comments
                         comment: Comment
@@ -218,8 +218,8 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             sheet
             .replace('#N/A',pandas.NA)
 
-            # Remove rows that don't have fund names
-            .dropna(subset=['fund'])
+            # Remove rows that don't have asset names
+            .dropna(subset=['asset'])
 
             # Remove rows that have no data on monetary columns
             .dropna(
@@ -230,7 +230,7 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             # Optimize and be gentle with storage
             .astype(
                 dict(
-                    fund = 'category'
+                    asset = 'category'
                 )
             )
 
@@ -327,8 +327,8 @@ class GoogleSheetsBalanceAndLedger(Portfolio):
             # Time is in column called 'Date and time'
             time: Date and time
 
-            # Name of funds on each row is under this column
-            fund: Compound fund
+            # Name of assets on each row is under this column
+            asset: Compound asset
 
             # Column called 'Saldo USD' contains values in 'USD' and so on.
             monetary:

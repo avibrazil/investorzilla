@@ -33,8 +33,8 @@ class URIBalanceOrLedger(Portfolio):
                         # Time is in column called 'time'
                         time: time
 
-                        # Name of funds on each row is under this column
-                        fund: fund
+                        # Name of assets on each row is under this column
+                        asset: my asset
 
                         # Column called 'Saldo USD' contains values in 'USD' and so on.
                         monetary:
@@ -179,14 +179,14 @@ class URIBalanceOrLedger(Portfolio):
             .fillna(pandas.NA)
             .replace('#N/A',pandas.NA)
 
-            # Remove rows that don't have fund names or monetary values
+            # Remove rows that don't have asset names or monetary values
             .dropna(subset=monetaryColumns, how='all')
-            .dropna(subset=['fund'])
+            .dropna(subset=['asset'])
 
             # Optimize and be gentle with storage
             .astype(
                 dict(
-                    fund = 'category'
+                    asset = 'category'
                 )
             )
 
@@ -244,7 +244,7 @@ class URIBalanceOrLedger(Portfolio):
         else:
             URI = f"`{self.URI}`"
 
-        nonMonetary=set(['time','fund','comment'])
+        nonMonetary=set(['time','asset','comment'])
 
         if self.has_balance:
             data=self.balance
@@ -256,7 +256,7 @@ class URIBalanceOrLedger(Portfolio):
                 balance_or_ledger = 'balance' if self.has_balance else 'ledger',
                 URI=URI
             ),
-            "- assets: `{}`".format('` · `'.join(data.fund.unique())),
+            "- assets: `{}`".format('` · `'.join(data.asset.unique())),
             "- currencies: `{}`".format('` · `'.join(set(data.columns)-nonMonetary)),
             f"- from `{data.time.min()}` to `{data.time.max()}`"
         ]

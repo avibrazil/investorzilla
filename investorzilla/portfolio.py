@@ -16,7 +16,7 @@ class Portfolio(object):
     A simple interface for a generic Portfolio.
 
     A Portfolio is the keeper of raw balance and ledger of multiple
-    investment instruments, funds etc. Members of a Portfolio can be
+    investment instruments, assets etc. Members of a Portfolio can be
     aggregated to generate one Fund which in turns has a time series for
     number of shares and a time series for share value.
 
@@ -103,8 +103,8 @@ class Portfolio(object):
             # And return only this subset of funds
             return Fund(
                 name             = name,
-                ledger           = self.ledger[self.ledger.fund.isin(subset)],
-                balance          = self.balance[self.balance.fund.isin(subset)],
+                ledger           = self.ledger[self.ledger.asset.isin(subset)],
+                balance          = self.balance[self.balance.asset.isin(subset)],
                 currencyExchange = currencyExchange,
             )
 
@@ -170,16 +170,16 @@ class Portfolio(object):
                 .index
             )
 
-        nonMonetary={'fund', 'time', 'comment'}
+        nonMonetary={'asset', 'time', 'comment'}
 
         return list(
             self.ledger[
-                ['fund'] +
+                ['asset'] +
                 # Get only currency names
                 list(set(self.ledger.columns) - nonMonetary)
             ]
 
-            .set_index('fund')
+            .set_index('asset')
 
 
             # Get rid of completely empty rows
@@ -197,25 +197,25 @@ class Portfolio(object):
             )
 
 
-            # make fund name a regular column
+            # make asset name a regular column
             .reset_index()
 
 
             .drop_duplicates()
 
 
-            .set_index('fund')
+            .set_index('asset')
 
 
-            # Group by fund and make list of currencies
-            .groupby(by='fund', observed=True).agg(list)
+            # Group by asset and make list of currencies
+            .groupby(by='asset', observed=True).agg(list)
 
 
             # Order by bigger current balance
             .reindex(order)
 
 
-            # make fund name a regular column
+            # make asset name a regular column
             .reset_index()
 
 

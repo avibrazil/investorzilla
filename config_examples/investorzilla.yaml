@@ -42,7 +42,7 @@ portfolio:
             ledger:
                 columns:
                     time: Date and time
-                    fund: Compound fund
+                    asset: Compound fund
 
                     # Name of columns with random comments
                     comment: Comment
@@ -64,7 +64,7 @@ portfolio:
             balance:
                 columns:
                     time: Date and time
-                    fund: Compound fund
+                    asset: Compound fund
 
                     # Column called 'Saldo USD' contains values in 'USD' and so on.
                     monetary:

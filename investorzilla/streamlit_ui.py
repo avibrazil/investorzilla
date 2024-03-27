@@ -607,13 +607,24 @@ class StreamlitInvestorzillaApp:
             (
                 streamlit.session_state.fund.shares
                 .assign(
-                    time=lambda table: table.index.tz_convert(datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo),
-                    balance=lambda table: (
-                        table[investorzilla.KPI.SHARES] *
-                        table[investorzilla.KPI.SHARE_VALUE]
-                    )
+                    **{
+                        'time': lambda table: table.index.tz_convert(datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo),
+                        investorzilla.KPI.BALANCE: lambda table: (
+                            table[investorzilla.KPI.SHARES] *
+                            table[investorzilla.KPI.SHARE_VALUE]
+                        )
+                    }
                 )
                 .set_index('time')
+                [
+                    [
+                        investorzilla.KPI.SHARES,
+                        investorzilla.KPI.SHARE_VALUE,
+                        investorzilla.KPI.BALANCE,
+                        'asset',
+                        'comment'
+                    ]
+                ]
             ),
             use_container_width=True,
             column_config={
@@ -628,6 +639,9 @@ class StreamlitInvestorzillaApp:
                 investorzilla.KPI.BALANCE: streamlit.column_config.NumberColumn(
                     help=f"Balance in that point of time, in {streamlit.session_state.fund.currency}",
                     format="$%.2f"
+                ),
+                'asset': streamlit.column_config.TextColumn(
+                    help="Asset making changes in number of shares (ledger)"
                 )
             }
         )

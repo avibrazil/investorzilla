@@ -47,7 +47,7 @@ class KPI(object):
 
 
 class Fund(object):
-    initial_share_value=100
+    initialShareValue=100
 
 
 
@@ -248,7 +248,7 @@ class Fund(object):
         if self.ledger.columns.nlevels==1:
             # Group all columns under a ‘ledger’ multi-index
             self.ledger = pandas.concat(
-                [self.ledger.set_index(['fund','time']).sort_index()],
+                [self.ledger.set_index(['asset','time']).sort_index()],
                 axis=1,
                 keys=[KPI.LEDGER]
             )
@@ -257,7 +257,7 @@ class Fund(object):
         if self.balance.columns.nlevels==1:
             # Group all columns under a ‘balance’ multi-index
             self.balance = pandas.concat(
-                [self.balance.set_index(['fund','time']).sort_index()],
+                [self.balance.set_index(['asset','time']).sort_index()],
                 axis=1,
                 keys=[KPI.BALANCE]
             )
@@ -292,8 +292,8 @@ class Fund(object):
         self.asFund=dict()
         for asset in self.balance.index.get_level_values(0).unique():
             self.asFund[asset]=Fund(
-                self.ledger[ self.ledger.index.get_level_values('fund') ==asset],
-                self.balance[self.balance.index.get_level_values('fund')==asset],
+                self.ledger[ self.ledger.index.get_level_values('asset') ==asset],
+                self.balance[self.balance.index.get_level_values('asset')==asset],
                 currencyExchange=self.exchange,
                 needCurrencyConversion=False
             )
@@ -370,7 +370,7 @@ class Fund(object):
             # Join values with time-equivalent exchange rates
             pandas.merge_asof(
                 # Remove fund level from index and sort by time
-                df.reset_index('fund').sort_index(),
+                df.reset_index('asset').sort_index(),
 
                 # Add 'exchange' column level to exchange columns
                 pandas.concat(
@@ -381,8 +381,8 @@ class Fund(object):
                 left_index=True, right_index=True
             )
             # Restore fund as an index in the original order
-            .set_index('fund', append=True)
-            .reorder_levels(['fund','time'])
+            .set_index('asset', append=True)
+            .reorder_levels(['asset','time'])
 
             # Sort index by fund and time
             .sort_index()
@@ -453,7 +453,7 @@ class Fund(object):
 
 
 
-    def computeShares(self, initial_share_value=initial_share_value):
+    def computeShares(self, initialShareValue=initialShareValue):
         """
         Compute internal self.shares DataFrame which is a time series with
         number of shares and share value.
@@ -463,29 +463,29 @@ class Fund(object):
 
         Value of the share changes when balance changes because of interest.
         """
-        self.initial_share_value=initial_share_value
+        self.initialShareValue=initialShareValue
 
         shares=0
         share_value=0
 
         shares_evolution=[]
 
-        funds=self.ledger.index.get_level_values(0).unique()
+        assets=self.ledger.index.get_level_values(0).unique()
 
         # Handle Balance by combining/summing all balances
         combinedBalance=None
-        if len(funds)>1:
+        if len(assets)>1:
             combinedBalance=(
                 self.balance
 
-                ## Put balance of each fund in a different column,
+                ## Put balance of each asset in a different column,
                 ## repeat value for empty times and fillna(0) for first empty
                 ## values
                 .dropna()
                 .unstack(level=0)
                 .ffill()
 
-                ## Combined balance is the sum() of balances of all funds at
+                ## Combined balance is the sum() of balances of all assets at
                 ## each point in time
                 .sum(axis=1)
                 .where(lambda s: s!=0)
@@ -503,15 +503,16 @@ class Fund(object):
         else:
             combinedBalance=self.balance.droplevel(0)
 
-        # Handle Ledger by simply sorting by time the movements of all funds
+        # Handle Ledger by simply sorting by time the movements of all assets
         theShares=(
             self.ledger
 
-            # Get rid of comment column
+            # Rearrange comment column
+            .assign(comment=lambda table: table[(KPI.LEDGER,'comment')])
             .drop(columns=(KPI.LEDGER,'comment'))
 
-            # Get rid of fund names
-            .droplevel(0)
+            # Move asset name from index into a regular column
+            .reset_index(0)
 
             # Get rid or NaNs
             .dropna(how='all')
@@ -527,6 +528,8 @@ class Fund(object):
             .droplevel(1, axis=1)
         )
 
+        self.logger.debug(theShares.head().to_markdown())
+
         for time,row in theShares.iterrows():
 
             # First adjust NUMBER OF SHARES if there was any movement
@@ -537,7 +540,7 @@ class Fund(object):
                     shares = round(shares,12)
                 elif shares==0:
                     # If fund was not initialized yet
-                    share_value = initial_share_value
+                    share_value = initialShareValue
                     shares = row[KPI.LEDGER]/share_value
 
 
@@ -547,7 +550,7 @@ class Fund(object):
                     if len(shares_evolution)==0:
                         # The rare situation where we have balance before any
                         # movement
-                        share_value = initial_share_value
+                        share_value = initialShareValue
                         shares = row[KPI.BALANCE]/share_value
                     elif row[KPI.BALANCE]!=0:
                         # The even more rare situation where interest arrives
@@ -563,13 +566,13 @@ class Fund(object):
                     share_value = row[KPI.BALANCE]/shares
 
             shares_evolution.append(
-                (time,shares,share_value)
+                (time,shares,share_value,row.asset,row.comment)
             )
 
         self.shares=(
             pandas.DataFrame.from_records(
                 shares_evolution,
-                columns=('time',KPI.SHARES,KPI.SHARE_VALUE)
+                columns=('time',KPI.SHARES,KPI.SHARE_VALUE,'asset','comment')
             )
             .set_index('time')
         )
@@ -1063,7 +1066,7 @@ class Fund(object):
         # lines than fund data.
         # If period=None, number of report lines will match the amount of
         # fund data we have.
-        # These 3 situations affect how benchmark has to be handled.
+        # These 3 situations affect how benchmark needs to be handled.
 
         # Add 3 benchmark-related features
         benchmarkFeatures=[]
