@@ -181,11 +181,19 @@ class Investor(object):
         Fabricate more benchmarks from currency converters, as specified by
         YAML config file.
 
-        Entries such as the following from the YAML file will be engineered:
+        Entries such as the following from the YAML file will be handled:
 
         benchmarks:
             - kind: from_currency_converter
               from_to: BRLUSD
+
+        For the config entry above, result is two benchmarks:
+        - [BRL] USDBRL: expressed in BRL, or how USD performed in comparison to BRL
+        - [USD] BRLUSD: expressed in USD, or how BRL performed in comparison to USD
+
+        As the “[USD] S&P500” bechmark conveys what would happen if I converted
+        my USD into assets of the S&P500 set, the fabricated “[BRL] USDBRL”
+        benchmark shows what would happen if I converted my BRL in USD.
         """
 
         for item in self.config['benchmarks']:
@@ -203,11 +211,12 @@ class Investor(object):
 
                 # Scan all currency converters we have to find a match
                 for cc in self.currency_converters:
-                    if curFrom == cc['obj'].currencyFrom and curTo == cc['obj'].currencyTo:
-                        item['obj']=MarketIndex().fromCurrencyConverter(cc['obj'])
+                    current_cc=cc['obj']
+                    if curFrom == current_cc.currencyFrom and curTo == current_cc.currencyTo:
+                        item['obj']=MarketIndex().fromCurrencyConverter(current_cc)
                         break
-                    elif curTo == cc['obj'].currencyFrom and curFrom == cc['obj'].currencyTo:
-                        item['obj']=MarketIndex().fromCurrencyConverter(cc['obj'].invert())
+                    elif curTo == current_cc.currencyFrom and curFrom == current_cc.currencyTo:
+                        item['obj']=MarketIndex().fromCurrencyConverter(current_cc.invert())
                         break
 
                 if 'obj' in item:

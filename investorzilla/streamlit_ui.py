@@ -80,7 +80,7 @@ class StreamlitInvestorzillaApp:
 
         # Make a preliminary internal fund from the portfolio for display purposes
         streamlit.session_state.investor.portfolio.makeInternalFund(
-            streamlit.session_state.investor.exchange
+            currencyExchange=streamlit.session_state.investor.exchange
         )
 
         with streamlit.sidebar:
