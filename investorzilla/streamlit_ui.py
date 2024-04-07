@@ -1,5 +1,6 @@
 import datetime
 import logging
+import copy
 
 # Dependencies available via OS packages:
 # pip3 install pandas pyyaml sqlalchemy pandas_datareader
@@ -71,17 +72,12 @@ class StreamlitInvestorzillaApp:
         #     X.         False. => reuse
         #     None.      False. => load
 
+        if True in self.refreshMap.values():
+            streamlit.cache_resource.clear()
 
-        if ('investor' not in streamlit.session_state) or (True in self.refreshMap.values()):
-            streamlit.session_state.investor=investorzilla.Investor(
-                'investorzilla.yaml',
-                self.refreshMap
-            )
-
-        # Make a preliminary internal fund from the portfolio for display purposes
-        streamlit.session_state.investor.portfolio.makeInternalFund(
-            currencyExchange=streamlit.session_state.investor.exchange
-        )
+        # Load domains from Investor internal cache, the Internet or reuse
+        # Streamlit memory-cached object
+        self.investor()
 
         with streamlit.sidebar:
             # Put controls in the sidebar
@@ -94,6 +90,46 @@ class StreamlitInvestorzillaApp:
 
         # Render main content with plots and tables
         self.update_content()
+
+
+
+    @streamlit.cache_resource(show_spinner="Loading portfolio, currency exchanges and benchmarks...")
+    def investor(_self):
+        """
+        Read config file investorzilla.yaml and load its described portfolio
+        resources from cache or from the Internet. Investor's internal cache
+        is controled by self.refreshMap, which is a dict that looks like:
+
+        dict(
+            portfolio=False,
+            currency_converters=False,
+            benchmarks=False
+        )
+
+        Each entry (caled domain) defines if content should be reloaded from
+        its (slow) source (the Internet) (True) or from cache (False). If cache
+        is empty or doesn't exist, content is loaded from its original source.
+
+        The Investor object returned by this method is cached by Streamlit and
+        will be used as a singleton across all sessions. If one session updates
+        the Investor object, all other sessions will benefit from it.
+
+        Returns the (cached) Investor object, which includes data of all entries
+        defined in the investorzilla.yaml config file: asset data, currency
+        convertion tables, benchmark data.
+        """
+
+        investor = investorzilla.Investor(
+            'investorzilla.yaml',
+            _self.refreshMap
+        )
+
+        # Make a preliminary internal fund from the portfolio for display purposes
+        investor.portfolio.makeInternalFund(
+            currencyExchange=investor.exchange
+        )
+
+        return investor
 
 
 
@@ -111,7 +147,7 @@ class StreamlitInvestorzillaApp:
                 assets.remove('ALL')
 
         if assets is None or len(assets)==0:
-            assets=streamlit.session_state.investor.portfolio.assets()
+            assets=self.investor().portfolio.assets()
             assets=[f[0] for f in assets]
 
         if 'interact_no_assets' in streamlit.session_state:
@@ -121,9 +157,9 @@ class StreamlitInvestorzillaApp:
             )
 
         # Make a virtual fund (shares and share value) from selected assets
-        streamlit.session_state.fund=streamlit.session_state.investor.portfolio.getFund(
+        streamlit.session_state.fund=self.investor().portfolio.getFund(
             subset           = assets,
-            currencyExchange = streamlit.session_state.investor.exchange
+            currencyExchange = streamlit.session_state.exchange
         )
 
         streamlit.session_state.fund.setName(top=4)
@@ -133,12 +169,12 @@ class StreamlitInvestorzillaApp:
         self.start = (
             streamlit.session_state.interact_start_end[0]
             if len(streamlit.session_state.interact_start_end)>0
-            else streamlit.session_state.investor.portfolio.fund.start
+            else self.investor().portfolio.fund.start
         )
         self.end   = (
             streamlit.session_state.interact_start_end[1]
             if len(streamlit.session_state.interact_start_end)>1
-            else streamlit.session_state.investor.portfolio.fund.end
+            else self.investor().portfolio.fund.end
         )
 
         # Now that we have a fund, create periodic reports
@@ -178,7 +214,9 @@ class StreamlitInvestorzillaApp:
         Render the report
         """
 
-        streamlit.session_state.investor.currency=streamlit.session_state.interact_currencies
+        # Sessions use a copy of the global currency exchange machine
+        streamlit.session_state.exchange=copy.deepcopy(self.investor().exchange)
+        streamlit.session_state.exchange.currency=streamlit.session_state.interact_currencies
 
         self.prepare_fund()
 
@@ -400,7 +438,7 @@ class StreamlitInvestorzillaApp:
         # Render footer stats
         streamlit.markdown(
             'Most recent porfolio data is **{}**'.format(
-                streamlit.session_state.investor.portfolio.asof.strftime('%Y-%m-%d %X %z')
+                self.investor().portfolio.asof.strftime('%Y-%m-%d %X %z')
             )
         )
 
@@ -563,7 +601,7 @@ class StreamlitInvestorzillaApp:
         # Render footer stats
         streamlit.markdown(
             'Most recent porfolio data is **{}**'.format(
-                streamlit.session_state.investor.portfolio.asof
+                self.investor().portfolio.asof
             )
         )
 
@@ -574,10 +612,10 @@ class StreamlitInvestorzillaApp:
 
 
     def render_currencies_page(self):
-        streamlit.title(f"1 {streamlit.session_state.investor.exchange.currency} in other currencies")
+        streamlit.title(f"1 {streamlit.session_state.exchange.currency} in other currencies")
         streamlit.dataframe(
             (
-                (1/streamlit.session_state.investor.exchange.data)
+                (1/streamlit.session_state.exchange.data)
                 # Deliver time information in user’s timezone
                 .assign(
                     time=lambda table: (
@@ -595,7 +633,7 @@ class StreamlitInvestorzillaApp:
             use_container_width=True,
             column_config={
                 c: streamlit.column_config.NumberColumn(format="%.16f")
-                for c in streamlit.session_state.investor.exchange.data.columns
+                for c in self.investor().exchange.data.columns
             }
         )
 
@@ -650,14 +688,14 @@ class StreamlitInvestorzillaApp:
 
     def render_portfolio_page(self):
         with streamlit.expander('Personal Portfolio'):
-            streamlit.markdown(streamlit.session_state.investor.portfolio.to_markdown(title_prefix='##'))
+            streamlit.markdown(self.investor().portfolio.to_markdown(title_prefix='##'))
 
         with streamlit.expander('Currency Converters'):
-            for c in streamlit.session_state.investor.currency_converters:
+            for c in self.investor().currency_converters:
                 streamlit.markdown(c['obj'].to_markdown(title_prefix='###'))
 
         with streamlit.expander('Market Indexes'):
-            for b in streamlit.session_state.investor.benchmarks:
+            for b in self.investor().benchmarks:
                 streamlit.markdown(b['obj'].to_markdown(title_prefix='###'))
 
 
@@ -671,7 +709,7 @@ class StreamlitInvestorzillaApp:
                 ['ALL']+
                 [
                     x[0]
-                    for x in streamlit.session_state.investor.portfolio.assets()
+                    for x in self.investor().portfolio.assets()
                 ]
             ),
             help      = 'Shares and share value will be computed for the union of selected assets',
@@ -685,7 +723,7 @@ class StreamlitInvestorzillaApp:
             label     = 'Except assets',
             options   = [
                 x[0]
-                for x in streamlit.session_state.investor.portfolio.assets()
+                for x in self.investor().portfolio.assets()
             ],
             help      = 'Exclude assets selected here',
             key       = 'interact_no_assets'
@@ -694,11 +732,11 @@ class StreamlitInvestorzillaApp:
 
 
     def interact_currencies(self):
-        currencies=streamlit.session_state.investor.exchange.currencies()
+        currencies=self.investor().exchange.currencies()
 
         # Find the index of default currency
         for i in range(len(currencies)):
-            if currencies[i]==streamlit.session_state.investor.config['currency']:
+            if currencies[i]==self.investor().config['currency']:
                 break
 
         streamlit.radio(
@@ -714,7 +752,7 @@ class StreamlitInvestorzillaApp:
     def interact_benchmarks(self):
         streamlit.radio(
             label       = 'Select a benchmark to compare with',
-            options     = streamlit.session_state.investor.benchmarks,
+            options     = self.investor().benchmarks,
             format_func = lambda bench: str(bench['obj']),
             help        = 'Funds will be compared to the selected benchmark',
             key         = 'interact_benchmarks'
@@ -723,7 +761,7 @@ class StreamlitInvestorzillaApp:
 
 
     def interact_start_end(self):
-        inv=streamlit.session_state.investor
+        inv=self.investor()
 
         key='relevant period'
         defaults = dict(
