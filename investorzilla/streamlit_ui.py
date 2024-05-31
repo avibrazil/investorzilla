@@ -1,6 +1,7 @@
 import datetime
 import logging
 import copy
+import textwrap
 
 # Dependencies available via OS packages:
 # pip3 install pandas pyyaml sqlalchemy pandas_datareader
@@ -398,6 +399,23 @@ class StreamlitInvestorzillaApp:
                     precomputedReport=self.reportPeriodic
                 ).interactive()
             )
+
+            # Render 4% Rule text
+            streamlit.header('[4% Rule](https://www.investopedia.com/terms/f/four-percent-rule.asp)')
+            rule_4_percent=textwrap.dedent("""\
+                If you retire today, you would be able to withdraw
+                **{withdraw_per_year:0,.2f} {currency}** per year or
+                **{withdraw_per_month:0,.2f} {currency}** per month, based on your
+                total assets and a withdrawal rate of 4%.
+            """)
+            streamlit.markdown(
+                rule_4_percent.format(
+                    withdraw_per_year = 0.04 * self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE],
+                    withdraw_per_month = (0.04 * self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE])/12,
+                    currency = streamlit.session_state.fund.name.split('@')[1].strip()
+                )
+            )
+
 
         table_styles=[
             dict(selector="td", props="font-size: 0.8em; text-align: right"),
