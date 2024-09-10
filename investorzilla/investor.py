@@ -8,7 +8,8 @@ from .currency     import brasil_banco_central     as currency_bcb
 from .currency     import cryptocompare            as currency_cryptocompare
 from .marketindex  import brasil_banco_central     as mktidx_bcb
 from .marketindex  import federal_reserve          as mktidx_fred
-from .marketindex  import yahoo_finance            as mktidx_yahoo
+from .marketindex  import alphavantage             as mktidx_alphavantage
+# from .marketindex  import yahoo_finance            as mktidx_yahoo
 from .portfolios   import google_sheets            as google_sheets
 from .portfolios   import uri                      as uri
 
@@ -112,8 +113,6 @@ class Investor(object):
                     for part in self.config[domain]:
                         archived = 'archived' in part and part['archived']
                         if 'type' in part:
-#                             self.logger.info(f"processing {part['type']}")
-#                             self.logger.info(f"{part['params'].copy()}")
                             # If it contains a class that needs activation or loading
 
                             # Prepare parameters

@@ -6,6 +6,9 @@ from .. import MarketIndex
 
 class YahooMarketIndex(MarketIndex):
     """
+    2024-09-04: Yahoo stopped to provide this data; disabling this module. Use
+    Alpha Vantage for market indexes instead.
+
     Any market index from Yahoo Finance.
 
     Pass to name attribute the index name such as `^DJI` (Dow Jones),
@@ -35,7 +38,7 @@ class YahooMarketIndex(MarketIndex):
             self.url.format(
                 ticker=self.id,
                 now=round(datetime.datetime.utcnow().timestamp()+3600*24),
-                
+
                 # Equivalent to round(datetime.datetime(1900,1,1).timestamp()), but Windows...
                 start=round((datetime.datetime(1900,1,1) - datetime.datetime(1970,1,1))/datetime.timedelta(seconds=1)),
             )

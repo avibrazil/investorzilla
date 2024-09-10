@@ -7,18 +7,18 @@ class BCBMarketIndex(MarketIndex):
     # https://www.bcb.gov.br/estatisticas/indecoreestruturacao
 
     series={
+        'SELIC': dict(
+            url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados?formato=json",
+            home = 'https://dadosabertos.bcb.gov.br/dataset/11-taxa-de-juros---selic'
+        ),
         'CDI': dict(
             url="https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json",
-            home=''
+            home='https://www3.bcb.gov.br/sgspub/consultarmetadados/consultarMetadadosSeries.do?method=consultarMetadadosSeriesInternet&hdOidSerieSelecionada=12'
         ),
         'IPCA': dict(
             # IPCA Serviços. Outros IPCAs: https://dadosabertos.bcb.gov.br/dataset?q=ipca
             url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json",
             home = 'https://dadosabertos.bcb.gov.br/dataset/10844-indice-de-precos-ao-consumidor-amplo-ipca---servicos'
-        ),
-        'SELIC': dict(
-            url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.11/dados?formato=json",
-            home = 'https://dadosabertos.bcb.gov.br/dataset/11-taxa-de-juros---selic'
         ),
         'IGPM': dict(
             # url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.4175/dados?formato=json",
@@ -27,7 +27,7 @@ class BCBMarketIndex(MarketIndex):
         ),
         'INPC': dict(
             url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.188/dados?formato=json",
-            home = ''
+            home = 'https://www3.bcb.gov.br/sgspub/consultarmetadados/consultarMetadadosSeries.do?method=consultarMetadadosSeriesInternet&hdOidSerieSelecionada=188'
         ),
     }
 

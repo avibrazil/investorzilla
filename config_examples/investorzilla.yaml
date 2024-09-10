@@ -171,49 +171,53 @@ benchmarks:
       params:
             name: INPC
 
-    - type: &YahooMarketIndex !!python/name:investorzilla.marketindex.yahoo_finance.YahooMarketIndex ''
+    - type: &AlphaVantageMarketIndex !!python/name:investorzilla.marketindex.alphavantage.AlphaVantageMarketIndex ''
       params:
-            currency: BRL
-            friendlyName: Índice BoVESPa (^BVSP)
-            name: ^BVSP
+            apiKey: &avkey XYZ123_fake_key # get key at https://www.alphavantage.co/support/#api-key
+            friendlyName: Invesco QQQ
+            name: QQQ
 
-    - type: *YahooMarketIndex
+    - type: *AlphaVantageMarketIndex
       params:
+            apiKey: *avkey
+            friendlyName: Índice BoVESPa (via BOVA11)
+            name: BOVA11.SAO
+            currency: BRL
+
+    - type: *AlphaVantageMarketIndex
+      params:
+            apiKey: *avkey
             friendlyName: SPDR S&P 500 ETF Trust
             name: SPY
 
-    - type: *YahooMarketIndex
+    - type: *AlphaVantageMarketIndex
       params:
+            apiKey: *avkey
             friendlyName: iShares Core S&P 500 ETF (IVV)
             name: IVV
 
-    - type: *YahooMarketIndex
+    - type: *AlphaVantageMarketIndex
       params:
+            apiKey: *avkey
+            friendlyName: PetroRio (PRIO3)
+            name: PRIO3.SAO
+            currency: BRL
+
+    - type: *AlphaVantageMarketIndex
+      params:
+            apiKey: *avkey
             friendlyName: Vanguard S&P 500 ETF (VOO)
             name: VOO
 
-    - type: *YahooMarketIndex
+    - type: *AlphaVantageMarketIndex
       params:
-            friendlyName: S&P 500 (^GSPC)
-            name: ^GSPC
-
-    - type: *YahooMarketIndex
-      params:
-            friendlyName: Dow Jones (^DJI)
-            name: ^DJI
-
-    - type: *YahooMarketIndex
-      params:
-            friendlyName: NASDAQ (^IXIC)
-            name: ^IXIC
-
-    - type: *YahooMarketIndex
-      params:
+            apiKey: *avkey
             friendlyName: Invesco Nasdaq 100 ETF (QQQM)
             name: QQQM
 
-    - type: *YahooMarketIndex
+    - type: *AlphaVantageMarketIndex
       params:
+            apiKey: *avkey
             friendlyName: Invesco QQQ
             name: QQQ
 
@@ -221,7 +225,7 @@ benchmarks:
 
 # The «?check_same_thread=False» is important for SQLite and SQLAlchemy multithreading support
 cache_database: sqlite:///investorzilla.cache?check_same_thread=False
-# cache_database: mysql+pymysql://investorzilla:owlsmx847@localhost/investorzilla
+# cache_database: mariadb://localhost/my_investorzilla_portfolio
 
 
 # Default starting currency
