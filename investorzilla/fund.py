@@ -490,11 +490,11 @@ class Fund(object):
                 .sum(axis=1)
                 .where(lambda s: s!=0)
                 .dropna()
-                .sort_index()
+                # .sort_index()
             )
 
             ## Eliminate all consecutive repeated values
-            combinedBalance=combinedBalance.loc[combinedBalance.shift()!=combinedBalance]
+            # combinedBalance=combinedBalance.loc[combinedBalance.shift()!=combinedBalance]
 
             ## Make it a compatible DataFrame
             combinedBalance=pandas.DataFrame(combinedBalance)
@@ -507,7 +507,7 @@ class Fund(object):
         theShares=(
             self.ledger
 
-            # Rearrange comment column
+            # Flatten and rearrange comment column
             .assign(comment=lambda table: table[(KPI.LEDGER,'comment')])
             .drop(columns=(KPI.LEDGER,'comment'))
 
@@ -530,6 +530,7 @@ class Fund(object):
 
         self.logger.debug(theShares.head().to_markdown())
 
+        # Convert movements and balances into shares and share value
         for time,row in theShares.iterrows():
 
             # First adjust NUMBER OF SHARES if there was any movement
