@@ -286,6 +286,13 @@ class StreamlitInvestorzillaApp:
             use_container_width = True,
         )
 
+        streamlit.markdown(
+            'Net Liquidation Value: **${nlv:0,.2f} {currency}**'.format(
+                nlv=self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE],
+                currency=streamlit.session_state.fund.exchange.target
+            )
+        )
+
 
 
     def render_contributions_page(self):
