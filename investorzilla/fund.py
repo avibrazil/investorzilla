@@ -1895,7 +1895,7 @@ class Fund(object):
                 .rename(
                     columns={
                         'time': 'last movement',
-                        'comment': 'comment of last moevement',
+                        'comment': 'comment of last movement',
                         self.exchange.currency: 'movement'
                     }
                 ),
@@ -1910,7 +1910,7 @@ class Fund(object):
             )
             [[
                 KPI.BALANCE,'% of portfolio','last movement',
-                'movement','comment of last moevement'
+                'movement','comment of last movement'
             ]]
         )
 
