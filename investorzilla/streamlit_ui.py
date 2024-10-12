@@ -262,7 +262,17 @@ class StreamlitInvestorzillaApp:
         with tab_portfolio:
             self.render_portfolio_page()
 
+
+
+        # Page footer stats and signature
         streamlit.divider()
+
+        streamlit.markdown(
+            'Most recent porfolio data is **{}**'.format(
+                self.investor().portfolio.asof
+            )
+        )
+
         streamlit.caption(f'Report by **[Investorzilla](https://github.com/avibrazil/investorzilla) {investorzilla.__version__}**.')
 
 
@@ -455,12 +465,6 @@ class StreamlitInvestorzillaApp:
 
         # Render footer stats
         streamlit.markdown(
-            'Most recent porfolio data is **{}**'.format(
-                self.investor().portfolio.asof.strftime('%Y-%m-%d %X %z')
-            )
-        )
-
-        streamlit.markdown(
             'Graph data between **{}** and **{}**'.format(self.start,self.end)
         )
 
@@ -617,12 +621,6 @@ class StreamlitInvestorzillaApp:
         )
 
         # Render footer stats
-        streamlit.markdown(
-            'Most recent porfolio data is **{}**'.format(
-                self.investor().portfolio.asof
-            )
-        )
-
         streamlit.markdown(
             'Graph data between **{}** and **{}**'.format(self.start,self.end)
         )
