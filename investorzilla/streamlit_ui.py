@@ -451,7 +451,8 @@ class StreamlitInvestorzillaApp:
         ]
 
         streamlit.multiselect(
-            '',
+            label='Select KPIs to display in table',
+            label_visibility='hidden',
             options=wealth_benchmarks,
             default=wealth_benchmarks,
             key='kpi_wealth'
@@ -608,7 +609,8 @@ class StreamlitInvestorzillaApp:
         ]
 
         streamlit.multiselect(
-            '',
+            label='Select KPIs to display in table',
+            label_visibility='hidden',
             options=performance_benchmarks,
             default=performance_benchmarks,
             key='kpi_performance'
@@ -727,29 +729,31 @@ class StreamlitInvestorzillaApp:
 
     def interact_assets(self):
         streamlit.multiselect(
-            label     = 'Select assets to make a fund',
-            options   = (
+            label       = 'Select assets to make a fund',
+            placeholder = 'All assets selected',
+            options     = (
                 ['ALL']+
                 [
                     x[0]
                     for x in self.investor().portfolio.assets()
                 ]
             ),
-            help      = 'Shares and share value will be computed for the union of selected assets',
-            key       = 'interact_assets'
+            help        = 'Shares and share value will be computed for the union of selected assets',
+            key         = 'interact_assets'
         )
 
 
 
     def interact_exclude_assets(self):
         streamlit.multiselect(
-            label     = 'Except assets',
-            options   = [
+            label       = 'Except assets',
+            placeholder = 'No assets are excluded',
+            options     = [
                 x[0]
                 for x in self.investor().portfolio.assets()
             ],
-            help      = 'Exclude assets selected here',
-            key       = 'interact_no_assets'
+            help        = 'Exclude assets selected here',
+            key         = 'interact_no_assets'
         )
 
 
