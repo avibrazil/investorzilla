@@ -28,6 +28,10 @@ class KPI(object):
     PERIOD_GAIN             =  'gain'   # on each period
     GAINS                   =  'cumulative gains'
 
+    # Gain compared to withdrawal per period
+    GAIN_MINUS_WITHDRAWAL   =  'gain excess over withdrawal' # gain-withdrawal
+    GAIN_OVER_WITHDRAWAL    =  'withdrawal consumption of gain' # withdrawal/gain
+
     # Normalization features
     SHARE_VALUE             =  'share price'
     SHARES                  =  'shares'
@@ -193,6 +197,14 @@ class Fund(object):
         ),
 
         KPI.RATE_RETURN: dict(
+            format="{:,.2%}"
+        ),
+
+        KPI.GAIN_MINUS_WITHDRAWAL: dict(
+            format="${:,.2f}",
+        ),
+
+        KPI.GAIN_OVER_WITHDRAWAL: dict(
             format="{:,.2%}"
         ),
 
@@ -1195,21 +1207,58 @@ class Fund(object):
                 self.shares[KPI.SHARES].asof(startOfReport-pandas.Timedelta(seconds=1))
             )
 
-        # Compute income as the difference of Balance between consecutive
-        # periods, minus Movements of period
-        report[KPI.PERIOD_GAIN]=report.apply(
-            lambda x: (
-                # Balance of current period
-                x[KPI.BALANCE]
+        # report[KPI.PERIOD_GAIN]=report.apply(
+        #     lambda x: (
+        #         # Balance of current period
+        #         x[KPI.BALANCE]
 
-                # Balance of previous period
-                -x[KPI.BALANCE_PREV]
+        #         # Balance of previous period
+        #         -x[KPI.BALANCE_PREV]
 
-                # Movements of current period
-                -x[KPI.MOVEMENTS]
+        #         # Movements of current period
+        #         -x[KPI.MOVEMENTS]
+        #     ),
+        #     axis=1
+        # )
+
+        report=report.assign(**{
+            # Compute income as the difference of Balance between consecutive
+            # periods, minus Movements of period
+            KPI.PERIOD_GAIN: lambda table:
+                table.apply(
+                    lambda row: (
+                        # Balance of current period
+                        row[KPI.BALANCE]
+
+                        # Balance of previous period
+                        -row[KPI.BALANCE_PREV]
+
+                        # Movements of current period
+                        -row[KPI.MOVEMENTS]
+                    ),
+                    axis=1
+                ),
+
+            # Gain excess over withdrawal
+            KPI.GAIN_MINUS_WITHDRAWAL: lambda table: table.apply(
+                lambda row: (
+                    row[KPI.PERIOD_GAIN]+row[KPI.MOVEMENTS]
+                    if row[KPI.MOVEMENTS]<0
+                    else None
+                ),
+                axis=1
             ),
-            axis=1
-        )
+
+            # Withdrawals consumption of gains
+            KPI.GAIN_OVER_WITHDRAWAL: lambda table: table.apply(
+                lambda row: (
+                    abs(row[KPI.MOVEMENTS])/row[KPI.PERIOD_GAIN]
+                    if row[KPI.MOVEMENTS]<0 and row[KPI.PERIOD_GAIN]!=0
+                    else None
+                ),
+                axis=1
+            ),
+        })
 
         # Compute features that depend on Benchmark
         if benchmark is not None:
@@ -1242,6 +1291,8 @@ class Fund(object):
                 KPI.BALANCE_OVER_SAVINGS,
                 KPI.GAINS,
                 KPI.MOVEMENTS,
+                KPI.GAIN_MINUS_WITHDRAWAL,
+                KPI.GAIN_OVER_WITHDRAWAL,
                 KPI.SHARES,
                 KPI.SHARE_VALUE
             ]

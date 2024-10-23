@@ -447,12 +447,14 @@ class StreamlitInvestorzillaApp:
             investorzilla.KPI.BALANCE_OVER_SAVINGS,
             investorzilla.KPI.GAINS,
             investorzilla.KPI.SAVINGS,
-            investorzilla.KPI.MOVEMENTS
+            investorzilla.KPI.MOVEMENTS,
+            investorzilla.KPI.GAIN_MINUS_WITHDRAWAL,
+            investorzilla.KPI.GAIN_OVER_WITHDRAWAL,
         ]
 
         streamlit.multiselect(
             label='Select KPIs to display in table',
-            label_visibility='hidden',
+            label_visibility='collapsed',
             options=wealth_benchmarks,
             default=wealth_benchmarks,
             key='kpi_wealth'
@@ -610,7 +612,7 @@ class StreamlitInvestorzillaApp:
 
         streamlit.multiselect(
             label='Select KPIs to display in table',
-            label_visibility='hidden',
+            label_visibility='collapsed',
             options=performance_benchmarks,
             default=performance_benchmarks,
             key='kpi_performance'
@@ -732,11 +734,12 @@ class StreamlitInvestorzillaApp:
             label       = 'Select assets to make a fund',
             placeholder = 'All assets selected',
             options     = (
-                ['ALL']+
+                ['ALL'] +
                 [
                     x[0]
                     for x in self.investor().portfolio.assets()
-                ]
+                ] +
+                [f"💎cluster: {c}" for c in self.investor().config['clusters'].keys()]
             ),
             help        = 'Shares and share value will be computed for the union of selected assets',
             key         = 'interact_assets'
@@ -748,10 +751,13 @@ class StreamlitInvestorzillaApp:
         streamlit.multiselect(
             label       = 'Except assets',
             placeholder = 'No assets are excluded',
-            options     = [
-                x[0]
-                for x in self.investor().portfolio.assets()
-            ],
+            options     = (
+                [
+                    x[0]
+                    for x in self.investor().portfolio.assets()
+                ] +
+                [f"💎cluster: {c}" for c in self.investor().config['clusters'].keys()]
+            ),
             help        = 'Exclude assets selected here',
             key         = 'interact_no_assets'
         )
