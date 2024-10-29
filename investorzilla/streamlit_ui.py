@@ -2,6 +2,7 @@ import datetime
 import logging
 import copy
 import textwrap
+import pandas
 
 # Dependencies available via OS packages:
 # pip3 install pandas pyyaml sqlalchemy pandas_datareader
@@ -418,20 +419,38 @@ class StreamlitInvestorzillaApp:
             )
 
             # Render 4% Rule text
-            streamlit.header('[4% Rule](https://www.investopedia.com/terms/f/four-percent-rule.asp)')
-            rule_4_percent=textwrap.dedent("""\
-                If you retire today, you would be able to withdraw
-                **{withdraw_per_year:0,.2f} {currency}** per year or
-                **{withdraw_per_month:0,.2f} {currency}** per month, based on your
-                total assets and a withdrawal rate of 4%.
-            """)
-            streamlit.markdown(
-                rule_4_percent.format(
-                    withdraw_per_year = 0.04 * self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE],
-                    withdraw_per_month = (0.04 * self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE])/12,
-                    currency = streamlit.session_state.fund.name.split('@')[1].strip()
+            rates=[3,4,5,6,7,8,9,10]
+            streamlit.dataframe(
+                use_container_width=True,
+                data=(
+                    pandas.DataFrame.from_dict(
+                        dict(
+                            balance=self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE],
+                            rates=rates
+                        )
+                    )
+                    .assign(**{
+                        'annual withdrawal': lambda table: table.balance*table.rates/100,
+                        'monthly withdrawal': lambda table: table.balance*table.rates/100/12
+                    })
+                    .drop(columns='balance')
+                    .rename(columns=dict(rates='rate %'))
+                    .set_index('rate %')
+                    .style
+                    .format(formatter="${:,.0f}")
                 )
             )
+
+            streamlit.markdown(textwrap.dedent("""\
+                [4% Rule](https://www.investopedia.com/terms/f/four-percent-rule.asp)
+                allows you to withdraw only the interests from your
+                portfolio, never touching the main balance. It is useful in a
+                retirement scenario when you are not growing your capital
+                anymore. Here we give you annual withdrawal rates from {start}%
+                to {end}%. A conservative approach is to pick a rate lower than
+                your annual rate of return.
+            """).format(start=rates[0],end=rates[-1]))
+
 
 
         table_styles=[
