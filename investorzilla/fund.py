@@ -29,8 +29,8 @@ class KPI(object):
     GAINS                   =  'cumulative gains'
 
     # Gain compared to withdrawal per period
-    GAIN_MINUS_WITHDRAWAL   =  'gain excess over withdrawal' # gain-withdrawal
-    GAIN_OVER_WITHDRAWAL    =  'withdrawal consumption of gain' # withdrawal/gain
+    GAIN_MINUS_WITHDRAWAL   =  'gain excess after withdrawal' # gain-withdrawal
+    GAIN_OVER_WITHDRAWAL    =  'gain consumption by withdrawal' # withdrawal/gain
 
     # Normalization features
     SHARE_VALUE             =  'share price'
