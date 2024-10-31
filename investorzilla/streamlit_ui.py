@@ -467,6 +467,8 @@ class StreamlitInvestorzillaApp:
             investorzilla.KPI.GAINS,
             investorzilla.KPI.SAVINGS,
             investorzilla.KPI.MOVEMENTS,
+            investorzilla.KPI.DEPOSITS,
+            investorzilla.KPI.WITHDRAWALS,
             investorzilla.KPI.GAIN_MINUS_WITHDRAWAL,
             investorzilla.KPI.GAIN_OVER_WITHDRAWAL,
         ]

@@ -16,6 +16,8 @@ class KPI(object):
     BALANCE                 =  'balance'
     BALANCE_PREV            =  'balance_prev' # of previous period
     MOVEMENTS               =  'movements'
+    DEPOSITS                =  'deposits'
+    WITHDRAWALS             =  'withdrawals'
     LEDGER                  =  'ledger'
 
     # Cumulative movements
@@ -189,6 +191,14 @@ class Fund(object):
         ),
 
         KPI.MOVEMENTS: dict(
+            format="${:,.2f}",
+        ),
+
+        KPI.DEPOSITS: dict(
+            format="${:,.2f}",
+        ),
+
+        KPI.WITHDRAWALS: dict(
             format="${:,.2f}",
         ),
 
@@ -1042,6 +1052,18 @@ class Fund(object):
                 **{
                     KPI.MOVEMENTS: lambda table: table[KPI.MOVEMENTS].fillna(0),
 
+                    KPI.DEPOSITS: lambda table: (
+                        table[KPI.MOVEMENTS]
+                        .where(table[KPI.MOVEMENTS]>0)
+                        .fillna(0)
+                    ),
+
+                    KPI.WITHDRAWALS: lambda table: (
+                        table[KPI.MOVEMENTS]
+                        .where(table[KPI.MOVEMENTS]<0)
+                        .fillna(0)
+                    ),
+
                     # Add balance as a function of shares
                     KPI.BALANCE: lambda table: (
                         table[KPI.SHARES] *
@@ -1153,7 +1175,9 @@ class Fund(object):
                             # KPIs which aggregations should be summed
                             kpi: 'sum'
                             for kpi in [
-                                KPI.MOVEMENTS
+                                KPI.MOVEMENTS,
+                                KPI.DEPOSITS,
+                                KPI.WITHDRAWALS,
                             ]
                         },
 
@@ -1291,6 +1315,8 @@ class Fund(object):
                 KPI.BALANCE_OVER_SAVINGS,
                 KPI.GAINS,
                 KPI.MOVEMENTS,
+                KPI.DEPOSITS,
+                KPI.WITHDRAWALS,
                 KPI.GAIN_MINUS_WITHDRAWAL,
                 KPI.GAIN_OVER_WITHDRAWAL,
                 KPI.SHARES,
