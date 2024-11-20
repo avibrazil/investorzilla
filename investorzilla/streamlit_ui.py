@@ -82,6 +82,9 @@ class StreamlitInvestorzillaApp:
         self.investor()
 
         with streamlit.sidebar:
+            if self.check_password() is False:
+                return
+
             # Put controls in the sidebar
             self.interact_assets()
             self.interact_exclude_assets()
@@ -92,6 +95,27 @@ class StreamlitInvestorzillaApp:
 
         # Render main content with plots and tables
         self.update_content()
+
+
+    def check_password(self):
+        if (
+                'authenticated' in streamlit.session_state and
+                streamlit.session_state.authenticated
+            ):
+            return True
+
+        streamlit.text_input(
+            label       = '',
+            placeholder = 'App password',
+            type        = 'password',
+            key         = 'pass'
+        )
+
+        streamlit.session_state.authenticated = (
+            streamlit.session_state['pass'] == self.investor().config['password']
+        )
+
+        return streamlit.session_state.authenticated
 
 
 
@@ -108,7 +132,7 @@ class StreamlitInvestorzillaApp:
             benchmarks=False
         )
 
-        Each entry (caled domain) defines if content should be reloaded from
+        Each entry (called domain) defines if content should be reloaded from
         its (slow) source (the Internet) (True) or from cache (False). If cache
         is empty or doesn't exist, content is loaded from its original source.
 
