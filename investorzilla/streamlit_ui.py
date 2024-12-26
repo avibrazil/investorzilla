@@ -104,16 +104,19 @@ class StreamlitInvestorzillaApp:
             ):
             return True
 
-        streamlit.text_input(
-            label       = '',
-            placeholder = 'App password',
-            type        = 'password',
-            key         = 'pass'
-        )
+        if 'password' in self.investor().config:
+            streamlit.text_input(
+                label       = '',
+                placeholder = 'App password',
+                type        = 'password',
+                key         = 'pass'
+            )
 
-        streamlit.session_state.authenticated = (
-            streamlit.session_state['pass'] == self.investor().config['password']
-        )
+            streamlit.session_state.authenticated = (
+                streamlit.session_state['pass'] == self.investor().config['password']
+            )
+        else:
+            streamlit.session_state.authenticated = True
 
         return streamlit.session_state.authenticated
 
