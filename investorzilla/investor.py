@@ -162,6 +162,11 @@ class Investor(object):
         else:
             self.portfolio=self.portfolio[0]['obj']
 
+        if 'wealth_mask_factor' in self.config:
+            self.portfolio.wealth_mask_factor=self.config['wealth_mask_factor']
+        else:
+            self.portfolio.wealth_mask_factor=1
+
         if updateCurrencyExchange:
             # Setup a multiple currency exchange machine
             self.exchange=CurrencyExchange(self.currency)

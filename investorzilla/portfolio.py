@@ -85,7 +85,7 @@ class Portfolio(object):
         """
 
         if subset is None or (isinstance(subset,list) and len(subset)==0):
-            # Return all funds
+            # Make a fund of all assets
             return Fund(
                 name             = name,
                 ledger           = self.ledger,
@@ -227,12 +227,26 @@ class Portfolio(object):
 
     @property
     def balance(self):
+        """
+        Returns a dataframe with shape
+
+        | (index) | asset | time | currency 1 | currency 2 | ... |
+
+        """
+
         return self.getProperty('balance')
 
 
 
     @property
     def ledger(self):
+        """
+        Returns a dataframe with shape
+
+        | (index) | asset | time | comment | currency 1 | currency 2 | ... |
+
+        """
+
         return self.getProperty('ledger')
 
 
@@ -259,6 +273,8 @@ class Portfolio(object):
 
         self.logger.debug(f"Requested data for {prop}")
 
+        metadata = "asset time comment".split()
+
         if self.nextRefresh:
             self.callRefreshData()
             self.nextRefresh=False
@@ -266,14 +282,42 @@ class Portfolio(object):
             if self.tryCacheData() is False:
                 self.callRefreshData()
         else:
-            return getattr(self,f'_{prop}')
+            df = getattr(self,f'_{prop}')
+            if hasattr(self,'wealth_mask_factor') and self.wealth_mask_factor!=1:
+                # Obfuscate wealth by multiplying by wealth_mask_factor
+                return pandas.concat(
+                    [
+                        df[df.columns.intersection(metadata)],
+                        (
+                            df.drop(df.columns.intersection(metadata), axis=1) *
+                            self.wealth_mask_factor
+                        )
+                    ],
+                    axis=1
+                )
+            else:
+                return df
 
         # At this point we have raw data from cache or original source (internet)
 
         # Data cleanup and feature engineering
         self.processData()
 
-        return getattr(self,f'_{prop}')
+        df = getattr(self,f'_{prop}')
+        if hasattr(self,'wealth_mask_factor') and self.wealth_mask_factor!=1:
+            # Obfuscate wealth by multiplying by wealth_mask_factor
+            return pandas.concat(
+                [
+                    df[df.columns.intersection(metadata)],
+                    (
+                        df.drop(df.columns.intersection(metadata), axis=1) *
+                        self.wealth_mask_factor
+                    )
+                ],
+                axis=1
+            )
+        else:
+            return df
 
 
 

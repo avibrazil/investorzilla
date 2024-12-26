@@ -230,3 +230,14 @@ cache_database: sqlite:///investorzilla.cache?check_same_thread=False
 
 # Default starting currency
 currency: USD
+
+# UI password
+# password: my_password
+
+
+# Random value to obfuscate your real wealth, in case you are going to show your
+# Investorzilla to someone. All your portfolio, ledger and balance values will
+# be simply multiplied by this factor. This way the performance of your
+# portfolio and the shapes of your Investorzilla graphs will be the same, but
+# the real size of your wealth will be hidden.
+# wealth_mask_factor: 3.14159
