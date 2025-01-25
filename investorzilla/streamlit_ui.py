@@ -718,28 +718,49 @@ class StreamlitInvestorzillaApp:
         streamlit.title(streamlit.session_state.fund.name)
         streamlit.dataframe(
             (
-                streamlit.session_state.fund.shares
-                .assign(
-                    **{
-                        'time': lambda table: table.index.tz_convert(datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo),
-                        investorzilla.KPI.BALANCE: lambda table: (
-                            table[investorzilla.KPI.SHARES] *
-                            table[investorzilla.KPI.SHARE_VALUE]
-                        )
-                    }
+                self.reportRagged
+
+                # Only relevant columns in a good order
+                [[
+                    investorzilla.KPI.BALANCE,
+                    investorzilla.KPI.PERIOD_GAIN,
+                    investorzilla.KPI.RATE_RETURN,
+                    investorzilla.KPI.MOVEMENTS,
+                    investorzilla.KPI.SAVINGS,
+                    investorzilla.KPI.GAINS,
+                    investorzilla.KPI.BALANCE_OVER_SAVINGS,
+                    investorzilla.KPI.SHARES,
+                    investorzilla.KPI.SHARE_VALUE,
+                    'asset',
+                    'comment'
+                ]]
+
+                # If this is a single-asset report, asset name in the table
+                # is redundant; drop column then
+                .pipe(
+                    lambda table: (
+                        table.drop(columns='asset')
+                        if len(table.asset.dropna().unique())<2
+                        else table
+                    )
                 )
-                .set_index('time')
-                [
-                    [
-                        investorzilla.KPI.SHARES,
-                        investorzilla.KPI.SHARE_VALUE,
-                        investorzilla.KPI.BALANCE,
-                        'asset',
-                        'comment'
-                    ]
-                ]
+
+                # Apply number formatting
+                .pipe(
+                    lambda table:
+                        table.style.format(
+                            {
+                                c: investorzilla.Fund.formatters[c]['format'].format
+                                for c in table.columns
+                                if c in investorzilla.Fund.formatters
+                            }
+                        )
+                )
             ),
+            
             use_container_width=True,
+
+            # Column formatting
             column_config={
                 investorzilla.KPI.SHARES: streamlit.column_config.NumberColumn(
                     help="Number of shares of the virtual fund formed by selected assets, in that point of time",
@@ -747,11 +768,11 @@ class StreamlitInvestorzillaApp:
                 investorzilla.KPI.SHARE_VALUE: streamlit.column_config.NumberColumn(
                     help=f"The value of each share, in {streamlit.session_state.fund.currency}",
                     # format=investorzilla.Fund.formatters[investorzilla.KPI.SHARE_VALUE]['format'],
-                    format="$%.6f"
+                    # format="$%.6f"
                 ),
                 investorzilla.KPI.BALANCE: streamlit.column_config.NumberColumn(
                     help=f"Balance in that point of time, in {streamlit.session_state.fund.currency}",
-                    format="$%.2f"
+                    # format="$%.2f"
                 ),
                 'asset': streamlit.column_config.TextColumn(
                     help="Asset making changes in number of shares (ledger)"

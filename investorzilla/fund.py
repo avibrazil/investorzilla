@@ -961,20 +961,23 @@ class Fund(object):
     def periodicReport(self, period=None, benchmark=None, start=None, end=None,
             tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo):
         """
-        This is the most important summarization and reporting method of the class.
-        Returns a DataFrame with features as rate of return, income, balance, shares,
-        share_value, benchmark rate of return, excess return compared to benchmark.
+        This is the most important summarization and reporting method of the
+        class. Returns a DataFrame with features as rate of return, income,
+        balance, shares, share_value, benchmark rate of return, excess return
+        compared to benchmark.
 
         period: Either 'M' (monthly), 'Y' (yearly), 'W' (weekly) to aggregate
         data for these periods. If not passed, returned dataframe will be a
-        ragged time series as precise as the amount of data available.
+        ragged time series as granular and precise as the amount of data
+        available.
 
         benchmark: A MarketIndex object to use a performance indicator used to
-        compute benchmark rate of return and excess return. Features are omitted
-        and not computed if this objected is not passed.
+        compute benchmark rate of return and excess return. Features are
+        omitted and not computed if this objected is not passed.
 
-        start: A starting date for the report. Makes benchmark rate of return start at
-        value 1 on this date. Starts at beginning of data if this is None.
+        start: A starting date for the report. Makes benchmark rate of return
+        start at value 1 on this date. Starts at beginning of data if this is
+        None.
 
         end: Cut data up to this time
 
@@ -1040,10 +1043,22 @@ class Fund(object):
             # Add ledger to get movements for period
             .join(
                 self.ledger
+
+                # Remove columns that we already have in shares DF
+                
+                # Remove asset name
                 .droplevel(0)
+
+                # Remove user comment
                 .drop(('ledger','comment'),axis=1)
+
+                # Remove column names
                 .droplevel(1, axis=1)
+
+                # Rename remaining column to what it really is
                 .rename(columns=dict(ledger=KPI.MOVEMENTS))
+
+                # Sort by time
                 .sort_index(), #[startOfReport:end]
                 how='left'
             )
@@ -1202,10 +1217,17 @@ class Fund(object):
                 .ffill()
             )
 
+            ledgerColumns=[]
+        else:
+            # Lack of aggregation will not get rid of these columns, so
+            # handle them nicely in the output
+            ledgerColumns=['asset','comment']
+
         # Compute rate of return (pure gain excluding movements)
         report[KPI.RATE_RETURN]=report[KPI.SHARE_VALUE].pct_change().fillna(0)
 
-        # The pct_change() above yields ∞ or NaN at the first line, so fix it manually
+        # The pct_change() above yields ∞ or NaN at the first line, so fix
+        # it manually
         report.loc[report.index[0],KPI.RATE_RETURN]=(
             (
                 report.loc[report.index[0],KPI.SHARE_VALUE] /
@@ -1213,7 +1235,8 @@ class Fund(object):
             ) - 1
         )
 
-        # Compute gain per period comparing consecutive Balance and excluding Movements
+        # Compute gain per period comparing consecutive Balance and excluding
+        # Movements
         report=report.join(
             report[KPI.BALANCE].shift(),
             rsuffix='_prev',
@@ -1226,9 +1249,11 @@ class Fund(object):
             report.loc[report.index[0],KPI.BALANCE_PREV]=0
         else:
             # Compute Balance based on immediate previous data
+
+            wayBefore=startOfReport-pandas.Timedelta(seconds=1)
             report.loc[report.index[0],KPI.BALANCE_PREV]=(
-                self.shares[KPI.SHARE_VALUE].asof(startOfReport-pandas.Timedelta(seconds=1)) *
-                self.shares[KPI.SHARES].asof(startOfReport-pandas.Timedelta(seconds=1))
+                self.shares[KPI.SHARE_VALUE].asof(wayBefore) *
+                self.shares[KPI.SHARES].asof(wayBefore)
             )
 
         # report[KPI.PERIOD_GAIN]=report.apply(
@@ -1305,7 +1330,7 @@ class Fund(object):
 
             # Normalize benchmark making it start with value 1
             report[KPI.BENCHMARK] /= report.loc[report.index[0]][KPI.BENCHMARK]
-
+        
         return report[
             benchmarkFeatures + [
                 KPI.RATE_RETURN,
@@ -1321,7 +1346,8 @@ class Fund(object):
                 KPI.GAIN_OVER_WITHDRAWAL,
                 KPI.SHARES,
                 KPI.SHARE_VALUE
-            ]
+            ] +
+            ledgerColumns
         ]
 
 
