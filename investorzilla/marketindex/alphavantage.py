@@ -26,7 +26,7 @@ class AlphaVantageMarketIndex(MarketIndex):
     # home='https://finance.yahoo.com/quote/{ticker}'
 
     url='https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={ticker}&apikey={key}&datatype=csv&outputsize=full'
-    home='https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={ticker}&apikey=*put your key here*'
+    home='https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={ticker}'
 
     def __init__(self, name, friendlyName=None, currency='USD', apiKey='demo', isRate=False, cache=None, refresh=False):
         self.friendlyName=friendlyName
