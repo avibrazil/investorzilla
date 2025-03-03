@@ -222,8 +222,19 @@ class MarketIndex(MonetaryTimeSeries):
 
 
 
+    def get_name(self):
+        """Return the Market Index name or friendly name (implement in derived
+        classes)"""
+
+        return self.id
+
+
+
     def __str__(self):
-        return '[{currency}] {name}'.format(name=self.id, currency=self.currency)
+        return '[{currency}] {name}'.format(
+            name=self.get_name(),
+            currency=self.currency
+        )
 
 
 

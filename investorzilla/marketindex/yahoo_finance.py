@@ -83,14 +83,8 @@ class YahooMarketIndex(MarketIndex):
 
 
 
-    def __str__(self):
-        if self.friendlyName is not None:
-            return '[{currency}] {name}'.format(
-                name=self.friendlyName,
-                currency=self.currency
-            )
-        else:
-            return super().__str__()
+    def get_name(self):
+        return self.friendlyName if self.friendlyName else self.id
 
 
 

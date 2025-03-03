@@ -1,4 +1,6 @@
 import datetime
+import random
+import string
 import logging
 import copy
 import textwrap
@@ -22,6 +24,8 @@ class StreamlitInvestorzillaApp:
             len(investorzilla.Investor.domains)*[False]
         )
     )
+
+    view_tag="🥽 view"
 
     def prepare_logging(self,level=logging.INFO):
         # Switch between INFO/DEBUG while running in production/developping:
@@ -52,6 +56,15 @@ class StreamlitInvestorzillaApp:
 
     def __init__(self, refresh=False):
         self.prepare_logging(level=logging.INFO)
+
+        self.currencies_container=None
+        self.benchmarks_container=None
+
+        if 'interact_currencies_value' not in streamlit.session_state:
+            streamlit.session_state.interact_currencies_value=None
+
+        if 'interact_benchmarks_value' not in streamlit.session_state:
+            streamlit.session_state.interact_benchmarks_value=None
 
         streamlit.set_page_config(
             layout="wide",
@@ -89,8 +102,8 @@ class StreamlitInvestorzillaApp:
             self.interact_assets()
             self.interact_exclude_assets()
             self.interact_start_end()
-            self.interact_currencies()
-            self.interact_benchmarks()
+            self.interact_currencies(streamlit.session_state.interact_currencies_value)
+            self.interact_benchmarks(streamlit.session_state.interact_benchmarks_value)
             self.interact_periods()
 
         # Render main content with plots and tables
@@ -169,20 +182,16 @@ class StreamlitInvestorzillaApp:
         """
 
         fundset=None
-        if 'interact_assets' in streamlit.session_state:
-            assets=streamlit.session_state.interact_assets
-
-            if 'ALL' in assets:
-                assets.remove('ALL')
-
-        if assets is None or len(assets)==0:
-            assets=self.investor().portfolio.assets()
-            assets=[f[0] for f in assets]
+        assets=self.get_interact_assets()
 
         if 'interact_no_assets' in streamlit.session_state:
             assets=list(
                 set(assets) -
-                set(streamlit.session_state.interact_no_assets)
+                set(
+                    self.resolve_views_assets(
+                        streamlit.session_state.interact_no_assets
+                    )
+                )
             )
 
         # Make a virtual fund (shares and share value) from selected assets
@@ -208,21 +217,21 @@ class StreamlitInvestorzillaApp:
 
         # Now that we have a fund, create periodic reports
         self.reportRagged=streamlit.session_state.fund.periodicReport(
-            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
             start      = self.start,
             end        = self.end,
         )
 
         self.reportPeriodic=streamlit.session_state.fund.periodicReport(
             period     = p['period'],
-            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
             start      = self.start,
             end        = self.end,
         )
 
         self.reportMacroPeriodic=streamlit.session_state.fund.periodicReport(
             period     = p['macroPeriod'],
-            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
             start      = self.start,
             end        = self.end,
         )
@@ -231,7 +240,7 @@ class StreamlitInvestorzillaApp:
             precomputedPeriodicReport      = self.reportPeriodic,
             precomputedMacroPeriodicReport = self.reportMacroPeriodic,
             period     = streamlit.session_state.interact_periods,
-            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
             start      = self.start,
             end        = self.end,
         )
@@ -245,7 +254,7 @@ class StreamlitInvestorzillaApp:
 
         # Sessions use a copy of the global currency exchange machine
         streamlit.session_state.exchange=copy.deepcopy(self.investor().exchange)
-        streamlit.session_state.exchange.currency=streamlit.session_state.interact_currencies
+        streamlit.session_state.exchange.currency=streamlit.session_state.interact_currencies_value
 
         self.prepare_fund()
 
@@ -370,7 +379,7 @@ class StreamlitInvestorzillaApp:
         # Render main metrics
         # streamlit.header('Main Metrics')
 
-        if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
+        if streamlit.session_state.interact_benchmarks_value['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
 
         col1, col2, col3, col4 = streamlit.columns(4)
@@ -422,7 +431,7 @@ class StreamlitInvestorzillaApp:
             streamlit.line_chart(
                 use_container_width=True,
                 data=streamlit.session_state.fund.wealthPlot(
-                    benchmark=streamlit.session_state.interact_benchmarks['obj'],
+                    benchmark=streamlit.session_state.interact_benchmarks_value['obj'],
                     precomputedReport=self.reportRagged,
                     type='raw'
                 )
@@ -540,7 +549,7 @@ class StreamlitInvestorzillaApp:
         # Render main metrics
         # streamlit.header('Main Metrics')
 
-        if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
+        if streamlit.session_state.interact_benchmarks_value['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
 
         col1, col2, col3, col4 = streamlit.columns(4)
@@ -603,7 +612,7 @@ class StreamlitInvestorzillaApp:
             streamlit.header('Performance', divider='red')
             streamlit.line_chart(
                 streamlit.session_state.fund.performancePlot(
-                    benchmark=streamlit.session_state.interact_benchmarks['obj'],
+                    benchmark=streamlit.session_state.interact_benchmarks_value['obj'],
                     precomputedReport=self.reportRagged,
                     type='raw'
                 )
@@ -648,7 +657,7 @@ class StreamlitInvestorzillaApp:
         streamlit.header('Performance')
         streamlit.markdown(
             "Benchmark is **{}**."
-            .format(streamlit.session_state.interact_benchmarks['obj'])
+            .format(streamlit.session_state.interact_benchmarks_value['obj'])
         )
 
         performance_benchmarks=[
@@ -757,7 +766,7 @@ class StreamlitInvestorzillaApp:
                         )
                 )
             ),
-            
+
             use_container_width=True,
 
             # Column formatting
@@ -798,66 +807,182 @@ class StreamlitInvestorzillaApp:
 
     # All the interact_* methods manage widgets in the Streamlit UI
 
+    def set_view(self):
+        """Update visuals of currency and benchmark widgets to what is defined
+        in the view"""
+
+        view=self.get_view()
+
+        if view:
+            streamlit.session_state.logger.info(f"View: {view}")
+
+            for b in self.investor().benchmarks:
+                if b['obj'].get_name() == view['benchmark']:
+                    break
+
+            self.interact_currencies(view['currency'])
+            self.interact_benchmarks(b)
+
+
+
     def interact_assets(self):
+        options = (
+            ['ALL'] +
+            [
+                x[0]
+                for x in self.investor().portfolio.assets()
+            ]
+        )
+
+        if 'views' in self.investor().config:
+            options += [
+                f"{self.view_tag}: {c}"
+                for c in self.investor().config['views'].keys()
+            ]
+
         streamlit.multiselect(
             label       = 'Select assets to make a fund',
             placeholder = 'All assets selected',
-            options     = (
-                ['ALL'] +
-                [
-                    x[0]
-                    for x in self.investor().portfolio.assets()
-                ] +
-                [f"💎cluster: {c}" for c in self.investor().config['clusters'].keys()]
-            ),
+            options     = options,
             help        = 'Shares and share value will be computed for the union of selected assets',
-            key         = 'interact_assets'
+            key         = 'interact_assets',
+            on_change   = self.set_view
         )
 
 
 
+    def resolve_views_assets(self,interact):
+        # Explode all views into its actual list of assets
+        resolved_assets=[]
+        for a in interact:
+            if self.view_tag in a:
+                resolved_assets += self.investor().config['views'][a.replace(f"{self.view_tag}: ","")]['assets']
+            else:
+                resolved_assets.append(a)
+
+        return resolved_assets
+
+
+
+    def get_view(self):
+        """Get the view object defined in the YAML"""
+
+        if 'interact_assets' in streamlit.session_state:
+            assets=streamlit.session_state.interact_assets
+            for a in assets:
+                if self.view_tag in a:
+                    return (
+                        self.investor()
+                        .config['views'][a.replace(f"{self.view_tag}: ","")]
+                    )
+
+        return None
+
+
+
+    def get_interact_assets(self):
+        if 'interact_assets' in streamlit.session_state:
+            assets=streamlit.session_state.interact_assets
+
+            if 'ALL' in assets:
+                assets.remove('ALL')
+
+        if assets is None or len(assets)==0:
+            assets=self.investor().portfolio.assets()
+            assets=[f[0] for f in assets]
+
+        return self.resolve_views_assets(assets)
+
+
+
     def interact_exclude_assets(self):
+        options = [
+            x[0]
+            for x in self.investor().portfolio.assets()
+        ]
+
+        if 'views' in self.investor().config:
+            options += [
+                f"{self.view_tag}: {c}"
+                for c in self.investor().config['views'].keys()
+            ]
+
         streamlit.multiselect(
             label       = 'Except assets',
             placeholder = 'No assets are excluded',
-            options     = (
-                [
-                    x[0]
-                    for x in self.investor().portfolio.assets()
-                ] +
-                [f"💎cluster: {c}" for c in self.investor().config['clusters'].keys()]
-            ),
+            options     = options,
             help        = 'Exclude assets selected here',
             key         = 'interact_no_assets'
         )
 
 
 
-    def interact_currencies(self):
+    def interact_currencies(self, currency=None):
+        if self.currencies_container is None:
+            self.currencies_container=streamlit.empty()
+        else:
+            self.currencies_container.empty()
+
         currencies=self.investor().exchange.currencies()
 
-        # Find the index of default currency
+        # Set the currency we'll be initialized with
+        if currency:
+            desired=currency
+        else:
+            desired=self.investor().config['currency']
+
+        # Find the index of desired currency
         for i in range(len(currencies)):
-            if currencies[i]==self.investor().config['currency']:
+            if currencies[i]==desired:
                 break
 
-        streamlit.radio(
+        streamlit.session_state.interact_currencies_value=self.currencies_container.radio(
             label     = 'Convert all to currency',
             options   = currencies,
             index     = i,
             help      = 'Everything will be converted to selected currency',
-            key       = 'interact_currencies'
+            key       = ''.join(
+                random.SystemRandom().choice(
+                    string.ascii_uppercase +
+                    string.ascii_lowercase +
+                    string.digits
+                ) for _ in range(10)
+            )
         )
 
 
 
-    def interact_benchmarks(self):
-        streamlit.radio(
+    def interact_benchmarks(self, benchmark=None):
+        if self.benchmarks_container is None:
+            self.benchmarks_container=streamlit.empty()
+        else:
+            self.benchmarks_container.empty()
+
+        # Set the currency we'll be initialized with
+        if benchmark:
+            benchmarks=self.investor().benchmarks
+
+            # Find the index of desired currency
+            for i in range(len(benchmarks)):
+                # streamlit.session_state.logger.log(f"testing {benchmarks[i]} against {benchmark}")
+                if benchmarks[i]==benchmark:
+                    break
+        else:
+            i = 0
+
+        streamlit.session_state.interact_benchmarks_value=self.benchmarks_container.radio(
             label       = 'Select a benchmark to compare with',
             options     = self.investor().benchmarks,
+            index       = i,
             format_func = lambda bench: str(bench['obj']),
             help        = 'Funds will be compared to the selected benchmark',
-            key         = 'interact_benchmarks'
+            key         = ''.join(
+                random.SystemRandom().choice(
+                    string.ascii_uppercase +
+                    string.ascii_lowercase +
+                    string.digits
+                ) for _ in range(10)
+            )
         )
 
 
