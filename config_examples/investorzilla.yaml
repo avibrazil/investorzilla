@@ -22,6 +22,40 @@
 #
 
 
+# Views were introduced in Investorzilla 5.0 as an experimental feature.
+# When selected in the Assets widget, it will automatically change the currency
+# and benchmark to the ones defined in the view and will select the listed
+# assets. Views reduce the number of clicks in the UI.
+views:
+    real estate:
+        assets:
+            - Ana Maria
+            - Anhaia
+            - Canoinhas
+            - Souza Lima
+        benchmark: IGPM
+        currency: BRL
+    NFTs:
+        assets:
+            - NFT honey.land
+            - NFT Rifters
+        benchmark: USDBTC
+        currency: USD
+    all crypto:
+        assets:
+            - Crypto
+            - NFT honey.land
+            - NFT Rifters
+            - LTX
+            - ShiguBot MB
+            - ShiguBot Binance
+            - TraderBot KuCoin
+            - STM
+        benchmark: USDBTC
+        currency: USD
+
+
+
 portfolio:
         # This is a Google Sheet accessible as a plain CSV file.
         # It performs better than the GoogleSheets drivers because it won´t
