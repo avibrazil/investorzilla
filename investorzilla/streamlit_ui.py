@@ -814,7 +814,7 @@ class StreamlitInvestorzillaApp:
         view=self.get_view()
 
         if view:
-            streamlit.session_state.logger.info(f"View: {view}")
+            # streamlit.session_state.logger.info(f"View: {view}")
 
             for b in self.investor().benchmarks:
                 if b['obj'].get_name() == view['benchmark']:

@@ -180,6 +180,7 @@ class Investor(object):
             )
 
 
+
     def augmentDomains(self):
         """
         Fabricate more benchmarks from currency converters, as specified by
