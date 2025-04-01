@@ -359,6 +359,7 @@ class DataCache(object):
 
                     self.getLogger().debug(f'Clean old cache entries as {cleanQuery}')
                     db.execute(sqlalchemy.text(cleanQuery))
+                    db.commit()
 
 
 
