@@ -125,7 +125,7 @@ class BCBMarketIndex(MarketIndex):
         else:
             try:
                 self.data=pandas.read_json(self.series[self.id]['url'])
-            except urllib.URLError as err:
+            except urllib.error.URLError as err:
                 self.logger.warning(f"URL was: {self.series[self.id]['url']}")
                 raise
 
