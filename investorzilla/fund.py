@@ -306,13 +306,18 @@ class Fund(object):
 
 
 
+    def getAssetList(self):
+        return list(self.balance.index.get_level_values(0).unique())
+
+
+
     def makeAssetsFunds(self):
         """
         For easier later computations, make a fund out of each asset overlooked
         by this fund and store them in self.asFund[{asset_name}]
         """
         self.asFund=dict()
-        for asset in self.balance.index.get_level_values(0).unique():
+        for asset in self.getAssetList():
             self.asFund[asset]=Fund(
                 self.ledger[ self.ledger.index.get_level_values('asset') ==asset],
                 self.balance[self.balance.index.get_level_values('asset')==asset],
@@ -1970,31 +1975,51 @@ class Fund(object):
             )
 
 
-    def describe(self,output='styled',tz=datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo):
+    def describe(self,asof=None,tz=datetime.datetime.now().astimezone().tzinfo,output='styled'):
         """
-        Short report of state of each asset in fund
+        Short report of state (balance) of each asset in fund.
+
+        asof:   Balance at that point of time. Or last value found.
+        tz:     Set tz as timezone for time information
+        output: Returns a pandas.styler object if 'styled'. Returns a plain
+                dataframe otherwise
         """
+
+        if asof is None:
+            asof=pandas.Timestamp.max
+        if not isinstance(asof,pandas.Timestamp):
+            asof=pandas.Timestamp(asof)
+
+        if asof.tz is None:
+            asof=asof.tz_localize(0)
+
         totalBalance=(
             self.balance
+            .query("time<=@asof")
             .groupby(level=0)
             .last()
             .droplevel(1,axis=1)
+            # .loc[pandas.IndexSlice[:, :asof], :]
             .sum()
             .values[0]
         )
 
         desc = (
             self.balance
+            .query("time<=@asof")
             .groupby(level=0)
             .last()
             .droplevel(1,axis=1)
+            # .loc[pandas.IndexSlice[:, :asof], :]
             .query(f"{KPI.BALANCE}>0")
             .join(
                 self.ledger
+                .query("time<=@asof")
                 .droplevel(0,axis=1)
                 .reset_index(1)
                 .groupby(level=0)
                 .last()
+                # .loc[pandas.IndexSlice[:, :asof], :]
                 .rename(
                     columns={
                         'time': 'last movement',
@@ -2017,9 +2042,6 @@ class Fund(object):
             ]]
         )
 
-        if output=='raw':
-            return desc
-
         if output=='styled':
             return (
                 desc
@@ -2033,6 +2055,8 @@ class Fund(object):
                     }
                 )
             )
+        else:
+            return desc
 
 
 

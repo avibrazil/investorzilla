@@ -1,4 +1,6 @@
 import datetime
+import zoneinfo
+import tzlocal
 import random
 import string
 import logging
@@ -274,7 +276,7 @@ class StreamlitInvestorzillaApp:
                 "💼 Portfolio Summary",
                 "📶 Fund Shares inspector",
                 "🔁 Currencies inspector",
-                "💼 Portfolio Components and Information",
+                "💼 Report Components and Information",
             ]
         )
 
@@ -310,25 +312,85 @@ class StreamlitInvestorzillaApp:
             )
         )
 
-        streamlit.caption(f'Report by **[Investorzilla](https://github.com/avibrazil/investorzilla) {investorzilla.__version__}**.')
+        now_local = datetime.datetime.now(
+            zoneinfo.ZoneInfo(tzlocal.get_localzone_name())
+        )
+
+        streamlit.caption(f'Report by **[Investorzilla](https://github.com/avibrazil/investorzilla) {investorzilla.__version__}** on {now_local:%Y-%m-%d %H:%M:%S%Z}.')
 
 
 
     def render_summary_page(self):
-        # Render title
-        streamlit.title(streamlit.session_state.fund.name)
+        # Get list of assets for each currency as dict:
+        #    dict(
+        #         BRL = ['Asset 1', 'Asset 3',...],
+        #         USD = ['Asset 4', 'Asset 2',...],
+        #         ...
+        #    )
+        assets_of_currencies = (
+            # Get list of assets in portfolio
+            self.investor().portfolio
+            .balance
+            .drop(columns='time')
 
-        streamlit.dataframe(
-            data                = streamlit.session_state.fund.describe(),
-            use_container_width = True,
-        )
+            # Compute number of entries for each currency
+            .groupby(by='asset')
+            .count()
 
-        streamlit.markdown(
-            'Net Liquidation Value (sum of all balances): **${nlv:0,.2f} {currency}**'.format(
-                nlv=self.reportPeriodic.iloc[-1][investorzilla.KPI.BALANCE],
-                currency=streamlit.session_state.fund.exchange.target
+            # Get the most popular currency for each asset
+            .idxmax(axis=1)
+
+            # Data wrangling to convert it to desired dict
+            .to_frame()
+            .reset_index()
+            .set_index(0)
+            .sort_index()
+            .assign(
+                subindex=lambda table: table.groupby(table.index).cumcount()
+            )
+            .set_index('subindex', append=True)
+            .pipe(
+                lambda table: {currency: assets.asset.to_list() for currency, assets in table.groupby(level=0)}
             )
         )
+
+        fund_assets=set(streamlit.session_state.fund.getAssetList())
+
+        for currency in assets_of_currencies.keys():
+            selected_assets=list(
+                set(assets_of_currencies[currency]) &
+                fund_assets
+            )
+
+            if len(selected_assets)<1:
+                continue
+
+            exg=copy.deepcopy(self.investor().exchange)
+            exg.currency=currency
+            fund=self.investor().portfolio.getFund(
+                subset           = selected_assets,
+                currencyExchange = exg
+            )
+
+            reportRagged=fund.periodicReport(
+                start      = self.start,
+                end        = self.end,
+            )
+
+            # Render title
+            streamlit.title(f"Assets in {currency} as of {self.end}")
+
+            streamlit.dataframe(
+                data                = fund.describe(asof=self.end),
+                use_container_width = True,
+            )
+
+            streamlit.markdown(
+                'Net Liquidation Value (sum of all balances): **${nlv:0,.2f} {currency}**'.format(
+                    nlv=reportRagged.iloc[-1][investorzilla.KPI.BALANCE],
+                    currency=fund.exchange.target
+                )
+            )
 
 
 
@@ -724,6 +786,7 @@ class StreamlitInvestorzillaApp:
 
 
     def render_shares_page(self):
+        # TODO: implement paging from https://medium.com/streamlit/paginating-dataframes-with-streamlit-2da29b080920
         streamlit.title(streamlit.session_state.fund.name)
         streamlit.dataframe(
             (
