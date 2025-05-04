@@ -551,8 +551,8 @@ class StreamlitInvestorzillaApp:
             streamlit.markdown(textwrap.dedent("""\
                 [4% Rule](https://www.investopedia.com/terms/f/four-percent-rule.asp)
                 allows you to withdraw only the interests from your
-                portfolio, never touching the main balance. It is useful in a
-                retirement scenario when you are not growing your capital
+                portfolio, never touching the main assets. It is useful in a
+                retirement scenario when you are not depositing to your assets
                 anymore. Here we give you annual withdrawal rates from {start}%
                 to {end}%. A conservative approach is to pick a rate lower than
                 your annual rate of return.
