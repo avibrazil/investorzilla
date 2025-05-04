@@ -306,7 +306,7 @@ class StreamlitInvestorzillaApp:
         # Page footer stats and signature
         streamlit.divider()
 
-        streamlit.markdown(
+        streamlit.caption(
             'Most recent porfolio data is **{}**'.format(
                 self.investor().portfolio.asof
             )
@@ -316,7 +316,16 @@ class StreamlitInvestorzillaApp:
             zoneinfo.ZoneInfo(tzlocal.get_localzone_name())
         )
 
-        streamlit.caption(f'Report by **[Investorzilla](https://github.com/avibrazil/investorzilla) {investorzilla.__version__}** on {now_local:%Y-%m-%d %H:%M:%S%Z}.')
+        streamlit.caption(
+            textwrap.dedent(f"""\
+                Reported on {now_local:%Y-%m-%d %H:%M:%S%Z} 
+                by **[Investorzilla]
+                (https://github.com/avibrazil/investorzilla) 
+                {investorzilla.__version__}**.
+            """)
+            # Make it a one line string
+            .replace('\n','')
+        )
 
 
 

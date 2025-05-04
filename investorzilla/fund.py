@@ -1050,7 +1050,7 @@ class Fund(object):
                 self.ledger
 
                 # Remove columns that we already have in shares DF
-                
+
                 # Remove asset name
                 .droplevel(0)
 
@@ -1980,7 +1980,7 @@ class Fund(object):
         Short report of state (balance) of each asset in fund.
 
         asof:   Balance at that point of time. Or last value found.
-        tz:     Set tz as timezone for time information
+        tz:     The timezone to display all time information
         output: Returns a pandas.styler object if 'styled'. Returns a plain
                 dataframe otherwise
         """
@@ -1988,7 +1988,16 @@ class Fund(object):
         if asof is None:
             asof=pandas.Timestamp.max
         if not isinstance(asof,pandas.Timestamp):
-            asof=pandas.Timestamp(asof)
+            # Since this is a very precise filter, make it the end of the day
+            # so it won't cut data from today
+            asof=(
+                # Time passed
+                pandas.Timestamp(asof) +
+                # 00:00:00 of next day
+                pandas.Timedelta(days=1) +
+                # Last microssecond of previous day, which is on asof date
+                pandas.Timedelta(microseconds=1)
+            )
 
         if asof.tz is None:
             asof=asof.tz_localize(0)
