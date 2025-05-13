@@ -469,9 +469,19 @@ class StreamlitInvestorzillaApp:
         )
 
         col2.metric(
-            label=investorzilla.KPI.GAINS,
+            label='{} & TWR'.format(investorzilla.KPI.GAINS),
             value='${:0,.2f}'.format(self.reportPeriodic.iloc[-1][investorzilla.KPI.GAINS]),
-            help='Overall sum of all gains and losses so far'
+            delta='{:6.2f}%'.format(
+                100 * (
+                    # (share_value_end-share_value_start)/share_value_start
+                    (
+                        self.reportRagged[investorzilla.KPI.SHARE_VALUE].iloc[-1] -
+                        self.reportRagged[investorzilla.KPI.SHARE_VALUE].iloc[0]
+                    ) /
+                    self.reportRagged[investorzilla.KPI.SHARE_VALUE].iloc[0]
+                )
+            ),
+            help='Overall sum of all gains and losses in period & Time Weighted Return'
         )
 
         col3.metric(
@@ -480,7 +490,7 @@ class StreamlitInvestorzillaApp:
             help='How many times your balance is bigger than your savings'
         )
 
-        # Latest average movements (power of saving)
+        # Latest average movements (capacity of saving money)
         col4.metric(
             label=f"{investorzilla.KPI.MOVEMENTS}: last {p['macroPeriodLabel']} median and mean for a {p['periodLabel']}",
             value='${:0,.2f}'.format(
@@ -493,7 +503,7 @@ class StreamlitInvestorzillaApp:
                 .tail(investorzilla.Fund.div_offsets(p['macroPeriod'],p['period']))
                 .mean()
             ),
-            help='Long term tendency of saving money'
+            help='Long term tendency of saving or spending money'
         )
 
         col1, col2 = streamlit.columns(2)
