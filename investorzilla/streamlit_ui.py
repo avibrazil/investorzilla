@@ -1,4 +1,5 @@
 import datetime
+import math
 import zoneinfo
 import tzlocal
 import random
@@ -806,10 +807,15 @@ class StreamlitInvestorzillaApp:
 
     def render_shares_page(self):
         # TODO: implement paging from https://medium.com/streamlit/paginating-dataframes-with-streamlit-2da29b080920
-        streamlit.title(streamlit.session_state.fund.name)
-        streamlit.dataframe(
-            (
-                self.reportRagged
+
+        @streamlit.cache_data(show_spinner=False)
+        def get_full_shares_table(ragged_report):
+            # Return the full table displayed by the Shares tab.
+            # We don't need the passed arguments to compute the table content
+            # but they control how Streamlit handles cache. If arguments
+            # don't change, table won't be recomputed.
+            return (
+                ragged_report
 
                 # Only relevant columns in a good order
                 [[
@@ -835,7 +841,66 @@ class StreamlitInvestorzillaApp:
                         else table
                     )
                 )
+            )
 
+        shares_table = get_full_shares_table(self.reportRagged)
+        
+        streamlit.title(streamlit.session_state.fund.name)
+
+        top_menu = streamlit.columns(4)
+
+        sort_keys='time asset comment'.split()
+        if 'asset' not in shares_table.columns:
+            sort_keys.remove('asset')
+            
+        sort = top_menu[0].selectbox(
+            "Sort By",
+            options=sort_keys,
+            index=0
+        )
+        
+        direction = top_menu[1].radio(
+            "Direction",
+            options=(True,False),
+            index=0,
+            format_func=lambda o: "⬆️" if o else "⬇️",
+            horizontal=True
+        )
+
+        size = top_menu[2].selectbox(
+            "Page Size",
+            options=[50, 20, 10],
+            index=0
+        )
+
+        page = top_menu[3].selectbox(
+            "Page",
+            options=[n for n in range(1,math.ceil(len(shares_table)/size)+1)],
+            index=0
+        )
+        
+        streamlit.dataframe(
+            (
+                shares_table
+                
+                # Sort global table according to controls
+                .pipe(
+                    lambda table:
+                        table.sort_index(
+                            ascending=direction
+                        ) if sort=='time'
+                        else table.sort_values(
+                            by=sort,
+                            ascending=direction
+                        )
+                )
+                
+                # Get only the part that will be displayed
+                .iloc[
+                    (page-1)*size :
+                    page*size
+                ]
+                
                 # Apply number formatting
                 .pipe(
                     lambda table:
@@ -848,8 +913,10 @@ class StreamlitInvestorzillaApp:
                         )
                 )
             ),
-
+            
             use_container_width=True,
+
+            height=size*100,
 
             # Column formatting
             column_config={
