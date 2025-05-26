@@ -19,7 +19,7 @@ import streamlit
 import investorzilla
 
 
-class StreamlitInvestorzillaApp:
+class InvestorzillaStreamlitApp:
 
     defaultRefreshMap=dict(
         zip(
@@ -42,7 +42,8 @@ class StreamlitInvestorzillaApp:
         ]
 
         if loggers[0].handlers:  # logger is already setup, don't setup again
-            return loggers[0]
+            self.logger=loggers[0]
+            return self.logger
 
         FORMATTER = logging.Formatter("%(asctime)s|%(levelname)s|%(name)s|%(message)s")
         HANDLER = logging.StreamHandler()
@@ -52,13 +53,13 @@ class StreamlitInvestorzillaApp:
             logger.addHandler(HANDLER)
             logger.setLevel(level)
 
-        streamlit.session_state.logger=loggers[0]
-        return streamlit.session_state.logger
+        self.logger=loggers[0]
+        return self.logger
 
 
 
     def __init__(self, refresh=False):
-        self.prepare_logging(level=logging.INFO)
+        self.prepare_logging(level=logging.DEBUG)
 
         self.currencies_container=None
         self.benchmarks_container=None
@@ -113,6 +114,7 @@ class StreamlitInvestorzillaApp:
         self.update_content()
 
 
+
     def check_password(self):
         if (
                 'authenticated' in streamlit.session_state and
@@ -159,17 +161,23 @@ class StreamlitInvestorzillaApp:
         will be used as a singleton across all sessions. If one session updates
         the Investor object, all other sessions will benefit from it.
 
-        Returns the (cached) Investor object, which includes data of all entries
-        defined in the investorzilla.yaml config file: asset data, currency
-        convertion tables, benchmark data.
+        So the only way to access the investor object is by calling this
+        method. Streamlit decides if a cached version will be used or a
+        complete initialization is required.
+
+        Returns the (cached) Investor object, which includes data of all
+        entries defined in the investorzilla.yaml config file: asset data,
+        currency convertion tables, benchmark data.
         """
 
+        _self.logger.debug("Loading portfolio from investorzilla.yaml...")
+        
         investor = investorzilla.Investor(
             'investorzilla.yaml',
             _self.refreshMap
         )
 
-        # Make a preliminary internal fund from the portfolio for display purposes
+        _self.logger.debug("Making an internal fund with all portfolio data for overall operations...")
         investor.portfolio.makeInternalFund(
             currencyExchange=investor.exchange
         )
@@ -197,7 +205,7 @@ class StreamlitInvestorzillaApp:
                 )
             )
 
-        # Make a virtual fund (shares and share value) from selected assets
+        self.logger.debug("Make a virtual fund (shares and share value) from selected assets...")
         streamlit.session_state.fund=self.investor().portfolio.getFund(
             subset           = assets,
             currencyExchange = streamlit.session_state.exchange
@@ -218,7 +226,7 @@ class StreamlitInvestorzillaApp:
             else self.investor().portfolio.fund.end
         )
 
-        # Now that we have a fund, create periodic reports
+        self.logger.debug(f"Creating reports: ragged, period ({p['period']}), macro period ({p['macroPeriod']}) and integrated to use all over the UI")
         self.reportRagged=streamlit.session_state.fund.periodicReport(
             benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
             start      = self.start,
@@ -337,6 +345,9 @@ class StreamlitInvestorzillaApp:
         #         USD = ['Asset 4', 'Asset 2',...],
         #         ...
         #    )
+
+        self.logger.info("Render report tab: 💼 Portfolio Summary")
+        
         assets_of_currencies = (
             # Get list of assets in portfolio
             self.investor().portfolio
@@ -405,7 +416,8 @@ class StreamlitInvestorzillaApp:
 
 
     def render_contributions_page(self):
-        # Render title
+        self.logger.info("Render report tab: 📶 Per Asset Contributions")
+
         streamlit.title(streamlit.session_state.fund.name)
 
         kpis=[
@@ -443,6 +455,8 @@ class StreamlitInvestorzillaApp:
 
 
     def render_wealth_page(self):
+        self.logger.info("Render report tab: 📈 Wealth")
+        
         p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
 
         # Render title
@@ -620,6 +634,8 @@ class StreamlitInvestorzillaApp:
 
 
     def render_performance_page(self):
+        self.logger.info("Render report tab: 📈 Performance")
+        
         p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
 
         # Render title
@@ -778,6 +794,8 @@ class StreamlitInvestorzillaApp:
 
 
     def render_currencies_page(self):
+        self.logger.info("Render report tab: 🔁 Currencies inspector")
+
         streamlit.title(f"1 {streamlit.session_state.exchange.currency} in other currencies")
         streamlit.dataframe(
             (
@@ -806,7 +824,9 @@ class StreamlitInvestorzillaApp:
 
 
     def render_shares_page(self):
-        # TODO: implement paging from https://medium.com/streamlit/paginating-dataframes-with-streamlit-2da29b080920
+        self.logger.info("Render report tab: 📶 Fund Shares inspector")
+
+        # Streamlit large DataFrame paging from https://medium.com/streamlit/paginating-dataframes-with-streamlit-2da29b080920
 
         @streamlit.cache_data(show_spinner=False)
         def get_full_shares_table(ragged_report):
@@ -814,6 +834,9 @@ class StreamlitInvestorzillaApp:
             # We don't need the passed arguments to compute the table content
             # but they control how Streamlit handles cache. If arguments
             # don't change, table won't be recomputed.
+
+            self.logger.debug(f"Computing shares inspector table")
+            
             return (
                 ragged_report
 
@@ -847,33 +870,23 @@ class StreamlitInvestorzillaApp:
         
         streamlit.title(streamlit.session_state.fund.name)
 
-        top_menu = streamlit.columns(4)
+        top_menu = streamlit.columns(3)
 
-        sort_keys='time asset comment'.split()
-        if 'asset' not in shares_table.columns:
-            sort_keys.remove('asset')
-            
-        sort = top_menu[0].selectbox(
-            "Sort By",
-            options=sort_keys,
-            index=0
-        )
-        
-        direction = top_menu[1].radio(
+        direction = top_menu[0].radio(
             "Direction",
             options=(True,False),
             index=0,
-            format_func=lambda o: "⬆️" if o else "⬇️",
+            format_func=lambda o: "old to new" if o else "new to old",
             horizontal=True
         )
 
-        size = top_menu[2].selectbox(
+        size = top_menu[1].selectbox(
             "Page Size",
-            options=[50, 20, 10],
+            options=[300, 100, 50],
             index=0
         )
 
-        page = top_menu[3].selectbox(
+        page = top_menu[2].selectbox(
             "Page",
             options=[n for n in range(1,math.ceil(len(shares_table)/size)+1)],
             index=0
@@ -884,16 +897,7 @@ class StreamlitInvestorzillaApp:
                 shares_table
                 
                 # Sort global table according to controls
-                .pipe(
-                    lambda table:
-                        table.sort_index(
-                            ascending=direction
-                        ) if sort=='time'
-                        else table.sort_values(
-                            by=sort,
-                            ascending=direction
-                        )
-                )
+                .sort_index(ascending=direction)
                 
                 # Get only the part that will be displayed
                 .iloc[
@@ -916,7 +920,7 @@ class StreamlitInvestorzillaApp:
             
             use_container_width=True,
 
-            height=size*100,
+            height=size*37, # 37 is a number that works in macOS Safari
 
             # Column formatting
             column_config={
@@ -941,6 +945,8 @@ class StreamlitInvestorzillaApp:
 
 
     def render_portfolio_page(self):
+        self.logger.info("Render report tab: 💼 Report Components and Information")
+
         with streamlit.expander('Personal Portfolio'):
             streamlit.markdown(self.investor().portfolio.to_markdown(title_prefix='##'))
 
@@ -963,7 +969,7 @@ class StreamlitInvestorzillaApp:
         view=self.get_view()
 
         if view:
-            # streamlit.session_state.logger.info(f"View: {view}")
+            # self.logger.info(f"View: {view}")
 
             for b in self.investor().benchmarks:
                 if b['obj'].get_name() == view['benchmark']:
@@ -1113,7 +1119,7 @@ class StreamlitInvestorzillaApp:
 
             # Find the index of desired currency
             for i in range(len(benchmarks)):
-                # streamlit.session_state.logger.log(f"testing {benchmarks[i]} against {benchmark}")
+                # self.logger.log(f"testing {benchmarks[i]} against {benchmark}")
                 if benchmarks[i]==benchmark:
                     break
         else:
@@ -1209,4 +1215,4 @@ class StreamlitInvestorzillaApp:
 
 
 
-StreamlitInvestorzillaApp(refresh=False)
+InvestorzillaStreamlitApp(refresh=False)

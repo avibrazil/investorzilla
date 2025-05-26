@@ -555,7 +555,7 @@ class Fund(object):
             .droplevel(1, axis=1)
         )
 
-        self.logger.debug(theShares.head().to_markdown())
+        # self.logger.debug(theShares.head().to_markdown())
 
         # Convert movements and balances into shares and share value
         for time,row in theShares.iterrows():
@@ -1761,7 +1761,7 @@ class Fund(object):
                     KPI.SHARES:               lambda table: table[KPI.SHARES].ffill(),
                 }
             )
-            .fillna(0)
+            # .fillna(0)
 
             # Get only the desired KPI
             [[kpi]]
