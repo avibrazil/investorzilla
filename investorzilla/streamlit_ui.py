@@ -59,7 +59,7 @@ class InvestorzillaStreamlitApp:
 
 
     def __init__(self, refresh=False):
-        self.prepare_logging(level=logging.DEBUG)
+        self.prepare_logging(level=logging.INFO)
 
         self.currencies_container=None
         self.benchmarks_container=None
