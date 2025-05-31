@@ -371,10 +371,10 @@ class CurrencyExchange(object):
     def currency(self, currency: str):
         """
         Make this CurrencyExchange now convert to another currency.
-        For example, target was 'USD' and we had data for 'BRL' and 'EUR' (to USD conversion).
-        Use setTarget('BRL') to then turn it into a to-BRL machine, converting
-        internal data conveniently. So updated object is now capable of converting
-        USD➔BRL, EUR➔BRL etc.
+        For example, target was 'USD' and we had data for 'BRL' and 'EUR' (to
+        USD conversion). Use obj.currency='BRL' to then turn it into a to-BRL
+        machine, converting internal data conveniently. So updated object is now
+        capable of converting USD➔BRL, EUR➔BRL etc.
         """
         if self.data is not None:
             if currency in self.data.columns:
@@ -387,7 +387,7 @@ class CurrencyExchange(object):
             elif currency == self.target:
                 pass
             else:
-                raise IOError
+                raise AttributeError(f"{currency} not available.")
 
         self.target=currency
 

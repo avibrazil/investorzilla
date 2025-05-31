@@ -61,14 +61,14 @@ class InvestorzillaStreamlitApp:
     def __init__(self, refresh=False):
         self.prepare_logging(level=logging.INFO)
 
-        self.currencies_container=None
-        self.benchmarks_container=None
+        # self.currencies_container=None
+        # self.benchmarks_container=None
 
-        if 'interact_currencies_value' not in streamlit.session_state:
-            streamlit.session_state.interact_currencies_value=None
+        # if 'interact_currencies_value' not in streamlit.session_state:
+        #     streamlit.session_state.interact_currencies_value=None
 
-        if 'interact_benchmarks_value' not in streamlit.session_state:
-            streamlit.session_state.interact_benchmarks_value=None
+        # if 'interact_benchmarks_value' not in streamlit.session_state:
+        #     streamlit.session_state.interact_benchmarks_value=None
 
         streamlit.set_page_config(
             layout="wide",
@@ -106,8 +106,8 @@ class InvestorzillaStreamlitApp:
             self.interact_assets()
             self.interact_exclude_assets()
             self.interact_start_end()
-            self.interact_currencies(streamlit.session_state.interact_currencies_value)
-            self.interact_benchmarks(streamlit.session_state.interact_benchmarks_value)
+            self.interact_currencies()
+            self.interact_benchmarks()
             self.interact_periods()
 
         # Render main content with plots and tables
@@ -228,21 +228,21 @@ class InvestorzillaStreamlitApp:
 
         self.logger.debug(f"Creating reports: ragged, period ({p['period']}), macro period ({p['macroPeriod']}) and integrated to use all over the UI")
         self.reportRagged=streamlit.session_state.fund.periodicReport(
-            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
             start      = self.start,
             end        = self.end,
         )
 
         self.reportPeriodic=streamlit.session_state.fund.periodicReport(
             period     = p['period'],
-            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
             start      = self.start,
             end        = self.end,
         )
 
         self.reportMacroPeriodic=streamlit.session_state.fund.periodicReport(
             period     = p['macroPeriod'],
-            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
             start      = self.start,
             end        = self.end,
         )
@@ -251,7 +251,7 @@ class InvestorzillaStreamlitApp:
             precomputedPeriodicReport      = self.reportPeriodic,
             precomputedMacroPeriodicReport = self.reportMacroPeriodic,
             period     = streamlit.session_state.interact_periods,
-            benchmark  = streamlit.session_state.interact_benchmarks_value['obj'],
+            benchmark  = streamlit.session_state.interact_benchmarks['obj'],
             start      = self.start,
             end        = self.end,
         )
@@ -265,7 +265,7 @@ class InvestorzillaStreamlitApp:
 
         # Sessions use a copy of the global currency exchange machine
         streamlit.session_state.exchange=copy.deepcopy(self.investor().exchange)
-        streamlit.session_state.exchange.currency=streamlit.session_state.interact_currencies_value
+        streamlit.session_state.exchange.currency=streamlit.session_state.interact_currencies
 
         self.prepare_fund()
 
@@ -465,7 +465,7 @@ class InvestorzillaStreamlitApp:
         # Render main metrics
         # streamlit.header('Main Metrics')
 
-        if streamlit.session_state.interact_benchmarks_value['obj'].currency!=streamlit.session_state.fund.currency:
+        if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
 
         col1, col2, col3, col4 = streamlit.columns(4)
@@ -527,7 +527,7 @@ class InvestorzillaStreamlitApp:
             streamlit.line_chart(
                 use_container_width=True,
                 data=streamlit.session_state.fund.wealthPlot(
-                    benchmark=streamlit.session_state.interact_benchmarks_value['obj'],
+                    benchmark=streamlit.session_state.interact_benchmarks['obj'],
                     precomputedReport=self.reportRagged,
                     type='raw'
                 )
@@ -635,7 +635,7 @@ class InvestorzillaStreamlitApp:
 
     def render_performance_page(self):
         self.logger.info("Render report tab: 📈 Performance")
-        
+
         p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
 
         # Render title
@@ -647,7 +647,7 @@ class InvestorzillaStreamlitApp:
         # Render main metrics
         # streamlit.header('Main Metrics')
 
-        if streamlit.session_state.interact_benchmarks_value['obj'].currency!=streamlit.session_state.fund.currency:
+        if streamlit.session_state.interact_benchmarks['obj'].currency!=streamlit.session_state.fund.currency:
             streamlit.warning('Fund and Benchmark have different currencies. Benchmark comparisons won’t make sense.')
 
         col1, col2, col3, col4 = streamlit.columns(4)
@@ -710,7 +710,7 @@ class InvestorzillaStreamlitApp:
             streamlit.header('Performance', divider='red')
             streamlit.line_chart(
                 streamlit.session_state.fund.performancePlot(
-                    benchmark=streamlit.session_state.interact_benchmarks_value['obj'],
+                    benchmark=streamlit.session_state.interact_benchmarks['obj'],
                     precomputedReport=self.reportRagged,
                     type='raw'
                 )
@@ -755,7 +755,7 @@ class InvestorzillaStreamlitApp:
         streamlit.header('Performance')
         streamlit.markdown(
             "Benchmark is **{}**."
-            .format(streamlit.session_state.interact_benchmarks_value['obj'])
+            .format(streamlit.session_state.interact_benchmarks['obj'])
         )
 
         performance_benchmarks=[
@@ -836,7 +836,7 @@ class InvestorzillaStreamlitApp:
             # don't change, table won't be recomputed.
 
             self.logger.debug(f"Computing shares inspector table")
-            
+
             return (
                 ragged_report
 
@@ -867,7 +867,7 @@ class InvestorzillaStreamlitApp:
             )
 
         shares_table = get_full_shares_table(self.reportRagged)
-        
+
         streamlit.title(streamlit.session_state.fund.name)
 
         top_menu = streamlit.columns(3)
@@ -981,6 +981,7 @@ class InvestorzillaStreamlitApp:
 
 
     def interact_assets(self):
+        # Build the list of assets
         options = (
             ['ALL'] +
             [
@@ -989,16 +990,27 @@ class InvestorzillaStreamlitApp:
             ]
         )
 
+        # Add pre-defined views as assets too
         if 'views' in self.investor().config:
             options += [
                 f"{self.view_tag}: {c}"
                 for c in self.investor().config['views'].keys()
             ]
 
+        # Try to get defaults assets from URL
+        default = None
+        try:
+            default=streamlit.query_params.get_all('assets')
+        except AttributeError:
+            # Key was not set in URL, and this is OK
+            pass
+
+        # Build the widget
         streamlit.multiselect(
             label       = 'Select assets to make a fund',
             placeholder = 'All assets selected',
             options     = options,
+            default     = default,
             help        = 'Shares and share value will be computed for the union of selected assets',
             key         = 'interact_assets',
             on_change   = self.set_view
@@ -1062,82 +1074,79 @@ class InvestorzillaStreamlitApp:
                 for c in self.investor().config['views'].keys()
             ]
 
+        # Try to get defaults assets from URL
+        default = None
+        try:
+            default=streamlit.query_params.get_all('exclude_assets')
+        except AttributeError:
+            # Key was not set in URL, and this is OK
+            pass
+
         streamlit.multiselect(
             label       = 'Except assets',
             placeholder = 'No assets are excluded',
             options     = options,
+            default     = default,
             help        = 'Exclude assets selected here',
             key         = 'interact_no_assets'
         )
 
 
 
-    def interact_currencies(self, currency=None):
-        if self.currencies_container is None:
-            self.currencies_container=streamlit.empty()
-        else:
-            self.currencies_container.empty()
-
+    def interact_currencies(self):
         currencies=self.investor().exchange.currencies()
 
-        # Set the currency we'll be initialized with
-        if currency:
-            desired=currency
-        else:
-            desired=self.investor().config['currency']
+        i = None
+        try:
+            for i in range(len(currencies)):
+                if currencies[i]==streamlit.query_params.currency:
+                    break
+            if i+1 >= len(currencies):
+                # Can’t find URL-passed currency in my catalog of currencies
+                i = None
+        except AttributeError:
+            # Key was not set in URL, and this is OK
+            pass
 
-        # Find the index of desired currency
-        for i in range(len(currencies)):
-            if currencies[i]==desired:
-                break
+        if i is None:
+            # Still don't have a desired currency from the user, try the YAML
+            # Find the index of desired currency
+            for i in range(len(currencies)):
+                if currencies[i]==self.investor().config['currency']:
+                    break
 
-        streamlit.session_state.interact_currencies_value=self.currencies_container.radio(
+        streamlit.radio(
             label     = 'Convert all to currency',
             options   = currencies,
             index     = i,
             help      = 'Everything will be converted to selected currency',
-            key       = ''.join(
-                random.SystemRandom().choice(
-                    string.ascii_uppercase +
-                    string.ascii_lowercase +
-                    string.digits
-                ) for _ in range(10)
-            )
+            key       = 'interact_currencies'
         )
 
 
 
-    def interact_benchmarks(self, benchmark=None):
-        if self.benchmarks_container is None:
-            self.benchmarks_container=streamlit.empty()
-        else:
-            self.benchmarks_container.empty()
+    def interact_benchmarks(self):
+        benchmarks=self.investor().benchmarks
 
-        # Set the currency we'll be initialized with
-        if benchmark:
-            benchmarks=self.investor().benchmarks
-
-            # Find the index of desired currency
+        i = 0
+        try:
             for i in range(len(benchmarks)):
-                # self.logger.log(f"testing {benchmarks[i]} against {benchmark}")
-                if benchmarks[i]==benchmark:
+                if benchmarks[i]['obj'].id==streamlit.query_params.benchmark:
                     break
-        else:
-            i = 0
+            if i+1 >= len(benchmarks):
+                # Can’t find URL-passed benchmark in my catalog of benchmarks
+                i = 0
+        except AttributeError:
+            # Key was not set in URL, and this is OK
+            pass
 
-        streamlit.session_state.interact_benchmarks_value=self.benchmarks_container.radio(
+        streamlit.radio(
             label       = 'Select a benchmark to compare with',
             options     = self.investor().benchmarks,
             index       = i,
             format_func = lambda bench: str(bench['obj']),
             help        = 'Funds will be compared to the selected benchmark',
-            key         = ''.join(
-                random.SystemRandom().choice(
-                    string.ascii_uppercase +
-                    string.ascii_lowercase +
-                    string.digits
-                ) for _ in range(10)
-            )
+            key         = 'interact_benchmarks'
         )
 
 
@@ -1146,25 +1155,30 @@ class InvestorzillaStreamlitApp:
         inv=self.investor()
 
         key='relevant period'
-        defaults = dict(
+        try:
+            start=streamlit.query_params.start
+        except AttributeError:
             start = (
                 inv.config[key]['start']
                 if key in inv.config and 'start' in inv.config[key]
                 else inv.portfolio.fund.start.to_pydatetime()
-            ),
+            )
+
+        try:
+            end=streamlit.query_params.end
+        except AttributeError:
             end = (
                 inv.config[key]['end']
                 if key in inv.config and 'end' in inv.config[key]
                 else inv.portfolio.fund.end.to_pydatetime()
             )
-        )
 
         streamlit.date_input(
             label       = 'Report Period Range',
             help        = 'Report starting on date',
-            min_value   = inv.portfolio.fund.start.to_pydatetime(),
-            max_value   = inv.portfolio.fund.end.to_pydatetime(),
-            value       = (defaults['start'],defaults['end']),
+            # min_value   = inv.portfolio.fund.start.to_pydatetime(),
+            # max_value   = inv.portfolio.fund.end.to_pydatetime(),
+            value       = (start,end),
             format      = 'YYYY-MM-DD',
             key         = 'interact_start_end'
         )
