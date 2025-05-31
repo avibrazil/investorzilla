@@ -347,7 +347,7 @@ class InvestorzillaStreamlitApp:
         #    )
 
         self.logger.info("Render report tab: 💼 Portfolio Summary")
-        
+
         assets_of_currencies = (
             # Get list of assets in portfolio
             self.investor().portfolio
@@ -456,7 +456,7 @@ class InvestorzillaStreamlitApp:
 
     def render_wealth_page(self):
         self.logger.info("Render report tab: 📈 Wealth")
-        
+
         p=investorzilla.Fund.periodPairs[streamlit.session_state.interact_periods]
 
         # Render title
