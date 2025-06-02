@@ -1,5 +1,6 @@
 import datetime
 import math
+import urllib
 import zoneinfo
 import tzlocal
 import random
@@ -110,8 +111,33 @@ class InvestorzillaStreamlitApp:
             self.interact_benchmarks()
             self.interact_periods()
 
+            streamlit.divider()
+
+            # Bookmarks and views
+            self.current_view()
+            # self.views()
+
         # Render main content with plots and tables
         self.update_content()
+
+
+
+    def current_view(self):
+        """
+        Print a link with parameters to reconstruct current view
+        """
+        query = dict(
+            assets         = streamlit.session_state.interact_assets,
+            exclude_assets = streamlit.session_state.interact_no_assets,
+            start          = streamlit.session_state.interact_start_end[0],
+            end            = streamlit.session_state.interact_start_end[1],
+            currency       = streamlit.session_state.interact_currencies,
+            benchmark      = streamlit.session_state.interact_benchmarks['obj'].id,
+        )
+
+        qs = urllib.parse.urlencode(query,doseq=True)
+
+        streamlit.markdown(f"[Bookmark to current report](?{qs})")
 
 
 
@@ -171,7 +197,7 @@ class InvestorzillaStreamlitApp:
         """
 
         _self.logger.debug("Loading portfolio from investorzilla.yaml...")
-        
+
         investor = investorzilla.Investor(
             'investorzilla.yaml',
             _self.refreshMap
@@ -1219,7 +1245,7 @@ class InvestorzillaStreamlitApp:
 
         if col3.button(
             label       = 'Both',
-            help        = 'Invalidate cache and update all data from the Internet'
+            help        = 'Invalidate cache and update all data from original sources'
         ):
             self.refreshMap['currency_converters']=True
             self.refreshMap['benchmarks']=True
