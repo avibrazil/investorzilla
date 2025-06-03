@@ -1,6 +1,7 @@
 import datetime
 import math
 import urllib
+import hashlib
 import zoneinfo
 import tzlocal
 import random
@@ -17,6 +18,7 @@ import pandas
 # pip3 install streamlit google-api-python-client
 
 import streamlit
+import extra_streamlit_components
 import investorzilla
 
 
@@ -62,15 +64,6 @@ class InvestorzillaStreamlitApp:
     def __init__(self, refresh=False):
         self.prepare_logging(level=logging.INFO)
 
-        # self.currencies_container=None
-        # self.benchmarks_container=None
-
-        # if 'interact_currencies_value' not in streamlit.session_state:
-        #     streamlit.session_state.interact_currencies_value=None
-
-        # if 'interact_benchmarks_value' not in streamlit.session_state:
-        #     streamlit.session_state.interact_benchmarks_value=None
-
         streamlit.set_page_config(
             layout="wide",
             page_title='Investorzilla',
@@ -100,7 +93,7 @@ class InvestorzillaStreamlitApp:
         self.investor()
 
         with streamlit.sidebar:
-            if self.check_password() is False:
+            if self.authorized() is False:
                 return
 
             # Put controls in the sidebar
@@ -111,10 +104,12 @@ class InvestorzillaStreamlitApp:
             self.interact_benchmarks()
             self.interact_periods()
 
+            # Bookmark
             streamlit.divider()
-
-            # Bookmarks and views
             self.current_view()
+
+            # Views
+            streamlit.divider()
             self.views_links()
 
         # Render main content with plots and tables
@@ -133,6 +128,7 @@ class InvestorzillaStreamlitApp:
             end            = streamlit.session_state.interact_start_end[1],
             currency       = streamlit.session_state.interact_currencies,
             benchmark      = streamlit.session_state.interact_benchmarks['obj'].id,
+            periods        = streamlit.session_state.interact_periods,
         )
 
         qs = urllib.parse.urlencode(query,doseq=True)
@@ -142,15 +138,19 @@ class InvestorzillaStreamlitApp:
 
 
     def views_links(self):
+        """
+        Send markdown text of links to all views that appear in investorzilla.yaml
+        """
+
         if 'views' in self.investor().config:
+            keys = 'assets benchmark currency periods start end'.split()
             tpl = "- [{name}](?{url})\n"
             v=''
             for c in self.investor().config['views'].keys():
-                query = dict(
-                    assets    = self.investor().config['views'][c]['assets'],
-                    benchmark = self.investor().config['views'][c]['benchmark'],
-                    currency  = self.investor().config['views'][c]['currency'],
-                )
+                query = {
+                    k: self.investor().config['views'][c][k]
+                    for k in self.investor().config['views'][c].keys()
+                }
 
                 url = urllib.parse.urlencode(query,doseq=True)
 
@@ -160,14 +160,33 @@ class InvestorzillaStreamlitApp:
 
 
 
-    def check_password(self):
-        if (
-                'authenticated' in streamlit.session_state and
-                streamlit.session_state.authenticated
-            ):
-            return True
+    def authorized(self):
+        """
+        Check if user is authorized to use the UI via cookie or a password
+        defined in investorzilla.yaml
+        """
 
         if 'password' in self.investor().config:
+            if (
+                    'authorized' in streamlit.session_state and
+                    streamlit.session_state.authorized
+                ):
+                return True
+
+            upass=self.investor().config['password']
+            hpass=hashlib.blake2s()
+            hpass.update(upass.encode())
+            hpass=hpass.hexdigest()
+            cookie='investorzilla_auth'
+
+            cookies=extra_streamlit_components.CookieManager()
+
+            value=cookies.get(cookie=cookie)
+
+            if value == hpass:
+                streamlit.session_state.authorized=True
+                return streamlit.session_state.authorized
+
             streamlit.text_input(
                 label       = '',
                 placeholder = 'App password',
@@ -175,13 +194,17 @@ class InvestorzillaStreamlitApp:
                 key         = 'pass'
             )
 
-            streamlit.session_state.authenticated = (
-                streamlit.session_state['pass'] == self.investor().config['password']
+            streamlit.session_state.authorized = (
+                streamlit.session_state['pass'] == upass
             )
-        else:
-            streamlit.session_state.authenticated = True
 
-        return streamlit.session_state.authenticated
+            if streamlit.session_state.authorized:
+                cookies.set(cookie,hpass)
+                return True
+
+            return False
+        else:
+            return True
 
 
 
@@ -1141,25 +1164,21 @@ class InvestorzillaStreamlitApp:
     def interact_currencies(self):
         currencies=self.investor().exchange.currencies()
 
+        print(currencies)
+
         i = None
         try:
-            for i in range(len(currencies)):
-                if currencies[i]==streamlit.query_params.currency:
-                    break
-            if i+1 >= len(currencies):
-                # Can’t find URL-passed currency in my catalog of currencies
-                i = None
-        except AttributeError:
-            # Key was not set in URL, and this is OK
-            i = None
+            i = currencies.index(streamlit.query_params.currency)
+        except (AttributeError, ValueError):
             pass
 
         if i is None:
-            # Still don't have a desired currency from the user, try the YAML
+            # Still don't have a desired currency from the user, try the YAML.
             # Find the index of desired currency
-            for i in range(len(currencies)):
-                if currencies[i]==self.investor().config['currency']:
-                    break
+            try:
+                i = currencies.index(self.investor().config['currency'])
+            except (AttributeError, ValueError):
+                pass
 
         streamlit.radio(
             label     = 'Convert all to currency',
@@ -1174,22 +1193,26 @@ class InvestorzillaStreamlitApp:
     def interact_benchmarks(self):
         benchmarks=self.investor().benchmarks
 
-        i = 0
+        i = None
         try:
-            for i in range(len(benchmarks)):
-                if benchmarks[i]['obj'].id==streamlit.query_params.benchmark:
-                    break
-            if i+1 >= len(benchmarks):
-                # Can’t find URL-passed benchmark in my catalog of benchmarks
-                i = 0
-        except AttributeError:
-            # Key was not set in URL, and this is OK
-            i = 0
+            # Test against benchmark ID (short name)
+            i = [b['obj'].id for b in benchmarks].index(streamlit.query_params.benchmark)
+        except (AttributeError, ValueError):
             pass
+
+        if i is None:
+            try:
+                # Test against benchmark friendly name
+                i = [str(b['obj']) for b in benchmarks].index(streamlit.query_params.benchmark)
+            except (AttributeError, ValueError):
+                pass
+
+        if i is None:
+            i = 0
 
         streamlit.radio(
             label       = 'Select a benchmark to compare with',
-            options     = self.investor().benchmarks,
+            options     = benchmarks,
             index       = i,
             format_func = lambda bench: str(bench['obj']),
             help        = 'Funds will be compared to the selected benchmark',
@@ -1233,11 +1256,22 @@ class InvestorzillaStreamlitApp:
 
 
     def interact_periods(self):
+        periods = investorzilla.Fund.getPeriodPairs()
+
+        i = None
+        try:
+            i = periods.index(streamlit.query_params.periods)
+        except (AttributeError, ValueError):
+            pass
+
+        if i is None:
+            i = periods.index('month & year')
+
         streamlit.radio(
             label       = 'How to divide time',
             options     = investorzilla.Fund.getPeriodPairs(),
             # format_func = investorzilla.Fund.getPeriodPairLabel,
-            index       = investorzilla.Fund.getPeriodPairs().index('month & year'), # the starting default
+            index       = i, # the starting default
             help        = 'Pairs of period (as month) and macro period (as year)',
             key         = 'interact_periods'
         )
