@@ -1,6 +1,6 @@
 [project]
 name = "investorzilla"
-version = '5.4.1'
+version = '6.0'
 description = "Manage your investments like a data scientist"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -24,6 +24,7 @@ dependencies = [
     "certifi",
     "pyaml",
     "streamlit",
+    "extra_streamlit_components",
 ]
 
 # dynamic = [
