@@ -4,8 +4,6 @@ import urllib
 import hashlib
 import zoneinfo
 import tzlocal
-import random
-import string
 import logging
 import copy
 import textwrap
@@ -30,8 +28,6 @@ class InvestorzillaStreamlitApp:
             len(investorzilla.Investor.domains)*[False]
         )
     )
-
-    view_tag="🥽 view"
 
     def prepare_logging(self,level=logging.INFO):
         # Switch between INFO/DEBUG while running in production/developping:
@@ -261,16 +257,21 @@ class InvestorzillaStreamlitApp:
         """
 
         fundset=None
-        assets=self.get_interact_assets()
+        assets=None
+        if 'interact_assets' in streamlit.session_state:
+            assets=streamlit.session_state.interact_assets
+
+            if 'ALL' in assets:
+                assets.remove('ALL')
+
+        if assets is None or len(assets)==0:
+            assets=self.investor().portfolio.assets()
+            assets=[f[0] for f in assets]
 
         if 'interact_no_assets' in streamlit.session_state:
             assets=list(
                 set(assets) -
-                set(
-                    self.resolve_views_assets(
-                        streamlit.session_state.interact_no_assets
-                    )
-                )
+                set(streamlit.session_state.interact_no_assets)
             )
 
         self.logger.debug("Make a virtual fund (shares and share value) from selected assets...")
@@ -1030,24 +1031,6 @@ class InvestorzillaStreamlitApp:
 
     # All the interact_* methods manage widgets in the Streamlit UI
 
-    def set_view(self):
-        """Update visuals of currency and benchmark widgets to what is defined
-        in the view"""
-
-        view=self.get_view()
-
-        if view:
-            # self.logger.info(f"View: {view}")
-
-            for b in self.investor().benchmarks:
-                if b['obj'].get_name() == view['benchmark']:
-                    break
-
-            self.interact_currencies(view['currency'])
-            self.interact_benchmarks(b)
-
-
-
     def interact_assets(self):
         # Build the list of assets
         options = (
@@ -1057,13 +1040,6 @@ class InvestorzillaStreamlitApp:
                 for x in self.investor().portfolio.assets()
             ]
         )
-
-        # Add pre-defined views as assets too
-        if 'views' in self.investor().config:
-            options += [
-                f"{self.view_tag}: {c}"
-                for c in self.investor().config['views'].keys()
-            ]
 
         # Try to get defaults assets from URL
         default = None
@@ -1081,52 +1057,7 @@ class InvestorzillaStreamlitApp:
             default     = default,
             help        = 'Shares and share value will be computed for the union of selected assets',
             key         = 'interact_assets',
-            on_change   = self.set_view
         )
-
-
-
-    def resolve_views_assets(self,interact):
-        # Explode all views into its actual list of assets
-        resolved_assets=[]
-        for a in interact:
-            if self.view_tag in a:
-                resolved_assets += self.investor().config['views'][a.replace(f"{self.view_tag}: ","")]['assets']
-            else:
-                resolved_assets.append(a)
-
-        return resolved_assets
-
-
-
-    def get_view(self):
-        """Get the view object defined in the YAML"""
-
-        if 'interact_assets' in streamlit.session_state:
-            assets=streamlit.session_state.interact_assets
-            for a in assets:
-                if self.view_tag in a:
-                    return (
-                        self.investor()
-                        .config['views'][a.replace(f"{self.view_tag}: ","")]
-                    )
-
-        return None
-
-
-
-    def get_interact_assets(self):
-        if 'interact_assets' in streamlit.session_state:
-            assets=streamlit.session_state.interact_assets
-
-            if 'ALL' in assets:
-                assets.remove('ALL')
-
-        if assets is None or len(assets)==0:
-            assets=self.investor().portfolio.assets()
-            assets=[f[0] for f in assets]
-
-        return self.resolve_views_assets(assets)
 
 
 
@@ -1135,12 +1066,6 @@ class InvestorzillaStreamlitApp:
             x[0]
             for x in self.investor().portfolio.assets()
         ]
-
-        if 'views' in self.investor().config:
-            options += [
-                f"{self.view_tag}: {c}"
-                for c in self.investor().config['views'].keys()
-            ]
 
         # Try to get defaults assets from URL
         default = None
