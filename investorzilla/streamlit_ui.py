@@ -184,7 +184,8 @@ class InvestorzillaStreamlitApp:
                 return streamlit.session_state.authorized
 
             streamlit.text_input(
-                label       = '',
+                label       = 'Password to access the UI',
+                label_visibility = 'hidden',
                 placeholder = 'App password',
                 type        = 'password',
                 key         = 'pass'
