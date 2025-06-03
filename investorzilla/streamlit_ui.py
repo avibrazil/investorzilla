@@ -115,7 +115,7 @@ class InvestorzillaStreamlitApp:
 
             # Bookmarks and views
             self.current_view()
-            # self.views()
+            self.views_links()
 
         # Render main content with plots and tables
         self.update_content()
@@ -138,6 +138,25 @@ class InvestorzillaStreamlitApp:
         qs = urllib.parse.urlencode(query,doseq=True)
 
         streamlit.markdown(f"[Bookmark to current report](?{qs})")
+
+
+
+    def views_links(self):
+        if 'views' in self.investor().config:
+            tpl = "- [{name}](?{url})\n"
+            v=''
+            for c in self.investor().config['views'].keys():
+                query = dict(
+                    assets    = self.investor().config['views'][c]['assets'],
+                    benchmark = self.investor().config['views'][c]['benchmark'],
+                    currency  = self.investor().config['views'][c]['currency'],
+                )
+
+                url = urllib.parse.urlencode(query,doseq=True)
+
+                v += tpl.format(name=c,url=url)
+
+            streamlit.markdown("Predefined views\n\n" + v)
 
 
 
@@ -917,20 +936,20 @@ class InvestorzillaStreamlitApp:
             options=[n for n in range(1,math.ceil(len(shares_table)/size)+1)],
             index=0
         )
-        
+
         streamlit.dataframe(
             (
                 shares_table
-                
+
                 # Sort global table according to controls
                 .sort_index(ascending=direction)
-                
+
                 # Get only the part that will be displayed
                 .iloc[
                     (page-1)*size :
                     page*size
                 ]
-                
+
                 # Apply number formatting
                 .pipe(
                     lambda table:
@@ -943,7 +962,7 @@ class InvestorzillaStreamlitApp:
                         )
                 )
             ),
-            
+
             use_container_width=True,
 
             height=size*37, # 37 is a number that works in macOS Safari
@@ -1132,6 +1151,7 @@ class InvestorzillaStreamlitApp:
                 i = None
         except AttributeError:
             # Key was not set in URL, and this is OK
+            i = None
             pass
 
         if i is None:
@@ -1164,6 +1184,7 @@ class InvestorzillaStreamlitApp:
                 i = 0
         except AttributeError:
             # Key was not set in URL, and this is OK
+            i = 0
             pass
 
         streamlit.radio(
