@@ -7,6 +7,9 @@ import webbrowser
 import investorzilla
 
 def main():
+    # Investorzilla deserves its own port
+    port=8601
+
     # Getting path to python executable (full path of deployed python on Windows)
     executable = sys.executable
 
@@ -18,29 +21,25 @@ def main():
             "streamlit",
             "run",
             str(importlib.resources.files(investorzilla) / 'streamlit_ui.py'),
-            # The following option appears to be necessary to correctly start the streamlit server,
-            # but it should start without it. More investigations should be carried out.
+            "--server.enableWebsocketCompression=true",
+
+            # For reverse proxy
+            "--server.enableCORS=false",
+
+            f"--server.port={port}",
+
+            # The following option appears to be necessary to correctly start
+            # the streamlit server, but it should start without it. More
+            # investigations should be carried out.
             "--server.headless=true",
             "--global.developmentMode=false",
         ],
-        # stdin=subprocess.PIPE,
-        # stdout=subprocess.PIPE,
-        # stderr=subprocess.STDOUT,
-        # text=True,
     )
-
-    # proc.stdin.close()
 
     # Force the opening (does not open automatically) of the browser tab after a brief delay to let
     # the streamlit server start.
     time.sleep(2)
-    webbrowser.open("http://localhost:8501")
-
-    # while True:
-    #     s = proc.stdout.read()
-    #     if not s:
-    #         break
-    #     print(s, end="")
+    webbrowser.open(f"http://localhost:{port}")
 
     proc.wait()
 
