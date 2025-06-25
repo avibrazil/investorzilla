@@ -40,6 +40,15 @@ class URIBalanceOrLedger(Portfolio):
                         monetary:
                             - currency:     USD
                               name:         Saldo USD
+                ledger:
+                    columns:
+                        time: time
+                        asset: my asset
+                        monetary:
+                            - currency:     USD
+                              name:         Saldo USD
+                            - currency:     BRL
+                              name:         Saldo BRL
     """
 
     def __init__(self, URI, kind, sheetStructure, base='.', cache=None, refresh=False):
@@ -106,6 +115,30 @@ class URIBalanceOrLedger(Portfolio):
         else:
             raise NameError('Either balance or ledger sheet structure must be defined.')
 
+        columns=[]
+        for prop in ['balance','ledger']:
+            if prop in self.sheetStructure:
+                columns += [
+                    k
+                    for k in self.sheetStructure[prop]['columns'].keys()
+                    if k!='monetary'
+                ]
+                columns += [
+                    m['name']
+                    for m in self.sheetStructure[prop]['columns']['monetary']
+                ]
+        [
+        self.sheetStructure[prop]['columns']
+        ]
+
+        columns={
+            columnsProfile[k]: k
+            for k in columnsProfile.keys() if k!='monetary'
+        }
+
+
+
+        
         columnsProfile=self.sheetStructure[prop]['columns']
 
         # Normalize all column names
