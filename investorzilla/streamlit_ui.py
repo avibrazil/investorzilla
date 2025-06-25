@@ -139,13 +139,16 @@ class InvestorzillaStreamlitApp:
         """
 
         if 'views' in self.investor().config:
-            keys = 'assets benchmark currency periods start end'.split()
+            keys = 'assets exclude_assets benchmark currency periods start end'.split()
             tpl = "- [{name}](?{url})\n"
             v=''
+
+            # Iterate over each view
             for c in self.investor().config['views'].keys():
                 query = {
-                    k: self.investor().config['views'][c][k]
+                    k.replace(' ','_'): self.investor().config['views'][c][k]
                     for k in self.investor().config['views'][c].keys()
+                    # Iterate over each key on each view
                 }
 
                 url = urllib.parse.urlencode(query,doseq=True)
