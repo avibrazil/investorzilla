@@ -385,6 +385,8 @@ class DataCache(object):
 
         self.getLogger().info(f'Set cache to kind={kind}, id={id}, time={now}')
 
+        # TODO: create an index on the table to improve performance
+
         with self.getDB().connect() as db:
             d[[self.idCol,self.timeCol] + columns].to_sql(
                 self.typeTable.format(kind=kind),

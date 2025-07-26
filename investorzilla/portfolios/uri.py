@@ -108,47 +108,37 @@ class URIBalanceOrLedger(Portfolio):
 
         The internal variables _balance or _ledger will be updated.
         """
-        if self.has_balance:
-            prop='balance'
-        elif self.has_ledger:
-            prop='ledger'
-        else:
-            raise NameError('Either balance or ledger sheet structure must be defined.')
 
-        columns=[]
-        for prop in ['balance','ledger']:
-            if prop in self.sheetStructure:
-                columns += [
-                    k
-                    for k in self.sheetStructure[prop]['columns'].keys()
-                    if k!='monetary'
-                ]
-                columns += [
-                    m['name']
-                    for m in self.sheetStructure[prop]['columns']['monetary']
-                ]
-        [
-        self.sheetStructure[prop]['columns']
-        ]
+        # Objective here is to normalize column names. So a user sheet with
+        # column names such as:
+        #
+        # - Date
+        # - My Asset
+        # - Movement BRL
+        # - Movement USD
+        # - Balance BRL
+        # - Balance USD
+        # - Description
+        #
+        # becomes:
+        #
+        # - time
+        # - asset
+        # - ledger_BRL
+        # - ledger_USD
+        # - balance_BRL
+        # - balance_USD
+        # - comment
 
-        columns={
-            columnsProfile[k]: k
-            for k in columnsProfile.keys() if k!='monetary'
-        }
-
-
-
-        
-        columnsProfile=self.sheetStructure[prop]['columns']
-
-        # Normalize all column names
-        renamer={m['name']: m['currency'] for m in columnsProfile['monetary']}
-        renamer.update(
-            {
-                columnsProfile[k]: k
-                for k in columnsProfile.keys() if k!='monetary'
-            }
-        )
+        columns=dict()
+        for prop in self.sheetStructure.keys():
+            colStructure=self.sheetStructure[prop]['columns']
+            for k in colStructure.keys():
+                if k!='monetary':
+                    columns[colStructure[k]]=k
+                else:
+                    for m in colStructure[k]:
+                        columns[m['name']]=prop + '_' + m['currency']
 
         df=(
             pandas.read_csv(
@@ -159,17 +149,23 @@ class URIBalanceOrLedger(Portfolio):
                     else ','
                 )
             )
-            .rename(columns=renamer)
+            .rename(columns=columns)
             .pipe(
                 lambda table: table.drop(
                     # Drop all columns that doesn't matter
                     columns=list(
                         set(table.columns) -
-                        set(list(renamer.values()))
+                        set(list(columns.values()))
                     )
                 )
             )
         )
+
+        stdColumns=dict()
+        stdColumns['balance']='time asset'.split()
+        stdColumns['ledger']=stdColumns['balance'] + ['comment']
+
+
 
         setattr(self,f'_{prop}',df)
 
