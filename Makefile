@@ -1,3 +1,6 @@
+
+# dnf install twine python3-build
+
 pkg:
 	-rm dist/*
 	python -m build
