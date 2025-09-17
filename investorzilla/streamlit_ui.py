@@ -1175,12 +1175,16 @@ class InvestorzillaStreamlitApp:
         streamlit.date_input(
             label       = 'Report Period Range',
             help        = 'Report starting on date',
-            # min_value   = inv.portfolio.fund.start.to_pydatetime(),
-            # max_value   = inv.portfolio.fund.end.to_pydatetime(),
             value       = (start,end),
             format      = 'YYYY-MM-DD',
-            key         = 'interact_start_end'
-        )
+
+            # Streamlit has silly default limits; lets overcome those
+            min_value   = '1900-01-01',
+            max_value   = '3000-12-31'
+            # min_value   = inv.portfolio.fund.start.to_pydatetime(),
+            # max_value   = inv.portfolio.fund.end.to_pydatetime(),
+
+            key         = 'interact_start_end'        )
 
 
 
