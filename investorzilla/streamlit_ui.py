@@ -1180,9 +1180,7 @@ class InvestorzillaStreamlitApp:
 
             # Streamlit has silly default limits; lets overcome those
             min_value   = '1900-01-01',
-            max_value   = '3000-12-31'
-            # min_value   = inv.portfolio.fund.start.to_pydatetime(),
-            # max_value   = inv.portfolio.fund.end.to_pydatetime(),
+            max_value   = '3000-12-31',
 
             key         = 'interact_start_end'        )
 
