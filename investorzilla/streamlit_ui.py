@@ -1049,6 +1049,10 @@ class InvestorzillaStreamlitApp:
         default = None
         try:
             default=streamlit.query_params.get_all('assets')
+
+            # The report time range might lack old assets, se we'll have to
+            # remove them from defaults too
+            default=[a for a in default if a in options]
         except AttributeError:
             # Key was not set in URL, and this is OK
             pass
@@ -1075,6 +1079,10 @@ class InvestorzillaStreamlitApp:
         default = None
         try:
             default=streamlit.query_params.get_all('exclude_assets')
+
+            # The report time range might lack old assets, se we'll have to
+            # remove them from defaults too
+            default=[a for a in default if a in options]
         except AttributeError:
             # Key was not set in URL, and this is OK
             pass
