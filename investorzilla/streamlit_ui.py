@@ -120,11 +120,19 @@ class InvestorzillaStreamlitApp:
         query = dict(
             assets         = streamlit.session_state.interact_assets,
             exclude_assets = streamlit.session_state.interact_no_assets,
-            start          = streamlit.session_state.interact_start_end[0],
-            end            = streamlit.session_state.interact_start_end[1],
             currency       = streamlit.session_state.interact_currencies,
             benchmark      = streamlit.session_state.interact_benchmarks['obj'].id,
             periods        = streamlit.session_state.interact_periods,
+            start          = (
+                streamlit.session_state.interact_start_end[0]
+                if len(streamlit.session_state.interact_start_end)>0
+                else self.investor().portfolio.fund.start
+            ),
+            end            = (
+                streamlit.session_state.interact_start_end[1]
+                if len(streamlit.session_state.interact_start_end)>1
+                else self.investor().portfolio.fund.end
+            ),
         )
 
         qs = urllib.parse.urlencode(query,doseq=True)
