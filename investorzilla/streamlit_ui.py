@@ -103,7 +103,11 @@ class InvestorzillaStreamlitApp:
 
         # Load domains from Investor internal cache, the Internet or reuse
         # Streamlit memory-cached object
-        self.investor()
+        if self.investor().wealth_mask_factor != self.wealth_mask_factor:
+            # self.investor() will be called only on its first run or if its
+            # streamlit-cached version has different wealth_mask_factor
+            self.investor.clear()
+            self.investor()
 
         with streamlit.sidebar:
             if self.authorized() is False:
@@ -266,7 +270,9 @@ class InvestorzillaStreamlitApp:
 
 
 
-    @streamlit.cache_resource(show_spinner="Loading portfolio, currency exchanges and benchmarks...")
+    @streamlit.cache_resource(
+        show_spinner="Loading portfolio, currency exchanges and benchmarks...",
+    )
     def investor(_self):
         """
         Read config file investorzilla.yaml and load its described portfolio
