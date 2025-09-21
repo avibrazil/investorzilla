@@ -128,6 +128,33 @@ class InvestorzillaStreamlitApp:
         # Render main content with plots and tables
         self.update_content()
 
+        # Page footer stats and signature
+        streamlit.divider()
+
+        streamlit.caption(
+            'Most recent porfolio data is **{}**'.format(
+                self.investor().portfolio.asof
+            )
+        )
+
+        if self.investor().wealth_mask_factor is not None:
+            streamlit.caption("Wealth is being masked; balance values and gains are proportional but unreal, rates are real")
+
+        now_local = datetime.datetime.now(
+            zoneinfo.ZoneInfo(tzlocal.get_localzone_name())
+        )
+
+        streamlit.caption(
+            textwrap.dedent(f"""\
+                Reported on {now_local:%Y-%m-%d %H:%M:%S%Z} 
+                by **[Investorzilla]
+                (https://github.com/avibrazil/investorzilla) 
+                {investorzilla.__version__}**.
+            """)
+            # Make it a one line string
+            .replace('\n','')
+        )
+
 
 
     def current_view(self):
@@ -414,35 +441,6 @@ class InvestorzillaStreamlitApp:
 
         with tab_portfolio:
             self.render_portfolio_page()
-
-
-
-        # Page footer stats and signature
-        streamlit.divider()
-
-        streamlit.caption(
-            'Most recent porfolio data is **{}**'.format(
-                self.investor().portfolio.asof
-            )
-        )
-
-        if self.investor.wealth_mask_factor is not None:
-            streamlit.caption("Wealth is being masked, balance values and gains are proportional but unreal, rates are real")
-
-        now_local = datetime.datetime.now(
-            zoneinfo.ZoneInfo(tzlocal.get_localzone_name())
-        )
-
-        streamlit.caption(
-            textwrap.dedent(f"""\
-                Reported on {now_local:%Y-%m-%d %H:%M:%S%Z} 
-                by **[Investorzilla]
-                (https://github.com/avibrazil/investorzilla) 
-                {investorzilla.__version__}**.
-            """)
-            # Make it a one line string
-            .replace('\n','')
-        )
 
 
 
