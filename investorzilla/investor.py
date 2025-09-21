@@ -38,7 +38,13 @@ class Investor(object):
 
 
 
-    def __init__(self,file,refreshMap=dict(zip(domains,len(domains)*[False])),load=True):
+    def __init__(
+                self,
+                file,
+                wealth_mask_factor=None,
+                refreshMap=dict(zip(domains,len(domains)*[False])),
+                load=True
+            ):
         """
         Reads the YAML file which contains domains 'portfolio',
         'currency_converters' and 'benchmarks', and then load their data from
@@ -62,6 +68,7 @@ class Investor(object):
         self.currency_converters  = None
         self.benchmarks           = None
         self.exchange             = CurrencyExchange(self.currency)
+        self.wealth_mask_factor   = wealth_mask_factor
 
         if load:
             # Load all time series data from cache or web and compute derived
@@ -162,10 +169,11 @@ class Investor(object):
         else:
             self.portfolio=self.portfolio[0]['obj']
 
-        if 'wealth_mask_factor' in self.config:
+        self.portfolio.wealth_mask_factor=1
+        if self.wealth_mask_factor is not None:
+            self.portfolio.wealth_mask_factor=self.wealth_mask_factor
+        elif 'wealth_mask_factor' in self.config:
             self.portfolio.wealth_mask_factor=self.config['wealth_mask_factor']
-        else:
-            self.portfolio.wealth_mask_factor=1
 
         if updateCurrencyExchange:
             # Setup a multiple currency exchange machine

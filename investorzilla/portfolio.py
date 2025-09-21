@@ -285,6 +285,9 @@ class Portfolio(object):
             df = getattr(self,f'_{prop}')
             if hasattr(self,'wealth_mask_factor') and self.wealth_mask_factor!=1:
                 # Obfuscate wealth by multiplying by wealth_mask_factor
+
+                self.logger.info("Wealth is being masked")
+
                 return pandas.concat(
                     [
                         df[df.columns.intersection(metadata)],

@@ -67,6 +67,13 @@ class InvestorzillaStreamlitApp:
     def __init__(self, refresh=False):
         self.prepare_logging(level=logging.INFO)
 
+        try:
+            self.wealth_mask_factor=float(streamlit.query_params.get_all('wealth_mask_factor')[0])
+        except (AttributeError,IndexError,ValueError):
+            # Key was not set in URL, and this is OK
+            self.wealth_mask_factor=None
+            pass
+
         streamlit.set_page_config(
             layout="wide",
             page_title='Investorzilla',
@@ -145,6 +152,9 @@ class InvestorzillaStreamlitApp:
             ),
         )
 
+        if self.wealth_mask_factor is not None:
+            query['wealth_mask_factor']=self.wealth_mask_factor
+
         qs = urllib.parse.urlencode(query,doseq=True)
 
         streamlit.markdown(f"[Bookmark to current report](?{qs})")
@@ -168,6 +178,9 @@ class InvestorzillaStreamlitApp:
                     for k in self.investor().config['views'][c].keys()
                     # Iterate over each key on each view
                 }
+
+                if self.wealth_mask_factor is not None:
+                    query['wealth_mask_factor']=self.wealth_mask_factor
 
                 url = urllib.parse.urlencode(query,doseq=True)
 
@@ -259,8 +272,9 @@ class InvestorzillaStreamlitApp:
         _self.logger.debug("Loading portfolio from investorzilla.yaml...")
 
         investor = investorzilla.Investor(
-            'investorzilla.yaml',
-            _self.refreshMap
+            file                 = 'investorzilla.yaml',
+            wealth_mask_factor   = _self.wealth_mask_factor,
+            refreshMap           = _self.refreshMap
         )
 
         _self.logger.debug("Making an internal fund with all portfolio data for overall operations...")
@@ -411,6 +425,9 @@ class InvestorzillaStreamlitApp:
                 self.investor().portfolio.asof
             )
         )
+
+        if self.investor.wealth_mask_factor is not None:
+            streamlit.caption("Wealth is being masked, balance values and gains are proportional but unreal, rates are real")
 
         now_local = datetime.datetime.now(
             zoneinfo.ZoneInfo(tzlocal.get_localzone_name())
