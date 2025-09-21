@@ -1,4 +1,6 @@
 import datetime
+import pathlib
+import importlib
 import math
 import urllib
 import hashlib
@@ -10,7 +12,7 @@ import textwrap
 import pandas
 
 # Dependencies available via OS packages:
-# pip3 install pandas pyyaml sqlalchemy pandas_datareader
+# dnf install pandas pyyaml sqlalchemy pandas_datareader
 
 # Other dependencies:
 # pip3 install streamlit google-api-python-client
@@ -21,6 +23,11 @@ import investorzilla
 
 
 class InvestorzillaStreamlitApp:
+
+    logo = (
+        pathlib.Path(importlib.util.find_spec('investorzilla').submodule_search_locations[0]) /
+        pathlib.Path('investorzilla.svg')
+    )
 
     defaultRefreshMap=dict(
         zip(
@@ -71,6 +78,9 @@ class InvestorzillaStreamlitApp:
                 ])
             }
         )
+
+        streamlit.logo(self.logo,size='large')
+
         with streamlit.sidebar:
             # Get the kind of refresh user wants, if any
             self.refreshMap=self.interact_refresh()
