@@ -1335,7 +1335,7 @@ class Fund(object):
 
             # Normalize benchmark making it start with value 1
             report[KPI.BENCHMARK] /= report.loc[report.index[0]][KPI.BENCHMARK]
-        
+
         return report[
             benchmarkFeatures + [
                 KPI.RATE_RETURN,

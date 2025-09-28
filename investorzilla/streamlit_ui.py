@@ -487,6 +487,7 @@ class InvestorzillaStreamlitApp:
             )
         )
 
+        # Get assets of current view
         fund_assets=set(streamlit.session_state.fund.getAssetList())
 
         for currency in assets_of_currencies.keys():
@@ -506,7 +507,6 @@ class InvestorzillaStreamlitApp:
             )
 
             reportRagged=fund.periodicReport(
-                start      = self.start,
                 end        = self.end,
             )
 
