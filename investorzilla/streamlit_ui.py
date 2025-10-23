@@ -515,7 +515,7 @@ class InvestorzillaStreamlitApp:
 
             streamlit.dataframe(
                 data                = fund.describe(asof=self.end),
-                use_container_width = True,
+		width               = 'stretch',
             )
 
             streamlit.markdown(
@@ -556,7 +556,7 @@ class InvestorzillaStreamlitApp:
         )
 
         streamlit.altair_chart(
-            use_container_width=True,
+	    use_container_width=True,
             altair_chart=streamlit.session_state.fund.assetContributionPlot(
                 pointInTime=streamlit.session_state.pointintime_contributions,
                 kpi=streamlit.session_state.kpi_contributions,
@@ -665,7 +665,7 @@ class InvestorzillaStreamlitApp:
             # Render 4% Rule text
             rates=[3,4,5,6,7,8,9,10]
             streamlit.dataframe(
-                use_container_width=True,
+                width='stretch',
                 data=(
                     pandas.DataFrame.from_dict(
                         dict(
@@ -926,7 +926,7 @@ class InvestorzillaStreamlitApp:
                 .set_index('time')
                 .sort_index(ascending=False)
             ),
-            use_container_width=True,
+            width='stretch',
             column_config={
                 c: streamlit.column_config.NumberColumn(format="%.16f")
                 for c in self.investor().exchange.data.columns
@@ -1030,7 +1030,7 @@ class InvestorzillaStreamlitApp:
                 )
             ),
 
-            use_container_width=True,
+            width='stretch',
 
             height=size*37, # 37 is a number that works in macOS Safari
 
