@@ -25,6 +25,8 @@ def main():
 
             # For reverse proxy
             "--server.enableCORS=false",
+            "--server.enableXsrfProtection=false",
+
 
             f"--server.port={port}",
 

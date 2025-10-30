@@ -635,11 +635,14 @@ class InvestorzillaStreamlitApp:
 
         col1, col2 = streamlit.columns(2)
 
+        resample='SME' if len(self.reportRagged)>100 else None
+
         with col1:
             streamlit.line_chart(
                 use_container_width=True,
                 data=streamlit.session_state.fund.wealthPlot(
                     benchmark=streamlit.session_state.interact_benchmarks['obj'],
+                    resample=resample,
                     precomputedReport=self.reportRagged,
                     type='raw'
                 )
@@ -647,7 +650,15 @@ class InvestorzillaStreamlitApp:
 
             streamlit.line_chart(
                 use_container_width=True,
-                data=self.reportRagged,
+                data=(
+                    self.reportRagged
+                    .pipe(
+                        lambda table:
+                            table.resample(resample).last()
+                            if resample is not None
+                            else table
+                    )
+                ),
                 y=investorzilla.KPI.BALANCE_OVER_SAVINGS
             )
 
@@ -818,11 +829,14 @@ class InvestorzillaStreamlitApp:
 
         col1, col2 = streamlit.columns(2)
 
+        resample='SME' if len(self.reportRagged)>100 else None
+
         with col1:
             streamlit.header('Performance', divider='red')
             streamlit.line_chart(
                 streamlit.session_state.fund.performancePlot(
                     benchmark=streamlit.session_state.interact_benchmarks['obj'],
+                    resample=resample,
                     precomputedReport=self.reportRagged,
                     type='raw'
                 )

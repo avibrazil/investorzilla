@@ -1367,6 +1367,7 @@ class Fund(object):
                 benchmark=None,
                 start=None,
                 end=None,
+                resample=None,
                 type='pyplot',
                 precomputedReport=None
             ):
@@ -1406,6 +1407,15 @@ class Fund(object):
                 }
             )
 
+            # Decide if resampling was requested
+            .pipe(
+                lambda table: (
+                    table.resample(resample).last()
+                    if resample is not None
+                    else table
+                )
+            )
+
             # Decide what to return
             .pipe(
                 lambda table: (
@@ -1422,12 +1432,22 @@ class Fund(object):
                 benchmark,
                 start=None,
                 end=None,
+                resample=None,
                 type='pyplot',
                 precomputedReport=None
             ):
         """
         A plot with 3 lines: balance, savings and the difference between them
         (the cumulated gains).
+
+        This might return a plot or a table with too much information, too heavy
+        to transfer to UI (Streamlit) over the network, so the caller should
+        decide if it wants a plot made of resampled data. Then pass a Pandas
+        DateOffset object or string to use as period.
+        See https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
+
+        A good value for resample is 'SME' (SemiMonthEnd) for 1 datapoint for
+        each ~15 days.
         """
         if precomputedReport is not None:
             report=precomputedReport
@@ -1442,6 +1462,15 @@ class Fund(object):
             report
 
             [[KPI.BALANCE,KPI.SAVINGS,KPI.GAINS]]
+
+            # Decide if resampling was requested
+            .pipe(
+                lambda table: (
+                    table.resample(resample).last()
+                    if resample is not None
+                    else table
+                )
+            )
 
             # Decide what to return
             .pipe(
