@@ -556,7 +556,6 @@ class InvestorzillaStreamlitApp:
         )
 
         streamlit.altair_chart(
-	    use_container_width=True,
             altair_chart=streamlit.session_state.fund.assetContributionPlot(
                 pointInTime=streamlit.session_state.pointintime_contributions,
                 kpi=streamlit.session_state.kpi_contributions,
@@ -639,7 +638,7 @@ class InvestorzillaStreamlitApp:
 
         with col1:
             streamlit.line_chart(
-                use_container_width=True,
+                width='stretch',
                 data=streamlit.session_state.fund.wealthPlot(
                     benchmark=streamlit.session_state.interact_benchmarks['obj'],
                     resample=resample,
@@ -649,7 +648,6 @@ class InvestorzillaStreamlitApp:
             )
 
             streamlit.line_chart(
-                use_container_width=True,
                 data=(
                     self.reportRagged
                     .pipe(
@@ -664,7 +662,6 @@ class InvestorzillaStreamlitApp:
 
         with col2:
             streamlit.altair_chart(
-                use_container_width=True,
                 altair_chart=streamlit.session_state.fund.genericPeriodicPlot(
                     kpi=investorzilla.KPI.MOVEMENTS,
                     periodPair=streamlit.session_state.interact_periods,
@@ -843,7 +840,6 @@ class InvestorzillaStreamlitApp:
             )
 
             streamlit.altair_chart(
-                use_container_width=True,
                 altair_chart=streamlit.session_state.fund.rateOfReturnPlot(
                     precomputedReport=self.reportPeriodic,
                     type='altair'
@@ -853,7 +849,6 @@ class InvestorzillaStreamlitApp:
         with col2:
             streamlit.header('Gains', divider='red')
             streamlit.altair_chart(
-                use_container_width=True,
                 altair_chart=streamlit.session_state.fund.genericPeriodicPlot(
                     kpi=investorzilla.KPI.PERIOD_GAIN,
                     periodPair=streamlit.session_state.interact_periods,
@@ -863,7 +858,6 @@ class InvestorzillaStreamlitApp:
             )
 
             streamlit.altair_chart(
-                use_container_width=True,
                 altair_chart=streamlit.session_state.fund.genericPeriodicPlot(
                     kpi=investorzilla.KPI.RATE_RETURN,
                     periodPair=streamlit.session_state.interact_periods,
@@ -1153,8 +1147,6 @@ class InvestorzillaStreamlitApp:
 
     def interact_currencies(self):
         currencies=self.investor().exchange.currencies()
-
-        print(currencies)
 
         i = None
         try:

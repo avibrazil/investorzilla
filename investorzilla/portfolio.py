@@ -72,8 +72,11 @@ class Portfolio(object):
         # self.twoSecondsGen=Portfolio.pseudoRandomUniqueMilliseconds()
 
         # Force data load
-        self.balance
-        self.ledger
+        if self.has_balance:
+            self.balance
+
+        if self.has_ledger:
+            self.ledger
 
 
 

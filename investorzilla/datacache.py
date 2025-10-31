@@ -197,7 +197,6 @@ class DataCache(object):
             self.getLogger().info(e)
             ret=None
 
-
         return ret
 
 
