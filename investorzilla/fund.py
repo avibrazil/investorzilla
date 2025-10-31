@@ -808,7 +808,6 @@ class Fund(object):
                 tz         = tz
             )
 
-
         report=None
 
         # KPI income has a special formatter
@@ -1166,12 +1165,18 @@ class Fund(object):
             #     else pandas.tseries.frequencies.to_offset('D').nanos-1
             # )
 
+            periodicIndex = pandas.period_range(
+                start=report.index[0],
+                end=report.index[-1],
+                freq=dateOffset.replace('E','') # {ME,YE}->{M,Y}
+            )
+
             report=(
                 report
 
                 .resample(
                     rule=dateOffset,
-                    kind='period',
+                    # kind='period',
                     label='right'
                 )
 
@@ -1204,6 +1209,9 @@ class Fund(object):
                         **benchmarkAggregation
                     )
                 )
+
+                .assign(time=periodicIndex)
+                .set_index('time')
 
                 # .to_period()
 
