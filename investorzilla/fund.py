@@ -618,8 +618,11 @@ class Fund(object):
                 timeSortAscending=False,
                 kpi=benchmarkFeatures + [
                     KPI.RATE_RETURN,   KPI.PERIOD_GAIN,   KPI.BALANCE,
-                    KPI.SAVINGS,       KPI.MOVEMENTS,     KPI.SHARES,
-                    KPI.SHARE_VALUE
+                    KPI.SAVINGS,       KPI.BALANCE_OVER_SAVINGS,
+                    KPI.MOVEMENTS,     KPI.DEPOSITS,      KPI.WITHDRAWALS,
+                    KPI.GAINS,         KPI.GAIN_MINUS_WITHDRAWAL,
+                    KPI.GAIN_OVER_WITHDRAWAL,
+                    KPI.SHARES,        KPI.SHARE_VALUE
                 ],
         ):
         """
@@ -1046,11 +1049,12 @@ class Fund(object):
 
             # Add ledger to get movements for period
             .join(
+                # For each line of shares we have a line for ledger
                 self.ledger
 
                 # Remove columns that we already have in shares DF
 
-                # Remove asset name
+                # Remove asset name because we are matching rows by time
                 .droplevel(0)
 
                 # Remove user comment
@@ -1067,6 +1071,7 @@ class Fund(object):
                 how='left'
             )
 
+            # Compute many KPIs
             .assign(
                 **{
                     KPI.MOVEMENTS: lambda table: table[KPI.MOVEMENTS].fillna(0),
@@ -1172,68 +1177,14 @@ class Fund(object):
             )
 
             report=(
-                report
-
-                .resample(
-                    rule=dateOffset,
-                    # kind='period',
-                    label='right'
-                )
-
-                # Compute summarizations for each KPI
-                .agg(
-                    dict(
-                        **{
-                            # KPIs that prevail last value on aggregations
-                            kpi: 'last'
-                            for kpi in [
-                                KPI.SHARES,
-                                KPI.SHARE_VALUE,
-                                KPI.BALANCE,
-                                KPI.SAVINGS,
-                                KPI.BALANCE_OVER_SAVINGS,
-                                KPI.GAINS,
-                            ]
-                        },
-
-                        **{
-                            # KPIs which aggregations should be summed
-                            kpi: 'sum'
-                            for kpi in [
-                                KPI.MOVEMENTS,
-                                KPI.DEPOSITS,
-                                KPI.WITHDRAWALS,
-                            ]
-                        },
-
-                        **benchmarkAggregation
-                    )
-                )
-
-                .assign(time=periodicIndex)
-                .set_index('time')
-
-                # .to_period()
-
-                # We want timestamps on end of each period, not in the
-                # begining as Pandas defaults
-                # .reset_index()
-                # .assign(
-                #     time=lambda table: (
-                #         table.time +
-                #         pandas.Timedelta(nanoseconds=periodShift)
-                #     )
-                # )
-                # .set_index('time')
-
-                # Fill the gaps after aggregation
+                Fund.safeResample(report,dateOffset,Fund.aggregateKPI)
                 .ffill()
             )
 
             ledgerColumns=[]
         else:
-            # Lack of aggregation will not get rid of these columns, so
-            # handle them nicely in the output
+            # These columns will only vanish when resamplign and aggregating.
+            # since we are not resampling handle them nicely in the output
             ledgerColumns=['asset','comment']
 
         # Compute rate of return (pure gain excluding movements)
@@ -1362,6 +1313,77 @@ class Fund(object):
             ] +
             ledgerColumns
         ]
+
+
+    def aggregateKPI(resampled: pandas.core.resample.Resampler):
+        """
+        Apply correct aggregation rule for each KPI in period-resampled
+        report
+        """
+        aggStrategy = dict(
+            **{
+                # KPIs that prevail last value on aggregations
+                kpi: 'last'
+                for kpi in [
+                    KPI.SHARES,
+                    KPI.SHARE_VALUE,
+                    KPI.BALANCE,
+                    KPI.SAVINGS,
+                    KPI.BALANCE_OVER_SAVINGS,
+                    KPI.GAINS,
+                    KPI.BENCHMARK,
+                ]
+            },
+
+            **{
+                # KPIs which aggregations should be summed
+                kpi: 'sum'
+                for kpi in [
+                    KPI.MOVEMENTS,
+                    KPI.DEPOSITS,
+                    KPI.WITHDRAWALS,
+                ]
+            },
+        )
+
+        # Pick only KPIs found in the input and in that order
+        agg=dict()
+        for kpi in resampled.obj.columns:
+            if kpi in aggStrategy.keys():
+                agg[kpi]=aggStrategy[kpi]
+
+        # Now apply aggregation and return a reconstructed dataframe
+        return resampled.agg(agg)
+
+
+
+    def safeResample(df: pandas.DataFrame, rule, aggregation=aggregateKPI):
+        """
+        Pandas.DataFrame.resample() method can't convert a DatetimeIndex into a
+        PeriodIndex anymore, so this method will do the job safelly.
+        """
+
+        periodicIndex = pandas.period_range(
+            start=df.index[0],
+            end=df.index[-1],
+            freq=rule.replace('E','') # {ME,YE}->{M,Y}
+        )
+
+        print(periodicIndex)
+
+        return (
+            df
+
+            .resample(
+                rule=rule,
+            )
+
+            # Compute summarizations for each KPI
+            .pipe(aggregation)
+
+            .assign(time=periodicIndex)
+            .set_index('time')
+        )
 
 
 
