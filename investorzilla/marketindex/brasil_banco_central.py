@@ -160,7 +160,7 @@ class BCBMarketIndex(MarketIndex):
                 rate=lambda table: table.valor/100,
 
                 # Init a column for value
-                value=None
+                value=pandas.Series(dtype=pandas.Float64Dtype())
             )
 
             # Remove unused
