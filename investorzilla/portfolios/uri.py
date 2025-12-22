@@ -205,7 +205,7 @@ class URIBalanceOrLedger(Portfolio):
         )
 
         # Handle monetary columns, remove currency symbols and make them numbers
-        remove=['R$ ','$','€',',']
+        remove=['R$ ','R$','$','€',',']
         for c in columnsProfile['monetary']:
             if sheet[c['currency']].dtype==numpy.dtype('O'):
                 ## Remove currency symbols and junk
