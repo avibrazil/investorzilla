@@ -1,6 +1,6 @@
 [project]
 name = "investorzilla"
-version = '6.2.1'
+version = '6.3'
 description = "Manage your investments like a data scientist"
 readme = "README.md"
 license = { file = "LICENSE" }

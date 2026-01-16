@@ -15,10 +15,10 @@ import pandas
 # dnf install pandas pyyaml sqlalchemy pandas_datareader
 
 # Other dependencies:
-# pip3 install streamlit google-api-python-client
+# pip3 install streamlit[authlib] google-api-python-client
 
 import streamlit
-import extra_streamlit_components
+import extra_streamlit_components # CookieManager
 import investorzilla
 
 
@@ -110,8 +110,10 @@ class InvestorzillaStreamlitApp:
             self.investor()
 
         with streamlit.sidebar:
-            if self.authorized() is False:
-                return
+            if self.authorized() is False and not hasattr(streamlit.user,'name'):
+                self.logger.debug(f"User not authorized, main.")
+                # User not authorized...
+                streamlit.stop()
 
             # Put controls in the sidebar
             self.interact_assets()
@@ -223,15 +225,63 @@ class InvestorzillaStreamlitApp:
 
     def authorized(self):
         """
-        Check if user is authorized to use the UI via cookie or a password
-        defined in investorzilla.yaml
+        Check if user is authorized to use the UI.
+
+        Methods to login are the following, in this order:
+
+        - OpenID Connect (OIDC)/OAuth2
+          This will be tried if there is a .streamlit/secrets.toml file with
+          correct values.
+
+        - A plain password in the investorzilla.yaml file
+
+        Return True if authorized by password or the standard streamlit.user
+        object if authorized by OIDC.
+
+        # Use it like this in the main logic:
+        if self.authorized() is False and not hasattr(streamlit.user,'name'):
+            # User not authorized...
+            streamlit.stop()
+
+        OIDC authorization will get activated if portfolio folder contains
+        a file named .streamlit/secrets.toml
+
+        Example content in case you use Google Workspace:
+
+        [auth]
+        redirect_uri = "https://investorzilla.domain.com:444/oauth2callback"
+        cookie_secret = "abc123_random_string"
+        client_id = "47...g8.apps.googleusercontent.com"
+        client_secret = "GO...dq"
+        server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"
+
+        You get these values creating an OAuth Client ID at
+        https://console.cloud.google.com/apis/credentials of your project.
         """
 
+        # Preferred method: OpenID Connect
+        if hasattr(streamlit.user,'is_logged_in'):
+            if streamlit.user.is_logged_in:
+                self.logger.info(f"Authorized by OIDC as user {streamlit.user.name}, {streamlit.user.email}, {streamlit.user.picture}, {streamlit.user.provider}")
+                return streamlit.user
+            else:
+                self.logger.debug(f"OIDC authorization configuration detected (.streamlit/secrets.toml) but user not logged in. Displaying login button.")
+                streamlit.button("Log in with OAuth 2.0", on_click=streamlit.login)
+                streamlit.stop()
+        else:
+            self.logger.debug(f"OIDC authorization configuration (.streamlit/secrets.toml) not detected. Trying other methods.")
+
+
+
+
+        # Second method: Plain password in YAML file
         if 'password' in self.investor().config:
+            self.logger.info(f"investorzilla.yaml has a UI password set. Checking if cookie or typed password match.")
             if (
                     'authorized' in streamlit.session_state and
                     streamlit.session_state.authorized
                 ):
+                self.logger.debug(f"Authorized by old session.")
                 return True
 
             upass=self.investor().config['password']
@@ -244,9 +294,11 @@ class InvestorzillaStreamlitApp:
 
             value=cookies.get(cookie=cookie)
 
+            self.logger.debug(f"Cookie value: {value}; hashed password: {hpass}")
             if value == hpass:
                 streamlit.session_state.authorized=True
-                return streamlit.session_state.authorized
+                self.logger.debug(f"Authorized by valid cookie.")
+                return True
 
             streamlit.text_input(
                 label       = 'Password to access the UI',
@@ -260,13 +312,17 @@ class InvestorzillaStreamlitApp:
                 streamlit.session_state['pass'] == upass
             )
 
+
             if streamlit.session_state.authorized:
                 cookies.set(cookie,hpass)
+                self.logger.debug(f"Authorized by valid password typed.")
                 return True
+            else:
+                self.logger.debug(f"Not authorized by YAML password.")
+                return False
 
-            return False
-        else:
-            return True
+        self.logger.info(f"No authentication method defined. Let pass...")
+        return True
 
 
 
