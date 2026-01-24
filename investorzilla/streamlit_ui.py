@@ -131,6 +131,13 @@ class InvestorzillaStreamlitApp:
             streamlit.divider()
             self.views_links()
 
+            # Logout button
+            if hasattr(streamlit.user,'is_logged_in'):
+                if streamlit.user.is_logged_in:
+                    streamlit.divider()
+                    streamlit.button("Log out", on_click=streamlit.logout)
+
+
         # Render main content with plots and tables
         self.update_content()
 
@@ -266,8 +273,8 @@ class InvestorzillaStreamlitApp:
                 return streamlit.user
             else:
                 self.logger.debug(f"OIDC authorization configuration detected (.streamlit/secrets.toml) but user not logged in. Displaying login button.")
-                streamlit.button("Log in with OAuth 2.0", on_click=streamlit.login)
-                streamlit.stop()
+                # streamlit.button("Log in with OAuth 2.0", on_click=streamlit.login)
+                streamlit.login()
         else:
             self.logger.debug(f"OIDC authorization configuration (.streamlit/secrets.toml) not detected. Trying other methods.")
 
