@@ -275,6 +275,7 @@ class InvestorzillaStreamlitApp:
                 self.logger.debug(f"OIDC authorization configuration detected (.streamlit/secrets.toml) but user not logged in. Displaying login button.")
                 # streamlit.button("Log in with OAuth 2.0", on_click=streamlit.login)
                 streamlit.login()
+                streamlit.stop()
         else:
             self.logger.debug(f"OIDC authorization configuration (.streamlit/secrets.toml) not detected. Trying other methods.")
 
