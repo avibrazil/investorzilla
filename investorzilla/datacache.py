@@ -39,9 +39,9 @@ class DataCache(object):
     automatically deleted.
     """
 
-    idCol       = '__DataCache_id'
-    timeCol     = '__DataCache_time'
-    typeTable   = 'DataCache__{kind}'
+    idCol       = '__datacache_id'
+    timeCol     = '__datacache_time'
+    typeTable   = 'datacache__{kind}'
 
 
 
@@ -162,7 +162,7 @@ class DataCache(object):
         Return last time data was updated on cache for this kind and id
         """
 
-        table=self.typeTable.format(kind=kind)
+        table=self.typeTable.format(kind=kind).lower()
 
         q='''
             SELECT max({timeCol}) AS last
@@ -203,17 +203,17 @@ class DataCache(object):
 
     def get(self, kind, id, time=None):
         """
-        kind leads to table DataCache_{kind}
+        kind leads to table datacache_{kind}
 
-        id is written to column __DataCache_id
+        id is written to column __datacache_id
 
-        time makes it search on column __DataCache_time for entries with id
+        time makes it search on column __datacache_time for entries with id
         recent up to time.
 
         Returns a tuple with table and time of cache data.
         """
 
-        table=self.typeTable.format(kind=kind)
+        table=self.typeTable.format(kind=kind).lower()
 
         if time is None:
             pointInTime='''
@@ -337,7 +337,7 @@ class DataCache(object):
             with self.getDB().connect() as db:
                 deprecated=pandas.read_sql_query(
                     versionSelector.format(
-                        typeTable    = self.typeTable.format(kind=kind),
+                        typeTable    = self.typeTable.format(kind=kind).lower(),
                         idCol        = self.idCol,
                         timeCol      = self.timeCol,
                         id           = id,
@@ -348,7 +348,7 @@ class DataCache(object):
 
                 if deprecated.shape[0]>0:
                     cleanQuery=cleaner.format(
-                        typeTable    = self.typeTable.format(kind=kind),
+                        typeTable    = self.typeTable.format(kind=kind).lower(),
                         idCol        = self.idCol,
                         timeCol      = self.timeCol,
                         id           = id,
@@ -364,13 +364,13 @@ class DataCache(object):
 
     def set(self, kind, id, data):
         """
-        kind leads to table DataCache__{kind}
+        kind leads to table datacache__{kind}
 
-        id is written to column __DataCache_id
+        id is written to column __datacache_id
 
-        Current time is written to column __DataCache_time
+        Current time is written to column __datacache_time
 
-        data is a DataFrame whose columns are the other columns of table DataCache__{kind}
+        data is a DataFrame whose columns are the other columns of table datacache__{kind}
         """
 
         d=data.copy()
@@ -386,7 +386,7 @@ class DataCache(object):
 
         with self.getDB().connect() as db:
             d[[self.idCol,self.timeCol] + columns].to_sql(
-                self.typeTable.format(kind=kind),
+                self.typeTable.format(kind=kind).lower(),
                 index       = False,
                 if_exists   = 'append',
                 chunksize   = 999,
