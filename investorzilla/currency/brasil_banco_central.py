@@ -84,6 +84,9 @@ class BCBCurrencyConverter(CurrencyConverter):
 
                     # Keep it as UTC internally because this is our standard
                     .dt.tz_convert('UTC')
+
+                    # Maximum resolution to stay compatible with rest of library
+                    .astype("datetime64[ns, UTC]")
                 )
             )
 

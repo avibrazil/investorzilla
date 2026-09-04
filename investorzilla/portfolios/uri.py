@@ -197,8 +197,8 @@ class URIBalanceOrLedger(Portfolio):
                         table.time,
                         format='mixed',
                         yearfirst=True,
-                        utc=False
-                    ),
+                        utc=True
+                    ).astype("datetime64[ns, UTC]"),
                     naiveTimeShift
                 )
             )
@@ -207,7 +207,7 @@ class URIBalanceOrLedger(Portfolio):
         # Handle monetary columns, remove currency symbols and make them numbers
         remove=['R$ ','R$','$','€',',']
         for c in columnsProfile['monetary']:
-            if sheet[c['currency']].dtype==numpy.dtype('O'):
+            if pandas.api.types.is_object_dtype(sheet[c['currency']]) or pandas.api.types.is_string_dtype(sheet[c['currency']]):
                 ## Remove currency symbols and junk
                 for r in remove:
                     sheet[c['currency']]=sheet[c['currency']].str.replace(r, '', regex=False)

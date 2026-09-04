@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 import time
-import importlib
+import importlib.resources
 import webbrowser
 import investorzilla
 

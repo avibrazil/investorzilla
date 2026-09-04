@@ -269,7 +269,8 @@ class InvestorzillaStreamlitApp:
         # Preferred method: OpenID Connect
         if hasattr(streamlit.user,'is_logged_in'):
             if streamlit.user.is_logged_in:
-                self.logger.info(f"Authorized by OIDC as user {streamlit.user.name}, {streamlit.user.email}, {streamlit.user.picture}, {streamlit.user.provider}")
+                # self.logger.info(f"Authorized by OIDC as user {streamlit.user.name}, {streamlit.user.email}, {streamlit.user.picture}, {streamlit.user.provider}")
+                self.logger.info(f"Authorized by OIDC as user {streamlit.user.to_dict()}")
                 return streamlit.user
             else:
                 self.logger.debug(f"OIDC authorization configuration detected (.streamlit/secrets.toml) but user not logged in. Displaying login button.")
@@ -579,7 +580,8 @@ class InvestorzillaStreamlitApp:
 
             streamlit.dataframe(
                 data                = fund.describe(asof=self.end),
-		width               = 'stretch',
+                width               = 'stretch',
+                height              = 'content'
             )
 
             streamlit.markdown(

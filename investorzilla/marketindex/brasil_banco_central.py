@@ -154,6 +154,9 @@ class BCBMarketIndex(MarketIndex):
                     # improve precision of joins.
                     .dt
                     .tz_convert('UTC')
+
+                    # Maximum resolution to stay compatible with rest of library
+                    .astype("datetime64[ns, UTC]")
                 ),
 
                 # Convert rate to our standards

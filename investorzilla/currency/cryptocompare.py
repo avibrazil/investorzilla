@@ -74,7 +74,7 @@ class CryptoCompareCurrencyConverter(CurrencyConverter):
             .rename(columns={'time': 'ts', 'close': 'value'})
 
             .assign(
-                time = lambda table: pandas.to_datetime(table.ts,unit='s',utc=True)
+                time = lambda table: pandas.to_datetime(table.ts,unit='ns',utc=True)
             )
 
             .set_index('time')
