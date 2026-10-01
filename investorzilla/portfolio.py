@@ -459,6 +459,12 @@ class Portfolio(object):
         Derived classes must use this method to homogenize time handling
         across the fremework.
         """
+
+        def debug(obj):
+            print(f"size: {len(obj)}")
+            print(obj)
+            return obj
+
         def randomTimedeltas(index):
             """
             Return a vector of random pandas.Timedelta indexed by `index`.
@@ -502,31 +508,62 @@ class Portfolio(object):
             .tzinfo
         )
 
-        instrumented=(
-            time
+        instrumented = (
+            time.to_frame()
 
-            # Shift dates that have no time (time part is 00:00:00) to the
-            # middle of the day (12:00:00) using naiveTimeShift parameter
-            .apply(
-                lambda cell:
-                    pandas.Timestamp(cell+timeShift)
-                    if cell.time()==datetime.time(0)
-                    else pandas.Timestamp(cell)
+            .rename(columns={time.name: '_source_'})
+
+            .assign(
+                # Extract timezone text, prepend a random time, parse to
+                # Timestamp, and finally get the timezone object
+                time_zone=lambda table: (
+                    (
+                        '2001-01-01 00:00:00' +
+                        table._source_.str.extract(r"([+-]\d{2}:\d{2})$", expand=False)
+                    )
+                    .apply(lambda cell: pandas.Timestamp(cell).tz)
+                ),
+
+                # Remove the time zone information, convert to naive timestamp
+                time_only = lambda table: (
+                    pandas.to_datetime(
+                        table._source_.str.replace(
+                            r"(Z|[+-]\d{2}:\d{2})$",
+                            "",
+                            regex=True,
+                        ),
+                        format='mixed',
+                        yearfirst=True,
+                        utc=False
+                    )
+
+                    # Shift dates that have no time (time part is 00:00:00) to the
+                    # middle of the day (12:00:00) using naiveTimeShift parameter
+                    .apply(
+                        lambda cell:
+                            pandas.Timestamp(cell+timeShift)
+                            if cell.time()==datetime.time(0)
+                            else cell
+                    )
+                ),
+
+                # Reapply the extracted timezone or add current system-detected
+                # timezone, then convert to UTC and set time resolution
+                _final_ = lambda table: (
+                    pandas.to_datetime(
+                        table.apply(
+                            axis=1,
+                            func=lambda row:
+                                row.time_only.tz_localize(currtz) # Set TZ on undefined cells
+                                if row.time_zone is None
+                                else row.time_only.tz_localize(row.time_zone) # Set existing TZ
+                        ),
+                        utc=True
+                    )
+                    .astype("datetime64[ns, UTC]")
+                )
             )
-
-            # Convert all to current time zone, or simply add current time
-            # zone to TZ-naive entries.
-            .apply(
-                lambda cell:
-                    cell.tz_localize(currtz) # Set TZ on undefined cells
-                    if cell.tzinfo is None
-                    else cell.tz_convert(currtz) # Convert existing TZ
-            )
-
-            # Keep it internally as UTC for more precise and compatible
-            # joins.
-            .dt
-            .tz_convert('UTC')
+            ._final_
         )
 
         # Cirurgically adjust time adding a few random milliseconds only

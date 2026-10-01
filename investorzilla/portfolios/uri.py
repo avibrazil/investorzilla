@@ -193,12 +193,7 @@ class URIBalanceOrLedger(Portfolio):
             .assign(
                 # Convert Date/Time to proper type
                 time=lambda table: Portfolio.normalizeTime(
-                    pandas.to_datetime(
-                        table.time,
-                        format='mixed',
-                        yearfirst=True,
-                        utc=True
-                    ).astype("datetime64[ns, UTC]"),
+                    table.time,
                     naiveTimeShift
                 )
             )
